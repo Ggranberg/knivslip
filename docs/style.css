@@ -391,14 +391,29 @@ nav {
   display: inline-block;
 }
 
-/* Klockan: snurrar visaren (360°) */
-.why-card--clock:hover .why-icon {
-  animation: clock-spin 0.8s ease-in-out;
+/* Klockan: visarna snurrar */
+.clock-svg .clock-hour,
+.clock-svg .clock-minute {
+  transform-origin: 20px 20px;
+  transition: transform 0.3s ease;
 }
-@keyframes clock-spin {
-  0%   { transform: scale(1); }
-  20%  { transform: scale(1.2); }
-  100% { transform: scale(1.2) rotate(360deg); }
+.why-card--clock:hover .clock-svg {
+  transform: scale(1.2);
+  transition: transform 0.3s ease;
+}
+.why-card--clock:hover .clock-hour {
+  animation: hour-spin 1.2s ease-in-out;
+}
+.why-card--clock:hover .clock-minute {
+  animation: minute-spin 0.8s ease-in-out;
+}
+@keyframes hour-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes minute-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(720deg); }
 }
 
 /* Kugghjulet: snurrar ett varv */
