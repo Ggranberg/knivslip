@@ -298,6 +298,121 @@
         invoices: invoices.invoices, transactions: transactions.transactions, schedule: schedule.schedule,
         pricing: pricing.pricing, areas: areas };
       TIMELOG = timelog.entries;
+      await loadSheetBookings();
+      // Update booking badge
+      const badge = document.getElementById('booking-badge');
+      if (badge) {
+        if (SHEET_BOOKINGS.length > 0) {
+          badge.textContent = SHEET_BOOKINGS.length;
+          badge.style.display = 'inline';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
+
+    // === GOOGLE SHEETS BOOKINGS ===
+    const SHEET_ID = '1EP0WPB1N_aXCfo5s1kRXC-IvKEJhjy_M9DlPxxAYc7I';
+    let SHEET_BOOKINGS = [];
+
+    async function loadSheetBookings() {
+      try {
+        const res = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`);
+        const text = await res.text();
+        const json = JSON.parse(text.substring(47).slice(0, -2));
+        const rows = json.table.rows;
+        SHEET_BOOKINGS = [];
+        rows.forEach(row => {
+          const cells = row.c;
+          if (!cells || !cells[1]?.v) return; // Skip empty/header
+          SHEET_BOOKINGS.push({
+            datum: cells[0]?.v || '',
+            name: cells[1]?.v || '',
+            phone: cells[2]?.v || '',
+            email: cells[3]?.v || '',
+            address: cells[4]?.v || '',
+            postnummer: cells[5]?.v || '',
+            stad: cells[6]?.v || '',
+            knives: cells[7]?.v || '',
+            preferred_date: cells[8]?.v || '',
+            time_window: cells[9]?.v || '',
+            message: cells[10]?.v || '',
+            imported: cells[11]?.v || 'NEJ'
+          });
+        });
+        // Filter only unimported
+        SHEET_BOOKINGS = SHEET_BOOKINGS.filter(b => b.imported === 'NEJ' && b.name !== 'Namn');
+      } catch(e) { console.error('Kunde inte lasa Google Sheet', e); }
+    }
+
+    async function importBooking(index) {
+      const b = SHEET_BOOKINGS[index];
+      if (!b) return;
+
+      // Send to local API
+      const res = await fetch('/api/booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: b.name, phone: b.phone, email: b.email,
+          address: b.address, postnummer: b.postnummer, stad: b.stad || 'Nacka',
+          knives: b.knives, preferred_date: b.preferred_date,
+          time_window: b.time_window, message: b.message
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        SHEET_BOOKINGS.splice(index, 1);
+        await loadAllData();
+        renderView('bookings');
+      }
+    }
+
+    async function importAllBookings() {
+      for (let i = SHEET_BOOKINGS.length - 1; i >= 0; i--) {
+        await importBooking(0);
+      }
+    }
+
+    function renderBookings(main) {
+      const count = SHEET_BOOKINGS.length;
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <div>
+              <span style="font-size:2rem;font-weight:800;color:${count > 0 ? 'var(--accent)' : 'var(--gray-400)'};">${count}</span>
+              <span style="font-size:1rem;color:var(--gray-500);margin-left:0.5rem;">nya bokningar vantar</span>
+            </div>
+            ${count > 0 ? '<button class="refresh-btn" onclick="importAllBookings()">Importera alla</button>' : ''}
+          </div>
+          <div id="booking-list"></div>
+        </div>
+      `);
+
+      const list = document.getElementById('booking-list');
+      if (!count) {
+        list.innerHTML = '<div style="color:var(--gray-400);font-style:italic;padding:2rem;text-align:center;">Inga nya bokningar fran hemsidan. Nar en kund bokar pa ggranberg.github.io/knivslip/boka.html dyker den upp har.</div>';
+        return;
+      }
+
+      list.innerHTML = SHEET_BOOKINGS.map((b, i) => `
+        <div class="card" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid var(--accent);">
+          <div style="display:flex;gap:1rem;align-items:flex-start;">
+            <div style="flex:1;">
+              <div style="font-weight:700;font-size:1.1rem;">${b.name}</div>
+              <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.4rem;font-size:0.85rem;">
+                <span>&#128222; ${b.phone || '<span class="missing">Saknas</span>'}</span>
+                <span>&#127968; ${b.address}${b.postnummer ? ', ' + b.postnummer : ''} ${b.stad || ''}</span>
+                <span>&#128298; ${b.knives || '?'} knivar</span>
+              </div>
+              ${b.preferred_date ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;">&#128339; Onskat datum: ${b.preferred_date} ${b.time_window || ''}</div>` : ''}
+              ${b.message ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">"${b.message}"</div>` : ''}
+              <div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.25rem;">Bokad: ${b.datum ? new Date(b.datum).toLocaleString('sv-SE') : '?'}</div>
+            </div>
+            <button onclick="importBooking(${i})" class="log-submit" style="padding:0.5rem 1rem;white-space:nowrap;">Importera</button>
+          </div>
+        </div>
+      `).join('');
     }
 
     // === SAVE TO SERVER ===
@@ -332,6 +447,7 @@
       if (role === 'admin') {
         nav.innerHTML = `
           <a href="#" class="active" data-view="dashboard"><span class="icon">&#9632;</span> Dashboard</a>
+          <a href="#" data-view="bookings"><span class="icon">&#128229;</span> Bokningar <span id="booking-badge" style="background:var(--red);color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size:0.7rem;font-weight:700;margin-left:auto;display:none;">0</span></a>
           <a href="#" data-view="pipeline"><span class="icon">&#9654;</span> Pipeline</a>
           <a href="#" data-view="schedule"><span class="icon">&#128197;</span> Schema</a>
           <a href="#" data-view="routes"><span class="icon">&#128205;</span> Ruttkarta</a>
@@ -374,6 +490,7 @@
 
       switch(view) {
         case 'dashboard': main.innerHTML = header; renderAdminDashboard(main); break;
+        case 'bookings': main.innerHTML = header; renderBookings(main); break;
         case 'pipeline': main.innerHTML = header; renderPipeline(main); break;
         case 'schedule': main.innerHTML = header; renderSchedule(main); break;
         case 'routes': main.innerHTML = header; renderRouteMap(main); break;
@@ -391,7 +508,7 @@
     }
 
     function getViewTitle(v) {
-      const t = { dashboard:'Dashboard', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Paminnelser', finance:'Ekonomi', arbete:'Arbete & Lon', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'slipare-log':'Logga knivar', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt' };
+      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Paminnelser', finance:'Ekonomi', arbete:'Arbete & Lon', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'slipare-log':'Logga knivar', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt' };
       return t[v] || v;
     }
 
