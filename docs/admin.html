@@ -325,19 +325,21 @@
         rows.forEach(row => {
           const cells = row.c;
           if (!cells || !cells[1]?.v) return; // Skip empty/header
+          // Use .f (formatted) if available, fallback to .v (value)
+          const val = (c) => c?.f || (c?.v != null ? String(c.v) : '');
           SHEET_BOOKINGS.push({
             datum: cells[0]?.v || '',
-            name: cells[1]?.v || '',
-            phone: cells[2]?.v || '',
-            email: cells[3]?.v || '',
-            address: cells[4]?.v || '',
-            postnummer: cells[5]?.v || '',
-            stad: cells[6]?.v || '',
-            knives: cells[7]?.v || '',
-            preferred_date: cells[8]?.v || '',
-            time_window: cells[9]?.v || '',
-            message: cells[10]?.v || '',
-            imported: cells[11]?.v || 'NEJ'
+            name: val(cells[1]),
+            phone: val(cells[2]),
+            email: val(cells[3]),
+            address: val(cells[4]),
+            postnummer: val(cells[5]),
+            stad: val(cells[6]),
+            knives: val(cells[7]),
+            preferred_date: val(cells[8]),
+            time_window: val(cells[9]),
+            message: val(cells[10]),
+            imported: val(cells[11]) || 'NEJ'
           });
         });
         // Filter only unimported
