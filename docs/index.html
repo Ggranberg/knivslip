@@ -202,6 +202,64 @@
   </footer>
 
   <script>
+    // Sticky nav on scroll
+    const heroNav = document.querySelector('.hero nav');
+    if (heroNav) {
+      window.addEventListener('scroll', () => {
+        heroNav.classList.toggle('scrolled', window.scrollY > 60);
+      });
+    }
+
+    // Counter animation for stats
+    function animateCounter(el, target, suffix) {
+      if (el.dataset.animated) return;
+      el.dataset.animated = 'true';
+      const isNum = !isNaN(parseFloat(target));
+      if (!isNum) { el.textContent = target; return; }
+      const num = parseFloat(target);
+      const duration = 1200;
+      const start = performance.now();
+      function tick(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        el.textContent = Math.round(num * eased) + (suffix || '');
+        if (progress < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    const statObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+          const text = el.textContent.trim();
+          if (text === '2') animateCounter(el, 2, '');
+          else if (text === '0 kr') animateCounter(el, 0, ' kr');
+        }
+      });
+    }, { threshold: 0.5 });
+    document.querySelectorAll('.stat-number').forEach(el => statObserver.observe(el));
+
+    // Area tags: staggered entrance
+    const areaObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const tags = entry.target.querySelectorAll('.area-tag');
+          tags.forEach((tag, i) => {
+            tag.style.opacity = '0';
+            tag.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+              tag.style.transition = 'opacity 0.4s ease-out, transform 0.4s ease-out';
+              tag.style.opacity = '1';
+              tag.style.transform = 'translateY(0)';
+            }, i * 80);
+          });
+          areaObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+    document.querySelectorAll('.areas').forEach(el => areaObserver.observe(el));
+
     // Smooth scrolling
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', function (e) {

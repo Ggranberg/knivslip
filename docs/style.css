@@ -42,7 +42,24 @@ a {
   text-decoration: none;
 }
 
-/* === NAV === */
+/* === NAV — sticky on scroll === */
+.hero nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: 1.5rem 2rem;
+  transition: background 0.3s, backdrop-filter 0.3s, padding 0.3s;
+}
+
+.hero nav.scrolled {
+  background: rgba(10, 10, 10, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 0.75rem 2rem;
+}
+
 nav {
   display: flex;
   justify-content: space-between;
@@ -126,6 +143,24 @@ nav {
   font-size: clamp(2.5rem, 6vw, 4rem);
   margin-bottom: 1.5rem;
   letter-spacing: -0.02em;
+  animation: heroSlideUp 0.8s ease-out;
+}
+
+.hero-sub {
+  animation: heroSlideUp 0.8s ease-out 0.2s both;
+}
+
+.hero .btn-primary {
+  animation: heroSlideUp 0.8s ease-out 0.4s both;
+}
+
+.hero-stats {
+  animation: heroSlideUp 0.8s ease-out 0.6s both;
+}
+
+@keyframes heroSlideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .hero-sub {
@@ -156,11 +191,33 @@ nav {
 
 .btn-primary:hover {
   background: var(--accent-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(232, 93, 4, 0.35);
 }
 
 .btn-primary:active {
   transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(232, 93, 4, 0.2);
+}
+
+.hero .btn-primary {
+  position: relative;
+}
+
+.hero .btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  background: var(--accent);
+  opacity: 0;
+  z-index: -1;
+  animation: ctaPulse 2.5s ease-in-out infinite 1.5s;
+}
+
+@keyframes ctaPulse {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.15; transform: scale(1.05); }
 }
 
 .hero-stats {
@@ -291,6 +348,12 @@ nav {
   font-size: 1.25rem;
   font-weight: 700;
   margin: 0 auto 1rem;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.step:hover .step-number {
+  transform: scale(1.15) rotate(-5deg);
+  box-shadow: 0 6px 20px rgba(232, 93, 4, 0.3);
 }
 
 .step h3 {
@@ -319,8 +382,13 @@ nav {
 }
 
 .why-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+}
+
+.why-card:hover .why-icon {
+  transform: scale(1.2);
+  transition: transform 0.3s;
 }
 
 .why-icon {
@@ -358,7 +426,12 @@ nav {
 }
 
 .price-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+}
+
+.price-card.featured:hover {
+  box-shadow: 0 12px 30px rgba(232, 93, 4, 0.15);
 }
 
 .price-card.featured {
@@ -376,6 +449,12 @@ nav {
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 600;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 93, 4, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(232, 93, 4, 0); }
 }
 
 .price-amount {
