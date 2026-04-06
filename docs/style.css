@@ -437,6 +437,80 @@ nav {
   box-shadow: 0 16px 40px rgba(232, 93, 4, 0.2);
 }
 
+/* === FAQ === */
+.faq-item {
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.faq-item[open] {
+  border-color: var(--accent);
+}
+
+.faq-item summary {
+  padding: 1rem 1.25rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.faq-item summary:hover {
+  background: var(--gray-100);
+}
+
+.faq-item summary::after {
+  content: '+';
+  font-size: 1.3rem;
+  font-weight: 300;
+  color: var(--accent);
+  transition: transform 0.3s;
+}
+
+.faq-item[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item p {
+  padding: 0 1.25rem 1.25rem;
+  color: var(--gray-500);
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+/* === PHONE LINK === */
+.phone-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 1rem 2.5rem;
+  border: 2px solid var(--accent);
+  border-radius: 50px;
+  transition: all 0.25s;
+}
+
+.phone-link:hover {
+  background: var(--accent);
+  color: var(--white);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(232, 93, 4, 0.25);
+}
+
 .price-card.best-value {
   border-color: #16a34a;
   box-shadow: 0 4px 15px rgba(22, 163, 74, 0.1);
