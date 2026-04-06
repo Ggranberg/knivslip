@@ -1325,7 +1325,7 @@
             <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
             <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Utklockad ' + todayLog.clock_out : 'Ej inklockad')}</div>
           </div>
-          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'};renderView('admin-log')">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
+          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
         </div>
       `);
 

@@ -233,13 +233,13 @@
 
     // Secret admin access — triple click on logo
     (function() {
-      const logo = document.querySelector('.logo');
+      const logo = document.querySelector('nav .logo');
       let clicks = 0, timer = null;
-      logo.style.cursor = 'default';
       logo.addEventListener('click', function(e) {
+        e.preventDefault();
         clicks++;
         clearTimeout(timer);
-        timer = setTimeout(() => clicks = 0, 600);
+        timer = setTimeout(() => { clicks = 0; }, 600);
         if (clicks >= 3) {
           clicks = 0;
           const overlay = document.createElement('div');

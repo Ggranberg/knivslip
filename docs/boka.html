@@ -142,16 +142,18 @@
   </main>
 
   <script>
-    // Secret admin access — triple click on logo
+    // Secret admin access — triple click on logo, single click = go home
     (function() {
-      const logo = document.querySelector('.logo');
-      let clicks = 0, timer = null;
-      logo.style.cursor = 'default';
+      const logo = document.querySelector('nav .logo');
+      let clicks = 0, timer = null, navTimer = null;
       logo.addEventListener('click', function(e) {
         e.preventDefault();
         clicks++;
         clearTimeout(timer);
-        timer = setTimeout(() => clicks = 0, 600);
+        clearTimeout(navTimer);
+        timer = setTimeout(() => { clicks = 0; }, 600);
+        // Single click: navigate to index after delay (so triple click can cancel)
+        navTimer = setTimeout(() => { if (clicks === 1) { clicks = 0; window.location.href = 'index.html'; } }, 400);
         if (clicks >= 3) {
           clicks = 0;
           const overlay = document.createElement('div');
