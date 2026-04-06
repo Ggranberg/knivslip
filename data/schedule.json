@@ -5,18 +5,41 @@
       "assigned_to": "gustav",
       "stops": [
         {
-          "order_id": "ORD-20260407-001",
-          "customer_id": "CUS-20260407-001",
-          "type": "delivery",
-          "customer_name": "Lena Eriksson",
-          "address": "Värmdövägen 88, 131 37 Nacka",
-          "area_id": "AREA-NACKA-C",
-          "time_window": "16:00-17:00",
-          "estimated_time": "16:00",
+          "order_id": "ORD-20260406-001",
+          "customer_id": "CUS-20260406-001",
+          "type": "pickup",
+          "customer_name": "Test Import",
+          "address": "Testgatan 1, None Nacka",
+          "area_id": null,
+          "time_window": null,
+          "estimated_time": "",
           "sequence": 1,
           "completed": false,
-          "notes": "LEVERANS 4 knivar"
+          "notes": "HAMTNING 4 knivar"
         },
+        {
+          "order_id": "ORD-20260406-002",
+          "customer_id": "CUS-20260406-002",
+          "type": "pickup",
+          "customer_name": "test 1",
+          "address": "test 23, 21222 Nacka",
+          "area_id": null,
+          "time_window": "18:00-19:00",
+          "estimated_time": "",
+          "sequence": 2,
+          "completed": false,
+          "notes": "HAMTNING 4 knivar"
+        }
+      ],
+      "estimated_total_time_min": 55,
+      "estimated_start": "16:00",
+      "estimated_end": "16:55",
+      "notes": "Auto-optimerad rutt: 2 stopp"
+    },
+    {
+      "date": "2026-04-07",
+      "assigned_to": "philip",
+      "stops": [
         {
           "order_id": "ORD-20260407-005",
           "customer_id": "CUS-20260407-005",
@@ -25,23 +48,10 @@
           "address": "Sickla Allé 7, 131 54 Nacka",
           "area_id": "AREA-NACKA-C",
           "time_window": "16:00-17:00",
-          "estimated_time": "16:20",
-          "sequence": 2,
+          "estimated_time": "",
+          "sequence": 1,
           "completed": false,
-          "notes": "HAMTNING 2 knivar — samma omrade som Lena"
-        },
-        {
-          "order_id": "ORD-20260407-002",
-          "customer_id": "CUS-20260407-002",
-          "type": "delivery",
-          "customer_name": "Marcus Lindgren",
-          "address": "Saltsjöbadsvägen 42, 133 31 Saltsjöbaden",
-          "area_id": "AREA-NACKA-SALTSJOBADEN",
-          "time_window": "17:00-18:00",
-          "estimated_time": "16:45",
-          "sequence": 3,
-          "completed": false,
-          "notes": "LEVERANS 3 knivar"
+          "notes": "HAMTNING 2 knivar"
         },
         {
           "order_id": "ORD-20260407-004",
@@ -51,39 +61,16 @@
           "address": "Fisksätravägen 19, 133 41 Saltsjöbaden",
           "area_id": "AREA-NACKA-SALTSJOBADEN",
           "time_window": "17:00-19:00",
-          "estimated_time": "17:00",
-          "sequence": 4,
+          "estimated_time": "",
+          "sequence": 2,
           "completed": false,
-          "notes": "HAMTNING 8 knivar — samma omrade som Marcus"
+          "notes": "HAMTNING 8 knivar"
         }
       ],
-      "estimated_total_time_min": 75,
+      "estimated_total_time_min": 55,
       "estimated_start": "16:00",
-      "estimated_end": "17:15",
-      "notes": "Optimerad: Nacka C (leverans+hamtning) → Saltsjobaden (leverans+hamtning). Leveranser prioriterade."
-    },
-    {
-      "date": "2026-04-07",
-      "assigned_to": "philip",
-      "stops": [
-        {
-          "order_id": "ORD-20260407-003",
-          "customer_id": "CUS-20260407-003",
-          "type": "delivery",
-          "customer_name": "Sofia Bergqvist",
-          "address": "Ormingeringen 145, 132 44 Nacka",
-          "area_id": "AREA-NACKA-BOO",
-          "time_window": "16:00-17:00",
-          "estimated_time": "16:00",
-          "sequence": 1,
-          "completed": false,
-          "notes": "LEVERANS 6 knivar — DEADLINE IDAG! Hamtad 5 april."
-        }
-      ],
-      "estimated_total_time_min": 35,
-      "estimated_start": "16:00",
-      "estimated_end": "16:35",
-      "notes": "Bradskande: Sofia maste levereras idag (2-dagars loftet). Philip ar ledig efter 16:35."
+      "estimated_end": "16:55",
+      "notes": "Auto-optimerad rutt: 2 stopp"
     }
   ]
 }
