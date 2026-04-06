@@ -536,6 +536,9 @@
           <div class="modal-actions">
             <button class="btn-save" onclick="saveCustomerProfile('${c.id}')">Spara andringar</button>
             <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
+            <button onclick="exportCustomerData('${c.id}')" style="padding:0.6rem 1.25rem;border-radius:var(--radius);font-size:0.9rem;font-weight:600;cursor:pointer;font-family:inherit;background:none;border:1px solid var(--blue);color:var(--blue);">GDPR-utdrag</button>
+            <div style="flex:1;"></div>
+            <button onclick="deleteCustomer('${c.id}')" style="padding:0.6rem 1.25rem;border-radius:var(--radius);font-size:0.9rem;font-weight:600;cursor:pointer;font-family:inherit;background:none;border:1px solid var(--red);color:var(--red);">Ta bort kund</button>
           </div>
         </div>
       `;
@@ -560,6 +563,91 @@
       document.querySelector('.modal-overlay')?.remove();
 
       // Re-render current view
+      const activeNav = document.querySelector('.sidebar-nav a.active');
+      if (activeNav) renderView(activeNav.dataset.view);
+    }
+
+    function exportCustomerData(id) {
+      const c = DATA.customers.find(c => c.id === id);
+      if (!c) return;
+      const orders = DATA.orders.filter(o => o.customer_id === id);
+      const knives = DATA.knives.filter(k => k.customer_id === id);
+      const invoices = DATA.invoices.filter(i => i.customer_id === id);
+
+      const report = {
+        registerutdrag: {
+          genererat: now(),
+          kund_id: c.id,
+          begard_av: CURRENT_USER.name
+        },
+        personuppgifter: {
+          namn: c.name,
+          telefon: c.phone,
+          email: c.email,
+          adress: c.address,
+          postnummer: c.postnummer,
+          stad: c.stad,
+          kalla: c.source,
+          kund_sedan: c.created_at,
+          anteckningar: c.notes
+        },
+        samtycke: c.gdpr_consent,
+        ordrar: orders.map(o => ({
+          id: o.id, status: o.status, knivar: o.estimated_knife_count,
+          skapad: o.created_at, kalla: o.source
+        })),
+        knivar: knives.map(k => ({
+          id: k.id, typ: k.type, marke: k.brand, skick_fore: k.condition_before, skick_efter: k.condition_after
+        })),
+        fakturor: invoices.map(i => ({
+          id: i.id, nummer: i.invoice_number, belopp: i.total_incl_vat, status: i.status, datum: i.invoice_date
+        }))
+      };
+
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `registerutdrag-${c.name.replace(/\s+/g, '-').toLowerCase()}-${today()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function deleteCustomer(id) {
+      const c = DATA.customers.find(c => c.id === id);
+      if (!c) return;
+      if (!confirm(`Vill du verkligen ta bort ${c.name}? Kunden anonymiseras (GDPR) men ordrar och fakturor behalls for bokforingen.`)) return;
+
+      // GDPR-compliant: anonymize, don't delete
+      c.name = 'Raderad kund';
+      c.phone = null;
+      c.email = null;
+      c.address = null;
+      c.postnummer = null;
+      c.notes = null;
+      c.is_deleted = true;
+      c.updated_at = now();
+
+      // Cancel active orders for this customer
+      DATA.orders.forEach(o => {
+        if (o.customer_id === id && !['completed','cancelled'].includes(o.status)) {
+          o.status = 'cancelled';
+          o.status_history.push({ status: 'cancelled', timestamp: now(), by: CURRENT_USER.name.toLowerCase().split(' ')[0] });
+          o.notes = (o.notes || '') + ' Avbokad: kund raderad.';
+        }
+      });
+
+      // Remove from schedule
+      DATA.schedule.forEach(s => {
+        s.stops = s.stops.filter(stop => stop.customer_id !== id);
+      });
+      DATA.schedule = DATA.schedule.filter(s => s.stops.length > 0);
+
+      await saveJSON('customers.json', { customers: DATA.customers });
+      await saveJSON('orders.json', { orders: DATA.orders });
+      await saveJSON('schedule.json', { schedule: DATA.schedule });
+
+      document.querySelector('.modal-overlay')?.remove();
       const activeNav = document.querySelector('.sidebar-nav a.active');
       if (activeNav) renderView(activeNav.dataset.view);
     }

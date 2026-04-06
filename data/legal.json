@@ -6,8 +6,10 @@
         "name": "GDPR (Dataskyddsforordningen)",
         "applies_to": ["pipeline", "hq", "analys", "hemsida"],
         "requirements": [
-          "Samtycke kravs innan persondata sparas — spara timestamp och metod",
-          "Ratt till radering — anonymisera persondata pa begaran",
+          "Samtycke kravs innan persondata sparas — AKTIV kryssruta pa hemsida, timestamp och metod",
+          "Integritetspolicy publicerad pa hemsidan (integritet.html)",
+          "Ratt till radering — anonymisera persondata pa begaran (Ta bort kund i admin)",
+          "Ratt till registerutdrag — exportera all data (GDPR-utdrag i admin)",
           "Ratt till registerutdrag — kunden kan begara all sin data",
           "Dataminimering — samla bara nodvandig data",
           "Inga kanslinga kategorier i anteckningar (halsa, religion, politik)",
