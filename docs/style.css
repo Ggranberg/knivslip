@@ -419,11 +419,18 @@ nav {
   font-size: 0.95rem;
   font-weight: 500;
   border: 1px solid var(--gray-300);
-  transition: border-color 0.2s;
+  transition: all 0.25s;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
 }
 
 .area-tag:hover {
   border-color: var(--accent);
+  background: var(--accent);
+  color: var(--white);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(232, 93, 4, 0.2);
 }
 
 /* === BOOKING FORM === */

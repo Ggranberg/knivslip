@@ -130,14 +130,23 @@
     .finance-placeholder { text-align: center; padding: 3rem 2rem; color: var(--gray-400); }
     .finance-placeholder .fp-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
 
-    /* CLOCK IN/OUT */
-    .clock-section { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1.5rem; }
+    /* CLOCK IN/OUT — enhanced */
+    .clock-section { background: var(--white); border: 1px solid var(--gray-200); border-radius: 16px; padding: 2rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1.5rem; transition: all 0.3s; }
+    .clock-section.clocked-in { border-color: var(--green); background: var(--green-light); }
     .clock-status { font-size: 1rem; flex: 1; }
-    .clock-status .clock-time { font-size: 2rem; font-weight: 800; color: var(--accent); }
+    .clock-status .clock-time { font-size: 2.5rem; font-weight: 800; color: var(--accent); }
     .clock-status .clock-label { font-size: 0.85rem; color: var(--gray-500); }
-    .clock-btn { padding: 0.8rem 2rem; border: none; border-radius: var(--radius); font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit; }
-    .clock-btn.in { background: var(--green); color: white; }
-    .clock-btn.out { background: var(--red); color: white; }
+    .clock-btn { padding: 1rem 2.5rem; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: transform 0.15s, box-shadow 0.15s; }
+    .clock-btn:hover { transform: scale(1.05); }
+    .clock-btn:active { transform: scale(0.97); }
+    .clock-btn.in { background: var(--green); color: white; box-shadow: 0 4px 14px rgba(22,163,74,0.3); }
+    .clock-btn.out { background: var(--red); color: white; box-shadow: 0 4px 14px rgba(220,38,38,0.3); }
+
+    /* Success animation */
+    @keyframes successPop { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
+    @keyframes slideIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    .success-pop { animation: successPop 0.4s ease-out; }
+    .slide-in { animation: slideIn 0.3s ease-out; }
 
     /* SLIPARE LOG */
     .log-form { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
@@ -1401,11 +1410,19 @@
       const todayLog = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
       const clockedIn = todayLog && todayLog.clock_in && !todayLog.clock_out;
 
+      // Greeting
+      const hour = new Date().getHours();
+      const greeting = hour < 12 ? 'God morgon' : hour < 17 ? 'God eftermiddag' : 'God kvall';
+
       main.insertAdjacentHTML('beforeend', `
-        <div class="clock-section">
+        <div style="margin-bottom:1.5rem;" class="slide-in">
+          <div style="font-size:1.5rem;font-weight:700;">${greeting}, ${CURRENT_USER.name.split(' ')[0]}!</div>
+          <div style="color:var(--gray-500);">${clockedIn ? 'Du ar inklockad. Bra jobbat!' : 'Klocka in for att borja din dag.'}</div>
+        </div>
+        <div class="clock-section ${clockedIn ? 'clocked-in' : ''}">
           <div class="clock-status">
             <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
-            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Utklockad ' + todayLog.clock_out : 'Ej inklockad')}</div>
+            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Klar for idag ' + todayLog.clock_out : 'Ej inklockad')}</div>
           </div>
           <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
         </div>
@@ -1596,11 +1613,18 @@
       const todayLog = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
       const clockedIn = todayLog && todayLog.clock_in && !todayLog.clock_out;
 
+      const hour = new Date().getHours();
+      const greeting = hour < 12 ? 'God morgon' : hour < 17 ? 'God eftermiddag' : 'God kvall';
+
       main.insertAdjacentHTML('beforeend', `
-        <div class="clock-section">
+        <div style="margin-bottom:1.5rem;" class="slide-in">
+          <div style="font-size:1.5rem;font-weight:700;">${greeting}, ${CURRENT_USER.name.split(' ')[0]}!</div>
+          <div style="color:var(--gray-500);">${clockedIn ? 'Du ar ute pa vagen. Kor sakert!' : 'Klocka in for att se dagens rutt.'}</div>
+        </div>
+        <div class="clock-section ${clockedIn ? 'clocked-in' : ''}">
           <div class="clock-status">
             <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
-            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Utklockad ' + todayLog.clock_out : 'Ej inklockad')}</div>
+            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Klar for idag ' + todayLog.clock_out : 'Ej inklockad')}</div>
           </div>
           <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
         </div>
@@ -1632,13 +1656,24 @@
       }
 
       stops.forEach((s, i) => {
+        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(s.address)}`;
         section.insertAdjacentHTML('beforeend', `
-          <div class="card" style="padding:1rem;margin-bottom:0.5rem;display:flex;align-items:center;gap:1rem;">
-            <span style="font-weight:800;color:var(--gray-400);font-size:1.2rem;">${i+1}</span>
-            <span class="stop-type ${s.type}">${s.type==='pickup'?'Hamt':'Lev'}</span>
-            <div style="flex:1;"><div style="font-weight:600;">${s.customer_name}</div><div style="font-size:0.85rem;color:var(--gray-500);">${s.address}</div></div>
-            <div style="text-align:right;"><div style="font-size:0.85rem;color:var(--gray-500);">${s.time_window||''}</div></div>
-            <button class="stop-done-btn ${s.completed?'completed':''}" onclick="markStop(${i})">${s.completed?'Klar':'Markera klar'}</button>
+          <div class="card slide-in" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${s.completed ? 'var(--green)' : 'var(--accent)'};${s.completed ? 'opacity:0.6;' : ''}animation-delay:${i*0.1}s;">
+            <div style="display:flex;align-items:center;gap:1rem;">
+              <div style="text-align:center;min-width:35px;">
+                <div style="font-size:1.5rem;font-weight:800;color:${s.completed ? 'var(--green)' : 'var(--accent)'};">${s.completed ? '&#10003;' : i+1}</div>
+              </div>
+              <span class="stop-type ${s.type}">${s.type==='pickup'?'Hamt':'Lev'}</span>
+              <div style="flex:1;">
+                <div style="font-weight:600;font-size:1rem;">${s.customer_name}</div>
+                <div style="font-size:0.85rem;color:var(--gray-500);">${s.address}</div>
+                <div style="font-size:0.8rem;color:var(--gray-400);margin-top:0.2rem;">${s.time_window || 'Flexibel'} ${s.notes ? '| ' + s.notes : ''}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:0.4rem;">
+                <a href="${mapsUrl}" target="_blank" class="map-btn google" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Navigera</a>
+                <button class="stop-done-btn ${s.completed?'completed':''}" onclick="markStop(${i})" ${s.completed?'disabled':''}>${s.completed?'Klar':'Klar'}</button>
+              </div>
+            </div>
           </div>
         `);
       });
@@ -1649,7 +1684,23 @@
       let i = 0;
       for (const s of todaySched) {
         for (const stop of s.stops) {
-          if (i === index) { stop.completed = true; saveSchedule(); renderView('forare-route'); return; }
+          if (i === index) {
+            stop.completed = true;
+            // Animate the card
+            const cards = document.querySelectorAll('.card.slide-in');
+            if (cards[index]) {
+              cards[index].style.borderLeftColor = 'var(--green)';
+              cards[index].classList.add('success-pop');
+            }
+            saveSchedule();
+            // Update stop count in timelog
+            let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+            if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '' }; TIMELOG.push(entry); }
+            entry.stops_completed = (entry.stops_completed || 0) + 1;
+            saveTimelog();
+            setTimeout(() => renderView('forare-route'), 400);
+            return;
+          }
           i++;
         }
       }
@@ -1662,7 +1713,11 @@
       if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '' }; TIMELOG.push(entry); }
       entry.clock_in = time;
       saveTimelog();
-      renderView(CURRENT_USER.role === 'slipare' ? 'slipare-home' : CURRENT_USER.role === 'forare' ? 'forare-home' : 'dashboard');
+      // Animate
+      const btn = document.querySelector('.clock-btn');
+      if (btn) btn.classList.add('success-pop');
+      const view = CURRENT_USER.role === 'slipare' ? 'slipare-home' : CURRENT_USER.role === 'forare' ? 'forare-home' : 'admin-log';
+      setTimeout(() => renderView(view), 300);
     }
 
     function clockOut() {
@@ -1670,7 +1725,10 @@
       const entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
       if (entry) entry.clock_out = time;
       saveTimelog();
-      renderView(CURRENT_USER.role === 'slipare' ? 'slipare-home' : CURRENT_USER.role === 'forare' ? 'forare-home' : 'dashboard');
+      const btn = document.querySelector('.clock-btn');
+      if (btn) btn.classList.add('success-pop');
+      const view = CURRENT_USER.role === 'slipare' ? 'slipare-home' : CURRENT_USER.role === 'forare' ? 'forare-home' : 'admin-log';
+      setTimeout(() => renderView(view), 300);
     }
 
     // === INIT ===
