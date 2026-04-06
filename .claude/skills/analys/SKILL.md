@@ -1,5 +1,5 @@
 ---
-name: Analys och Tillvaxt
+name: analys
 description: KPI-dashboard, kundretention, kanalanalys, marknadsforingsforslag, tillvaxtprognos
 user_invocable: true
 ---
@@ -198,11 +198,41 @@ Fokusera pa det som ger storst effekt med minst insats.
   - `data/pricing.json`
   - `data/areas.json`
 
+## Nya KPI:er (fran kompetensutveckling 2026-04-06)
+
+### Leveranstid (KRITISK — er USP)
+- Berakna genomsnittlig tid fran bokning till leverans
+- Mal: < 2.0 dagar. Om over 2.0: OMEDELBAR varning
+- Visa trend per vecka
+
+### Kundanskaffningskostnad (CAK) per kanal
+- Dorrknackning: uppskatta tidskostnad (timmar * 200 kr/h)
+- Facebook: annonskostnad (om det finns)
+- Referral: 0 kr (gratis!)
+- Dela total kostnad per kanal med antal kunder fran den kanalen
+
+### Kundens livstidsvarde (CLV)
+- Genomsnittlig omsattning per kund over alla ordrar
+- Forvantat CLV = snittordervarde * forvantat antal ordrar per ar * forvantat antal ar
+- For knivslipning: anta 2-3 ordrar/ar, 3-5 ars relation
+
+### Kapacitetsutnyttjande
+- Ordrar per vecka / max kapacitet (~20 ordrar/vecka for 2 personer)
+- Visa som procent. Over 70% = borja planera for tillvaxt
+
+### Sasongsmonster
+- Jul/nyar (nov-dec): hog efterfragan (matlagning)
+- Midsommar (maj-jun): hog (grillsasong)
+- Sommar (jul-aug): lag (semester)
+- September: uppgang (tillbaka fran semester)
+- Anvand for att planera marknadsforingspushar
+
 ## Regler
 
 - Ge ALLTID specifika rekommendationer, inte bara data
 - Basera rekommendationer pa FAKTISK data, inte antaganden
-- Om datamangden ar for liten for meningsfull analys: sag det, men ge anda basta mojliga insikt
+- Om datamangden ar for liten for meningfull analys: sag det, men ge anda basta mojliga insikt
 - Anvand inga kundnamn i marknadsforingsforslag (GDPR)
 - Avrunda procent till hela tal
 - Jamfor alltid med foregaende period nar det finns data
+- Inkludera ALLTID leveranstid i varje rapport — det ar ert vardelofte

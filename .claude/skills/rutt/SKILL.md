@@ -1,5 +1,5 @@
 ---
-name: Rutt och Schema
+name: rutt
 description: Daglig ruttplanering, kundklustring, tidsuppskattning for hamtning och leverans
 user_invocable: true
 ---
@@ -22,28 +22,40 @@ Trigger: "planera idag", "planera imorgon", "planera [datum]", "rutt"
 
 Procedur:
 1. Las `data/orders.json` — hitta:
-   - Ordrar med status `booked` och `pickup.date` = valt datum → HAMTNINGAR
-   - Ordrar med status `ready` eller `out_for_delivery` → LEVERANSER
-2. Las `data/customers.json` — hamta adresser
+   - LEVERANSER (PRIORITET 1): ordrar med status `quality_check`, `ready`, `out_for_delivery`
+   - HAMTNINGAR: ordrar med status `booked` och `pickup.date` = valt datum
+2. Las `data/customers.json` — hamta adresser och area_id
 3. Las `data/areas.json` — hamta omradesinfo och restider
 
-4. Klustra stoppen:
-   a. Matcha varje kunds postnummer mot omraden i areas.json (forsta 3 siffrorna)
+4. PRIORITERA leveranser efter deadline:
+   a. Berakna deadline = pickup.completed_at + 2 dagar
+   b. Sortera: mest bradskande forst
+   c. Ordrar forbi deadline = ROD — maste ut FORST
+
+5. Klustra per omrade:
+   a. Matcha varje kunds area_id (eller postnummer → omrade)
    b. Gruppera stopp per omrade
-   c. Inom varje omrade: sortera pa gatunamn (proxy for geografisk narhet)
+   c. Om BADE leverans OCH hamtning i samma omrade: KOMBINERA
+      (sparar en hel tur — enormt vaerdefullt)
 
-5. Planera rutten:
-   a. Borja fran hemmabasen (Lindesberg)
-   b. Besok omraden i ordning: narmaste forst (anvand distances_minutes)
-   c. Inom varje omrade: gor alla stopp innan nasta omrade
-   d. Om bade hamtning OCH leverans i samma omrade: kombiera
+6. Tilldela till 2 forare (Gustav + Philip):
+   a. Dela omraden geografiskt — en tar norr/ost, andra soder/vast
+   b. Balansera: max 2 stopp skillnad
+   c. Om bara 1-3 stopp: en forare racker
 
-6. Tiduppskattning:
+7. Optimera ruttordning per forare (nearest-neighbor):
+   a. Borja fran hemmabase (Klostervagen 6, Nacka)
+   b. Leveranser FORST i varje omrade
+   c. Sedan hamtningar i samma omrade
+   d. Flytta till nasta narmaste omrade (anvand distances_minutes)
+   e. Tillbaka till basen
+
+8. Tiduppskattning:
    - Hamtning: 15 min per stopp
    - Leverans: 10 min per stopp
    - Restid mellan omraden: fran distances_minutes
    - Restid inom omrade: 5 min mellan stopp
-   - Buffert: +15 min totalt
+   - Buffert: +15 min per rutt totalt
 
 7. Spara i `data/schedule.json`:
 ```json
@@ -168,10 +180,56 @@ Trigger: "omraden", "lagg till omrade", "visa omraden"
 - **Laser och skriver:** `data/schedule.json`
 - **Laser:** `data/orders.json`, `data/customers.json`, `data/areas.json`
 
+## Zonbaserad veckoplanering
+
+Tilldela fasta dagar till omraden for att minimera korsande rutter:
+
+| Dag | Foreslaget omrade |
+|-----|-------------------|
+| Mandag | Nacka centrum/Sickla |
+| Tisdag | Boo/Orminge |
+| Onsdag | Saltsjobaden/Fisksatra |
+| Torsdag | Gustavsberg/Varmdo |
+| Fredag | Flex / ikapp / avlägna omraden |
+
+Nar en kund bokar: foresla den dag som matchar deras zon.
+Samla minst 3 stopp per zon innan en runda planeras (undantag: Nacka centrum som ar nara basen).
+
+## Kombinera hamtning och leverans
+
+Varje runda bor innehalla BADE hamtningar och leveranser i samma omrade:
+- Leveranser forst (pa morgonen) — kunder vantar pa sina knivar
+- Hamtningar sedan (pa eftermiddagen) — nya ordrar ar mindre bradsande
+- Om bade hamtning och leverans for SAMMA kund: gor det pa ett besok
+
+## Kapacitetsriktlinjer
+
+- **12-14 stopp per person per dag** ar hallbart (max 16)
+- Varje stopp = ~15 min (parkering, promendad, samtal, inspektion)
+- Planera 10-12 stopp men ha 2-3 "standbykunder" som ar flexibla
+- Om konsekvent >15 stopp/dag i 2+ veckor: varna om kapacitetstak
+
+## SMS-notiser
+
+Pamin om att skicka SMS till kunder:
+- Kvallen fore: "Vi kommer till dig imorgon mellan {tidsfonster}"
+- 30 min fore: "Vi ar hos dig om ca 30 minuter"
+- Erbjud ALLTID "formiddag (10-12)" eller "eftermiddag (14-17)" — undvik exakta tider
+
+## Standbylista
+
+Kommando: "standbylista", "flexibla kunder"
+
+Visa kunder som sagt "nar som helst" eller "nar ni ar i omradet":
+- Anvand for att fylla luckor vid avbokningar
+- Sortera per omrade sa de passar dagens rutt
+
 ## Regler
 
-- Planera ALDRIG fler stopp an rimligt (max 8-10 per runda)
-- Lagg ALLTID in buffert for forseningar
+- Planera ALDRIG fler an 16 stopp per person per dag
+- Lagg ALLTID in 15 min buffert per rutt
 - Respektera kundens tidsfonster
-- Priotera leveranser over hamtningar (halla 2-dagars-loftet)
+- Prioritera leveranser over hamtningar (halla 2-dagars-loftet)
 - Vid konflikter: meddela och foresla alternativ
+- Planera rutter kvallen fore (18-20), ALDRIG pa morgonen
+- Cutoff for nasta-dags-order: kl 18:00

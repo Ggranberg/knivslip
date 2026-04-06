@@ -320,6 +320,95 @@
       "quality_check": {"passed": true, "checked_by": "gustav", "timestamp": "2026-03-29T00:00:00", "notes": null},
       "has_incident": false, "incident_notes": null, "invoice_id": null,
       "notes": "", "created_at": "2026-03-27T00:00:00", "updated_at": "2026-03-29T00:00:00"
+    },
+    {
+      "id": "ORD-20260407-001",
+      "customer_id": "CUS-20260407-001",
+      "status": "picked_up",
+      "status_history": [
+        {"status": "lead", "timestamp": "2026-04-06T14:00:00", "by": "gustav"},
+        {"status": "booked", "timestamp": "2026-04-06T14:30:00", "by": "gustav"},
+        {"status": "picked_up", "timestamp": "2026-04-06T17:00:00", "by": "gustav"}
+      ],
+      "source": "facebook",
+      "estimated_knife_count": 4,
+      "actual_knife_count": 4,
+      "pickup": {"date": "2026-04-06", "time_window": "16:00-17:00", "assigned_to": "gustav", "completed_at": "2026-04-06T17:00:00"},
+      "delivery": {"date": null, "time_window": null, "assigned_to": null, "completed_at": null},
+      "quality_check": {"passed": null, "checked_by": null, "timestamp": null, "notes": null},
+      "has_incident": false, "incident_notes": null, "invoice_id": null,
+      "notes": "Vill ha fore pask", "created_at": "2026-04-06T14:00:00", "updated_at": "2026-04-06T14:30:00"
+    },
+    {
+      "id": "ORD-20260407-002",
+      "customer_id": "CUS-20260407-002",
+      "status": "picked_up",
+      "status_history": [
+        {"status": "lead", "timestamp": "2026-04-06T14:00:00", "by": "gustav"},
+        {"status": "booked", "timestamp": "2026-04-06T14:30:00", "by": "gustav"},
+        {"status": "picked_up", "timestamp": "2026-04-06T17:30:00", "by": "gustav"}
+      ],
+      "source": "dorr",
+      "estimated_knife_count": 3,
+      "actual_knife_count": 3,
+      "pickup": {"date": "2026-04-06", "time_window": "17:00-18:00", "assigned_to": "gustav", "completed_at": "2026-04-06T17:30:00"},
+      "delivery": {"date": null, "time_window": null, "assigned_to": null, "completed_at": null},
+      "quality_check": {"passed": null, "checked_by": null, "timestamp": null, "notes": null},
+      "has_incident": false, "incident_notes": null, "invoice_id": null,
+      "notes": "", "created_at": "2026-04-06T14:00:00", "updated_at": "2026-04-06T14:30:00"
+    },
+    {
+      "id": "ORD-20260407-003",
+      "customer_id": "CUS-20260407-003",
+      "status": "sharpening",
+      "status_history": [
+        {"status": "lead", "timestamp": "2026-04-05T14:00:00", "by": "gustav"},
+        {"status": "booked", "timestamp": "2026-04-05T14:30:00", "by": "gustav"},
+        {"status": "picked_up", "timestamp": "2026-04-05T17:00:00", "by": "philip"},
+        {"status": "sharpening", "timestamp": "2026-04-06T09:00:00", "by": "adam"}
+      ],
+      "source": "referral",
+      "estimated_knife_count": 6,
+      "actual_knife_count": 6,
+      "pickup": {"date": "2026-04-05", "time_window": "16:00-18:00", "assigned_to": "philip", "completed_at": "2026-04-05T17:00:00"},
+      "delivery": {"date": null, "time_window": null, "assigned_to": null, "completed_at": null},
+      "quality_check": {"passed": null, "checked_by": null, "timestamp": null, "notes": null},
+      "has_incident": false, "incident_notes": null, "invoice_id": null,
+      "notes": "Tipsad av Jonas Haglund", "created_at": "2026-04-06T14:00:00", "updated_at": "2026-04-06T14:30:00"
+    },
+    {
+      "id": "ORD-20260407-004",
+      "customer_id": "CUS-20260407-004",
+      "status": "booked",
+      "status_history": [
+        {"status": "lead", "timestamp": "2026-04-06T14:00:00", "by": "gustav"},
+        {"status": "booked", "timestamp": "2026-04-06T14:30:00", "by": "gustav"}
+      ],
+      "source": "dorr",
+      "estimated_knife_count": 8,
+      "actual_knife_count": null,
+      "pickup": {"date": "2026-04-07", "time_window": "17:00-19:00", "assigned_to": "philip", "completed_at": null},
+      "delivery": {"date": null, "time_window": null, "assigned_to": null, "completed_at": null},
+      "quality_check": {"passed": null, "checked_by": null, "timestamp": null, "notes": null},
+      "has_incident": false, "incident_notes": null, "invoice_id": null,
+      "notes": "Stor villa, manga knivar", "created_at": "2026-04-06T14:00:00", "updated_at": "2026-04-06T14:30:00"
+    },
+    {
+      "id": "ORD-20260407-005",
+      "customer_id": "CUS-20260407-005",
+      "status": "booked",
+      "status_history": [
+        {"status": "lead", "timestamp": "2026-04-06T14:00:00", "by": "gustav"},
+        {"status": "booked", "timestamp": "2026-04-06T14:30:00", "by": "gustav"}
+      ],
+      "source": "facebook",
+      "estimated_knife_count": 2,
+      "actual_knife_count": null,
+      "pickup": {"date": "2026-04-07", "time_window": "16:00-17:00", "assigned_to": "gustav", "completed_at": null},
+      "delivery": {"date": null, "time_window": null, "assigned_to": null, "completed_at": null},
+      "quality_check": {"passed": null, "checked_by": null, "timestamp": null, "notes": null},
+      "has_incident": false, "incident_notes": null, "invoice_id": null,
+      "notes": "", "created_at": "2026-04-06T14:00:00", "updated_at": "2026-04-06T14:30:00"
     }
   ]
 }

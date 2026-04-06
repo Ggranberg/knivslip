@@ -1,5 +1,5 @@
 ---
-name: Orderpipeline
+name: pipeline
 description: Hanterar hela kundresan — lead, bokning, hamtning, knivregistrering, slipning, kvalitetskontroll, leverans, uppfoljning
 user_invocable: true
 ---
@@ -16,6 +16,51 @@ Folj instruktionerna i `.claude/skills/shared/helpers.md` for ID-generering, val
 lead → booked → picked_up → registered → sharpening → quality_check → ready → out_for_delivery → delivered → completed
 ```
 `cancelled` kan sattas fran vilken status som helst.
+
+## AUTO-OPTIMERING AV RUTTER (OBLIGATORISKT)
+
+Varje gang en av dessa handelser intraffar MASTE du optimera schemat:
+- Ny kund skapas med order
+- Ny order skapas
+- Orderstatus andras (sarskilt: picked_up, quality_check, ready)
+- Order avbokas
+
+### Optimeringsprocedur (kor ALLTID efter andring):
+
+1. Las `data/orders.json` — identifiera:
+   - LEVERANSER: ordrar med status `quality_check`, `ready`, `out_for_delivery` (knivar klara)
+   - HAMTNINGAR: ordrar med status `booked` och pickup.date = idag eller imorgon
+2. Las `data/customers.json` — hamta adresser och omraden
+3. Las `data/areas.json` — hamta restider mellan omraden
+
+4. PRIORITERA leveranser:
+   - Berakna deadline per order: pickup.completed_at + 2 dagar
+   - Sortera: mest bradskande forst (narmast deadline)
+   - Ordrar som redan passerat deadline = ROD FLAGGA
+
+5. KLUSTRA per omrade:
+   - Gruppera alla stopp (leverans + hamtning) per area_id
+   - Om leverans OCH hamtning i samma omrade: KOMBINERA pa samma tur
+
+6. TILLDELA till forare (2 st: Gustav och Philip):
+   - Dela omraden: en forare tar norr/ost, andra tar soder/vast
+   - Balansera antal stopp (max 2 stopp skillnad)
+   - Om bara 1-2 stopp totalt: en forare racker
+
+7. OPTIMERA ruttordning per forare:
+   - Leveranser FORST (kunder vantar)
+   - Nearest-neighbor: borja fran hemmabase (Klostervagen 6), ga till narmaste stopp, sedan narmaste oanbesokta, osv.
+   - Avsluta med hamtningar i samma omrade som sista leverans
+
+8. SPARA i `data/schedule.json`
+9. VISA optimerad plan for anvandaren
+
+### Tiduppskattning:
+- Hamtning: 15 min per stopp
+- Leverans: 10 min per stopp
+- Restid mellan omraden: fran areas.json distances_minutes
+- Inom omrade: 5 min mellan stopp
+- Buffert: 15 min per rutt
 
 ## Kommandon
 
@@ -274,6 +319,45 @@ Maria Lindqvist   | jan-06 | Orebro     | 076-...
 - **Laser och skriver:** `data/customers.json`, `data/orders.json`, `data/knives.json`
 - **Laser:** `data/areas.json`, `data/pricing.json`
 
+## Kundlivscykel
+
+Varje kund har en livscykelfas. Bestam den automatiskt:
+
+| Fas | Kriterium |
+|-----|-----------|
+| **Ny** | 0-1 ordrar |
+| **Aterkommande** | 2-3 ordrar |
+| **Lojal** | 4+ ordrar |
+| **Risk** | Senaste order > 4 manader sedan |
+| **Tappad** | Senaste order > 12 manader sedan |
+
+Visa fasen nar kundinfo visas. For "Risk"-kunder: foresla paminnelse-SMS.
+
+## Uppfoljning efter leverans
+
+Nar en order satts till `delivered` eller `completed`:
+1. Pamin om att skicka SMS samma dag: "Tack! Hur kanns knivarna?"
+2. Berakna `next_service_due` = leveransdatum + 4 manader
+3. Notera detta i kundens anteckningar
+
+## Referral-sparning
+
+Nar en ny kund skapas med source `referral`:
+- Fraga: "Vem tipsade kunden?"
+- Om tipskunden finns i systemet: notera referral-kopplingen
+- Vid nasta kontakt med tipskunden: tacka for tipset
+
+## Kompensationsguide vid problem
+
+| Problem | Kompensation |
+|---------|-------------|
+| Dalig slipning | Gratis omgor + gratis nasta slipning |
+| Sen leverans (>2 dagar) | 50% rabatt pa ordern |
+| Forlorad kniv | Ersattningsvarde upp till 2000 kr, eller gratis slipning i 1 ar |
+| Skadad kniv | Gratis reparation om mojligt, annars som forlorad |
+
+Logga ALLTID incidenter med `has_incident: true` och detaljerade `incident_notes`.
+
 ## Regler
 
 - Skapa ALDRIG en order utan GDPR-samtycke
@@ -281,3 +365,6 @@ Maria Lindqvist   | jan-06 | Orebro     | 076-...
 - Kolla ALLTID att kunden inte redan finns innan ny skapas
 - Logga ALLTID statusandringar i status_history
 - Vid statusandring: uppdatera bade order och knivar
+- Svara pa leads inom 12 timmar — langre = risk att tappa kunden
+- Samla ALLTID telefonnummer — utan det kan vi inte folja upp
+- Fraga ALLTID om referral-kalla vid source=referral

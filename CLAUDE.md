@@ -43,13 +43,43 @@ Alla agenter är Claude Code skills i `.claude/skills/`. Kör dem med `/hq`, `/p
 - **Moms:** 25%
 - **Språk:** All output på svenska
 
-## GDPR-policy
+## Lagefterlevnad — OBLIGATORISKT
 
+Alla agenter MÅSTE följa dessa lagar. Se `data/legal.json` för fullständiga detaljer.
+
+### GDPR (alla agenter som hanterar kunddata)
 - Samtycke krävs innan kunddata sparas (spåras med timestamp)
 - Kund kan begära radering — anonymisera persondata, behåll ekonomiska poster (Bokföringslagen 7 år)
 - Kund kan begära registerutdrag — exportera all data
 - Samla bara nödvändig data — ingen överflödig profilering
 - Noteringar ska INTE innehålla känsliga kategorier (hälsa, religion, etc.)
+
+### Bokföringslagen (ekonomi-agenten)
+- Bokför alla affärshändelser löpande — aldrig spara till årsskiftet
+- Spara ALL bokföring i 7 år — radera ALDRIG fakturor eller transaktioner
+- Årsredovisning till Bolagsverket senast 31 juli
+
+### Momslagen (ekonomi-agenten)
+- 25% moms på tjänster
+- Momsdeklaration kvartalsvis (deadline: 12:e i 2:a månaden efter kvartal)
+- Sätt undan 25% av intäkter som momsreserv
+
+### Konsumenttjänstlagen (pipeline-agenten)
+- Tjänsten ska utföras fackmässigt
+- Vi ansvarar för knivar i vår besittning — ersätt vid skada/förlust
+- Kunden har rätt att reklamera dåligt resultat
+
+### Marknadsföringslagen (analys-agenten + hemsida)
+- Ingen vilseledande reklam — 2-dagars löftet MÅSTE hållas
+- Priser mot konsumenter ska ALLTID visas inklusive moms
+- Erbjudanden måste vara tydliga med villkor
+
+### F-skatt
+- "Innehar F-skattsedel" på ALLA fakturor
+
+### Produktsäkerhet (pipeline-agenten)
+- Varje kniv MÅSTE kvalitetskontrolleras efter slipning
+- Kniven måste vara säker (inga lösa delar, korrekt skärpa)
 
 ## Prissättning (inkl moms)
 - 1-2 knivar: **170 kr/st**
@@ -61,6 +91,18 @@ Samma pris oavsett knivtyp. Se `data/pricing.json` för exakta siffror exkl moms
 Nacka och Värmdö kommun (Stockholmsområdet).
 **Hemmabase:** Klostervägen 6, Nacka.
 Se `data/areas.json`.
+
+## AUTO-OPTIMERING AV RUTTER (PERMANENT REGEL)
+
+VARJE GANG en ny kund skapas, order laggs till, eller orderstatus andras:
+1. Optimera schemat i `data/schedule.json` automatiskt
+2. Prioritera leveranser efter 2-dagars deadline (mest bradskande forst)
+3. Kombinera leverans + hamtning i samma omrade
+4. Dela stopp mellan Gustav och Philip baserat pa geografi
+5. Anvand nearest-neighbor for optimal ordning per forare
+6. Visa den optimerade planen for anvandaren
+
+Detta ar OBLIGATORISKT — hoppa aldrig over optimering.
 
 ## Viktigt
 - Läs alltid JSON-filen innan du skriver till den

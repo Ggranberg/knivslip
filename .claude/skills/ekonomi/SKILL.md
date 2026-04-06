@@ -1,5 +1,5 @@
 ---
-name: Ekonomi
+name: ekonomi
 description: Fakturor, bokforing, momsredovisning, resultatrapport — svensk standard for aktiebolag
 user_invocable: true
 ---
@@ -262,6 +262,72 @@ Trigger: "export", "revisor", "bokforing export"
 - **Laser och skriver:** `data/invoices.json`, `data/transactions.json`
 - **Laser:** `data/orders.json`, `data/customers.json`, `data/knives.json`, `data/pricing.json`
 
+## Momsreserv
+
+Nar en faktura skapas eller betalning registreras:
+- Pamin: "Satt undan 25% av intakten for moms. Just nu bor ni ha {summa} kr reserverat."
+- Berakna total momsreserv = all utgaende moms - all ingaende moms for innevarande kvartal
+
+## Kassaflodesoverblick
+
+Trigger: "kassaflode", "pengar", "hur mycket har vi"
+
+Visa:
+```
+KASSAFLODE
+══════════
+Intakter (betalda):      {summa} kr
+Kostnader:              -{summa} kr
+Momsreserv (satt undan): -{summa} kr
+────────────────────────────────
+Disponibelt:              {summa} kr
+
+VANTER PA BETALNING:     {summa} kr ({antal} fakturor)
+```
+
+## Deadlines och paminnelser
+
+Pamin automatiskt nar relevant:
+- **Momsdeklaration:** 12:e i feb/maj/aug/nov (e-deklaration: 17:e)
+- **Arbetsgivardeklaration:** 12:e varje manad (om lon betalas)
+- **Arsredovisning:** Senast 31 juli (for kalenderarsforetag)
+- **Inkomstdeklaration 2:** 1 juli
+
+Nar datum narmar sig: varna i output.
+
+## Svenska fakturakrav (lagstadgade)
+
+En FULLSTANDIG faktura MASTE innehalla:
+1. Fakturadatum
+2. Unikt lopnummer (obruten serie)
+3. Saljarens namn, adress, org.nr
+4. Saljarens momsregistreringsnummer (SE + org.nr + 01)
+5. Koparens namn och adress
+6. Beskrivning av tjansten
+7. Antal och pris per enhet exkl moms
+8. Momssats (25%)
+9. Momsbelopp
+10. Totalbelopp inkl moms
+11. Betalningsvillkor
+12. Bankgiro/Swish
+13. "Innehar F-skattsedel"
+
+FORENKLAD faktura (tillaten under 4 000 kr inkl moms):
+- Fakturadatum, saljarens namn och momsnr, beskrivning, momsbelopp, totalbelopp
+
+## BAS-konton (for export/revisor)
+
+Anvand dessa konton vid bokforing:
+- 3010: Forsaljning tjanster 25% moms
+- 4010: Inkop material
+- 5600: Transportkostnader (bensin)
+- 6200: Telefon/internet
+- 6530: Forsakringar
+- 2610: Utgaende moms 25%
+- 2640: Ingaende moms
+- 1930: Foretagskonto bank
+- 1510: Kundfordringar
+
 ## Regler
 
 - Fakturanummer ar SEKVENTIELLA och far ALDRIG ateranvandas
@@ -270,3 +336,7 @@ Trigger: "export", "revisor", "bokforing export"
 - OCR-nummer MASTE vara korrekt (Luhn-algoritm)
 - Forfallodatum ar ALLTID 30 dagar fran fakturadatum om inte annat anges
 - Alla belopp avrundas till hela kronor
+- Bokfor lopande — ALDRIG spara till arsskiftet
+- Fotografera kvitton SAMMA DAG (termokvitton bleknar)
+- Separera privat och foretagsekonomi ALLTID
+- Fakturera SAMMA DAG som leverans — vanta aldrig

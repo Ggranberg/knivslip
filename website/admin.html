@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knivslip Admin</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --black: #0a0a0a; --dark: #1a1a1a; --gray-900: #262626; --gray-800: #333;
+      --gray-700: #404040; --gray-600: #555; --gray-500: #737373; --gray-400: #999;
+      --gray-300: #d4d4d4; --gray-200: #e5e5e5; --gray-100: #f5f5f5; --white: #fafafa;
+      --accent: #e85d04; --accent-hover: #d45003; --accent-light: #fef3e6;
+      --green: #16a34a; --green-light: #dcfce7; --yellow: #ca8a04; --yellow-light: #fef9c3;
+      --red: #dc2626; --red-light: #fee2e2; --blue: #2563eb; --blue-light: #dbeafe;
+      --sidebar-w: 220px; --radius: 8px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gray-100); color: var(--dark); min-height: 100vh; }
+
+    /* LOGIN SCREEN */
+    .login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--black); }
+    .login-box { background: var(--gray-900); padding: 2.5rem; border-radius: 16px; text-align: center; width: 340px; }
+    .login-box .logo { color: var(--accent); font-size: 1.5rem; font-weight: 800; letter-spacing: 0.15em; margin-bottom: 0.5rem; }
+    .login-box .subtitle { color: var(--gray-500); font-size: 0.85rem; margin-bottom: 2rem; }
+    .login-box input { width: 100%; padding: 0.9rem; border: 2px solid var(--gray-700); border-radius: var(--radius); background: var(--gray-800); color: var(--white); font-size: 1.3rem; text-align: center; letter-spacing: 0.4em; font-family: inherit; margin-bottom: 1rem; }
+    .login-box input:focus { outline: none; border-color: var(--accent); }
+    .login-box .login-btn { width: 100%; padding: 0.8rem; background: var(--accent); color: var(--white); border: none; border-radius: var(--radius); font-size: 1rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .login-box .login-btn:hover { background: var(--accent-hover); }
+    .login-box .login-error { color: var(--red); font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.2em; }
+
+    /* APP LAYOUT */
+    .app { display: none; min-height: 100vh; }
+    .app.visible { display: flex; }
+
+    /* SIDEBAR */
+    .sidebar { width: var(--sidebar-w); background: var(--black); color: var(--white); padding: 1.5rem 0; position: fixed; top: 0; left: 0; bottom: 0; overflow-y: auto; z-index: 10; }
+    .sidebar-logo { font-size: 1.3rem; font-weight: 800; letter-spacing: 0.15em; padding: 0 1.25rem; margin-bottom: 0.5rem; color: var(--accent); }
+    .sidebar-user { padding: 0 1.25rem; margin-bottom: 1.5rem; }
+    .sidebar-user .user-name { color: var(--white); font-size: 0.9rem; font-weight: 600; }
+    .sidebar-user .user-role { color: var(--gray-500); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .sidebar-nav a { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 1.25rem; color: var(--gray-400); font-size: 0.9rem; text-decoration: none; transition: background 0.15s, color 0.15s; border-left: 3px solid transparent; }
+    .sidebar-nav a:hover, .sidebar-nav a.active { background: var(--gray-900); color: var(--white); border-left-color: var(--accent); }
+    .sidebar-nav a .icon { font-size: 1.1rem; width: 20px; text-align: center; }
+    .sidebar-footer { position: absolute; bottom: 1rem; left: 0; right: 0; padding: 0 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .sidebar-footer a, .sidebar-footer button { color: var(--gray-500); font-size: 0.8rem; text-decoration: none; background: none; border: none; cursor: pointer; font-family: inherit; text-align: left; padding: 0; }
+    .sidebar-footer a:hover, .sidebar-footer button:hover { color: var(--accent); }
+
+    /* MAIN */
+    .main { margin-left: var(--sidebar-w); flex: 1; padding: 2rem; }
+    .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .main-header h1 { font-size: 1.5rem; font-weight: 700; }
+    .main-header .date { color: var(--gray-500); font-size: 0.9rem; }
+    .refresh-btn { background: var(--accent); color: var(--white); border: none; padding: 0.5rem 1rem; border-radius: var(--radius); cursor: pointer; font-size: 0.85rem; font-weight: 600; font-family: inherit; }
+    .refresh-btn:hover { background: var(--accent-hover); }
+
+    /* KPI CARDS */
+    .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .kpi-card { background: var(--white); border-radius: var(--radius); padding: 1.25rem; border: 1px solid var(--gray-200); }
+    .kpi-card .kpi-label { font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+    .kpi-card .kpi-value { font-size: 2rem; font-weight: 800; color: var(--dark); }
+    .kpi-card .kpi-sub { font-size: 0.8rem; color: var(--gray-500); margin-top: 0.25rem; }
+    .kpi-card.accent .kpi-value { color: var(--accent); }
+    .kpi-card.green .kpi-value { color: var(--green); }
+    .kpi-card.red .kpi-value { color: var(--red); }
+
+    /* SECTIONS */
+    .section { margin-bottom: 2rem; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .section-header h2 { font-size: 1.15rem; font-weight: 700; }
+    .section-header .badge { background: var(--accent-light); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--gray-200); overflow: hidden; }
+
+    /* PIPELINE */
+    .pipeline { display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem; }
+    .pipeline-col { min-width: 180px; flex: 1; }
+    .pipeline-col-header { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; }
+    .pipeline-col-header .count { background: var(--gray-200); padding: 0.1rem 0.5rem; border-radius: 10px; font-weight: 600; color: var(--gray-700); }
+    .pipeline-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.5rem; }
+    .pipeline-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .pipeline-card .pc-name { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; }
+    .pipeline-card .pc-meta { font-size: 0.75rem; color: var(--gray-500); }
+    .pc-badge { display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; }
+    .pc-badge.warn { background: var(--yellow-light); color: var(--yellow); }
+    .pc-badge.ok { background: var(--green-light); color: var(--green); }
+    .pipeline-empty { color: var(--gray-400); font-size: 0.8rem; padding: 1rem 0.75rem; font-style: italic; }
+
+    /* SCHEDULE */
+    .schedule-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .schedule-day { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1.25rem; }
+    .schedule-day h3 { font-size: 1rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--gray-200); }
+    .schedule-stop { display: flex; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--gray-100); align-items: center; }
+    .schedule-stop:last-child { border-bottom: none; }
+    .stop-type { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 4px; text-transform: uppercase; }
+    .stop-type.pickup { background: var(--blue-light); color: var(--blue); }
+    .stop-type.delivery { background: var(--green-light); color: var(--green); }
+    .stop-info { flex: 1; }
+    .stop-info .stop-name { font-weight: 600; font-size: 0.9rem; }
+    .stop-info .stop-address { font-size: 0.8rem; color: var(--gray-500); }
+    .stop-time { font-size: 0.8rem; color: var(--gray-500); white-space: nowrap; }
+    .stop-done-btn { background: var(--green); color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: 600; }
+    .stop-done-btn.completed { background: var(--gray-300); color: var(--gray-600); cursor: default; }
+    .schedule-empty { color: var(--gray-400); font-size: 0.85rem; padding: 1rem 0; font-style: italic; }
+
+    /* TABLE */
+    .table-controls { display: flex; gap: 0.75rem; margin-bottom: 1rem; }
+    .search-input { flex: 1; max-width: 300px; padding: 0.5rem 0.75rem; border: 1px solid var(--gray-300); border-radius: var(--radius); font-size: 0.9rem; font-family: inherit; }
+    .search-input:focus { outline: none; border-color: var(--accent); }
+    .filter-select { padding: 0.5rem 0.75rem; border: 1px solid var(--gray-300); border-radius: var(--radius); font-size: 0.85rem; font-family: inherit; background: var(--white); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.6rem 0.75rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); border-bottom: 2px solid var(--gray-200); }
+    td { padding: 0.6rem 0.75rem; font-size: 0.9rem; border-bottom: 1px solid var(--gray-100); }
+    tr:hover td { background: var(--gray-100); }
+    .source-tag { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+    .source-tag.dorr { background: var(--blue-light); color: var(--blue); }
+    .source-tag.facebook { background: #e0e7ff; color: #4338ca; }
+    .source-tag.referral { background: var(--green-light); color: var(--green); }
+    .source-tag.hemsida { background: var(--accent-light); color: var(--accent); }
+    .missing { color: var(--red); font-size: 0.8rem; font-style: italic; }
+
+    /* REMINDERS */
+    .reminder-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+    .reminder-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1rem; border-left: 3px solid var(--yellow); }
+    .reminder-card .rc-name { font-weight: 600; font-size: 0.9rem; }
+    .reminder-card .rc-date { font-size: 0.8rem; color: var(--gray-500); margin-top: 0.25rem; }
+    .reminder-card .rc-phone { font-size: 0.85rem; color: var(--accent); margin-top: 0.25rem; font-weight: 500; }
+
+    /* FINANCE */
+    .finance-placeholder { text-align: center; padding: 3rem 2rem; color: var(--gray-400); }
+    .finance-placeholder .fp-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+    /* CLOCK IN/OUT */
+    .clock-section { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1.5rem; }
+    .clock-status { font-size: 1rem; flex: 1; }
+    .clock-status .clock-time { font-size: 2rem; font-weight: 800; color: var(--accent); }
+    .clock-status .clock-label { font-size: 0.85rem; color: var(--gray-500); }
+    .clock-btn { padding: 0.8rem 2rem; border: none; border-radius: var(--radius); font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .clock-btn.in { background: var(--green); color: white; }
+    .clock-btn.out { background: var(--red); color: white; }
+
+    /* SLIPARE LOG */
+    .log-form { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
+    .log-form h3 { font-size: 1rem; margin-bottom: 1rem; }
+    .log-row { display: flex; gap: 0.75rem; align-items: end; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .log-field { display: flex; flex-direction: column; gap: 0.25rem; }
+    .log-field label { font-size: 0.75rem; color: var(--gray-500); text-transform: uppercase; }
+    .log-field input, .log-field select { padding: 0.5rem; border: 1px solid var(--gray-300); border-radius: 4px; font-size: 0.9rem; font-family: inherit; }
+    .log-field input:focus, .log-field select:focus { outline: none; border-color: var(--accent); }
+    .log-submit { padding: 0.5rem 1.5rem; background: var(--accent); color: white; border: none; border-radius: var(--radius); font-weight: 600; cursor: pointer; font-family: inherit; }
+    .log-submit:hover { background: var(--accent-hover); }
+
+    /* TEAM MANAGEMENT */
+    .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+    .team-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1.25rem; }
+    .team-card .tc-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem; }
+    .team-card .tc-role { font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; margin-bottom: 0.75rem; }
+    .team-card .tc-pin { font-size: 0.85rem; color: var(--gray-400); margin-bottom: 0.75rem; }
+    .role-select { padding: 0.4rem 0.6rem; border: 1px solid var(--gray-300); border-radius: 4px; font-size: 0.85rem; font-family: inherit; }
+    .add-user-form { background: var(--white); border: 2px dashed var(--gray-300); border-radius: var(--radius); padding: 1.25rem; }
+    .add-user-form h3 { font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--gray-500); }
+    .add-user-form input, .add-user-form select { display: block; width: 100%; padding: 0.5rem; border: 1px solid var(--gray-300); border-radius: 4px; font-size: 0.9rem; font-family: inherit; margin-bottom: 0.5rem; }
+
+    /* STATS ROW */
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .stat-box { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1.25rem; text-align: center; }
+    .stat-box .sb-value { font-size: 2rem; font-weight: 800; }
+    .stat-box .sb-label { font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; }
+
+    /* MAP */
+    .route-map { height: 400px; border-radius: var(--radius); border: 1px solid var(--gray-200); margin-bottom: 1rem; z-index: 1; }
+    .map-controls { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .map-btn { padding: 0.5rem 1rem; border: none; border-radius: var(--radius); font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; }
+    .map-btn.google { background: #4285f4; color: white; }
+    .map-btn.google:hover { background: #3367d6; }
+    .map-btn.toggle { background: var(--gray-200); color: var(--dark); }
+    .map-btn.toggle.active { background: var(--accent); color: white; }
+    .route-legend { display: flex; gap: 1.5rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--gray-500); }
+    .route-legend span { display: flex; align-items: center; gap: 0.4rem; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+    /* OVERFLOW FIX */
+    html, body { max-width: 100vw; overflow-x: hidden; }
+    .main { min-width: 0; overflow-x: hidden; }
+    .pipeline { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+    .card { overflow-x: auto; }
+    table { min-width: 600px; }
+
+    /* RESPONSIVE */
+    @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } .reminder-list { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 1rem; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .kpi-card .kpi-value { font-size: 1.5rem; }
+      .schedule-grid { grid-template-columns: 1fr; }
+      .reminder-list { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: repeat(3, 1fr); }
+      .stat-box .sb-value { font-size: 1.5rem; }
+      .pipeline-col { min-width: 150px; }
+      .main-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+      .main-header h1 { font-size: 1.25rem; }
+      .clock-section { flex-direction: column; text-align: center; }
+      .log-row { flex-direction: column; }
+      .table-controls { flex-direction: column; }
+      .search-input { max-width: 100%; }
+      .team-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
+      .stats-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div class="login-screen" id="login-screen">
+    <div class="login-box">
+      <div class="logo">KNIVSLIP</div>
+      <div class="subtitle">Personalportal</div>
+      <input type="password" id="login-pin" maxlength="6" placeholder="PIN-kod" autofocus>
+      <button class="login-btn" id="login-btn">Logga in</button>
+      <div class="login-error" id="login-error"></div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="app" id="app">
+    <aside class="sidebar">
+      <div class="sidebar-logo">KNIVSLIP</div>
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebar-name"></div>
+        <div class="user-role" id="sidebar-role"></div>
+      </div>
+      <nav class="sidebar-nav" id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <a href="index.html">&#8592; Till hemsidan</a>
+        <button onclick="logout()">Logga ut</button>
+      </div>
+    </aside>
+    <div class="main" id="main-content"></div>
+  </div>
+
+  <script>
+    let DATA = {}, USERS = [], TIMELOG = [], CURRENT_USER = null;
+
+    async function fetchJSON(file) {
+      const res = await fetch('../data/' + file + '?t=' + Date.now());
+      return res.json();
+    }
+
+    // === AUTH ===
+    async function loadUsers() {
+      const d = await fetchJSON('users.json');
+      USERS = d.users;
+    }
+
+    function authenticate(pin) {
+      return USERS.find(u => u.pin === pin && u.active);
+    }
+
+    function logout() {
+      sessionStorage.removeItem('knivslip_pin');
+      CURRENT_USER = null;
+      document.getElementById('app').classList.remove('visible');
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('login-pin').value = '';
+      document.getElementById('login-error').textContent = '';
+    }
+
+    async function login(pin) {
+      await loadUsers();
+      const user = authenticate(pin);
+      if (!user) {
+        document.getElementById('login-error').textContent = 'Fel PIN-kod';
+        return false;
+      }
+      CURRENT_USER = user;
+      sessionStorage.setItem('knivslip_pin', pin);
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').classList.add('visible');
+      document.getElementById('sidebar-name').textContent = user.name;
+      document.getElementById('sidebar-role').textContent = user.role === 'admin' ? 'Administratör' : user.role === 'slipare' ? 'Slipare' : 'Förare';
+      await loadAllData();
+      buildUI();
+      return true;
+    }
+
+    // === DATA ===
+    async function loadAllData() {
+      const [customers, orders, knives, invoices, transactions, schedule, pricing, areas, timelog] = await Promise.all([
+        fetchJSON('customers.json'), fetchJSON('orders.json'), fetchJSON('knives.json'),
+        fetchJSON('invoices.json'), fetchJSON('transactions.json'), fetchJSON('schedule.json'),
+        fetchJSON('pricing.json'), fetchJSON('areas.json'), fetchJSON('timelog.json')
+      ]);
+      DATA = { customers: customers.customers, orders: orders.orders, knives: knives.knives,
+        invoices: invoices.invoices, transactions: transactions.transactions, schedule: schedule.schedule,
+        pricing: pricing.pricing, areas: areas };
+      TIMELOG = timelog.entries;
+    }
+
+    // === SAVE TO SERVER ===
+    async function saveJSON(filename, data) {
+      try {
+        await fetch('/api/save/' + filename, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+      } catch(e) { console.error('Kunde inte spara ' + filename, e); }
+    }
+
+    async function saveTimelog() { await saveJSON('timelog.json', { entries: TIMELOG }); }
+    async function saveUsers() { await saveJSON('users.json', { users: USERS }); }
+    async function saveSchedule() { await saveJSON('schedule.json', { schedule: DATA.schedule }); }
+    async function saveOrders() { await saveJSON('orders.json', { orders: DATA.orders }); }
+
+    function daysBetween(d1, d2) { return Math.floor((new Date(d2) - new Date(d1)) / 86400000); }
+    function formatDate(d) { return d ? new Date(d).toLocaleDateString('sv-SE') : '-'; }
+    function getCustomerName(id) { const c = DATA.customers.find(c => c.id === id); return c ? c.name : 'Okand'; }
+    function now() { return new Date().toISOString(); }
+    function today() { return new Date().toISOString().split('T')[0]; }
+    function tomorrow() { return new Date(Date.now() + 86400000).toISOString().split('T')[0]; }
+
+    // === BUILD UI BASED ON ROLE ===
+    function buildUI() {
+      const nav = document.getElementById('sidebar-nav');
+      const main = document.getElementById('main-content');
+      const role = CURRENT_USER.role;
+
+      if (role === 'admin') {
+        nav.innerHTML = `
+          <a href="#" class="active" data-view="dashboard"><span class="icon">&#9632;</span> Dashboard</a>
+          <a href="#" data-view="pipeline"><span class="icon">&#9654;</span> Pipeline</a>
+          <a href="#" data-view="schedule"><span class="icon">&#128197;</span> Schema</a>
+          <a href="#" data-view="routes"><span class="icon">&#128205;</span> Ruttkarta</a>
+          <a href="#" data-view="customers"><span class="icon">&#128101;</span> Kunder</a>
+          <a href="#" data-view="reminders"><span class="icon">&#128276;</span> Paminnelser</a>
+          <a href="#" data-view="finance"><span class="icon">&#128176;</span> Ekonomi</a>
+          <a href="#" data-view="arbete"><span class="icon">&#128200;</span> Arbete/Lon</a>
+          <a href="#" data-view="admin-log"><span class="icon">&#128221;</span> Logga arbete</a>
+          <a href="#" data-view="team"><span class="icon">&#128100;</span> Team</a>`;
+      } else if (role === 'slipare') {
+        nav.innerHTML = `
+          <a href="#" class="active" data-view="slipare-home"><span class="icon">&#9632;</span> Min dag</a>
+          <a href="#" data-view="slipare-log"><span class="icon">&#128221;</span> Logga knivar</a>
+          <a href="#" data-view="forare-route"><span class="icon">&#128197;</span> Leveranser</a>`;
+      } else if (role === 'forare') {
+        nav.innerHTML = `
+          <a href="#" class="active" data-view="forare-home"><span class="icon">&#9632;</span> Min dag</a>
+          <a href="#" data-view="forare-route"><span class="icon">&#128197;</span> Dagens rutt</a>`;
+      }
+
+      // Nav click handlers
+      nav.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', function(e) {
+          e.preventDefault();
+          nav.querySelectorAll('a').forEach(x => x.classList.remove('active'));
+          this.classList.add('active');
+          renderView(this.dataset.view);
+        });
+      });
+
+      // Render first view
+      const firstView = nav.querySelector('a.active')?.dataset.view;
+      if (firstView) renderView(firstView);
+    }
+
+    function renderView(view) {
+      const main = document.getElementById('main-content');
+      const logoutMobile = window.innerWidth <= 768 ? `<button onclick="logout()" style="background:none;border:1px solid var(--gray-300);padding:0.4rem 0.8rem;border-radius:var(--radius);font-size:0.8rem;cursor:pointer;color:var(--gray-500);font-family:inherit;">Logga ut (${CURRENT_USER.name})</button>` : '';
+      const header = `<div class="main-header"><div><h1>${getViewTitle(view)}</h1><span class="date">${new Date().toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></div><div style="display:flex;gap:0.5rem;">${logoutMobile}<button class="refresh-btn" onclick="loadAllData().then(()=>renderView('${view}'))">Uppdatera</button></div></div>`;
+
+      switch(view) {
+        case 'dashboard': main.innerHTML = header; renderAdminDashboard(main); break;
+        case 'pipeline': main.innerHTML = header; renderPipeline(main); break;
+        case 'schedule': main.innerHTML = header; renderSchedule(main); break;
+        case 'routes': main.innerHTML = header; renderRouteMap(main); break;
+        case 'customers': main.innerHTML = header; renderCustomers(main); break;
+        case 'reminders': main.innerHTML = header; renderReminders(main); break;
+        case 'finance': main.innerHTML = header; renderFinance(main); break;
+        case 'arbete': main.innerHTML = header; renderArbete(main); break;
+        case 'admin-log': main.innerHTML = header; renderAdminLog(main); break;
+        case 'team': main.innerHTML = header; renderTeam(main); break;
+        case 'slipare-home': main.innerHTML = header; renderSlipareHome(main); break;
+        case 'slipare-log': main.innerHTML = header; renderSlipareLog(main); break;
+        case 'forare-home': main.innerHTML = header; renderForareHome(main); break;
+        case 'forare-route': main.innerHTML = header; renderForareRoute(main); break;
+      }
+    }
+
+    function getViewTitle(v) {
+      const t = { dashboard:'Dashboard', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Paminnelser', finance:'Ekonomi', arbete:'Arbete & Lon', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'slipare-log':'Logga knivar', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt' };
+      return t[v] || v;
+    }
+
+    // === ADMIN VIEWS ===
+    function renderAdminDashboard(main) {
+      const active = DATA.orders.filter(o => !['completed', 'cancelled'].includes(o.status));
+      const completed = DATA.orders.filter(o => o.status === 'completed');
+      const unpaid = DATA.invoices.filter(i => !i.payment?.paid);
+      const cust = DATA.customers.filter(c => !c.is_deleted);
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-label">Kunder</div><div class="kpi-value">${cust.length}</div><div class="kpi-sub">${cust.filter(c=>c.source==='dorr').length} dorr, ${cust.filter(c=>c.source==='referral').length} ref, ${cust.filter(c=>c.source==='facebook').length} fb</div></div>
+          <div class="kpi-card accent"><div class="kpi-label">Aktiva ordrar</div><div class="kpi-value">${active.length}</div><div class="kpi-sub">${active.filter(o=>o.status==='booked').length} bokade</div></div>
+          <div class="kpi-card green"><div class="kpi-label">Avslutade</div><div class="kpi-value">${completed.length}</div><div class="kpi-sub">totalt</div></div>
+          <div class="kpi-card ${unpaid.length?'red':''}"><div class="kpi-label">Obetalda</div><div class="kpi-value">${unpaid.length}</div><div class="kpi-sub">${unpaid.length ? unpaid.reduce((s,i)=>s+(i.total_incl_vat||0),0)+' kr' : 'Inga fakturor'}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Team</div><div class="kpi-value">${USERS.filter(u=>u.active).length}</div><div class="kpi-sub">aktiva anvandare</div></div>
+        </div>
+      `);
+      // Inline pipeline + schedule
+      const pipeDiv = document.createElement('div'); pipeDiv.className = 'section';
+      pipeDiv.innerHTML = '<div class="section-header"><h2>Pipeline</h2><span class="badge">' + active.length + ' aktiva</span></div>';
+      main.appendChild(pipeDiv);
+      renderPipelineContent(pipeDiv);
+
+      const schedDiv = document.createElement('div'); schedDiv.className = 'section';
+      schedDiv.innerHTML = '<div class="section-header"><h2>Schema</h2></div>';
+      main.appendChild(schedDiv);
+      renderScheduleContent(schedDiv);
+    }
+
+    function renderPipeline(main) {
+      const div = document.createElement('div'); div.className = 'section';
+      const active = DATA.orders.filter(o => !['completed','cancelled'].includes(o.status));
+      div.innerHTML = '<div class="section-header"><h2>Pipeline</h2><span class="badge">' + active.length + ' aktiva</span></div>';
+      main.appendChild(div);
+      renderPipelineContent(div);
+    }
+
+    function renderPipelineContent(parent) {
+      const statuses = ['lead','booked','picked_up','registered','sharpening','quality_check','ready','out_for_delivery','delivered'];
+      const labels = { lead:'Leads', booked:'Bokade', picked_up:'Hamtade', registered:'Registrerade', sharpening:'Slipning', quality_check:'QC', ready:'Redo', out_for_delivery:'Pa vag', delivered:'Levererade' };
+      const container = document.createElement('div'); container.className = 'pipeline';
+      container.innerHTML = statuses.map(status => {
+        const orders = DATA.orders.filter(o => o.status === status);
+        const cards = orders.map(o => {
+          const last = o.status_history?.[o.status_history.length-1]?.timestamp;
+          const days = last ? daysBetween(last, now()) : 0;
+          return `<div class="pipeline-card"><div class="pc-name">${getCustomerName(o.customer_id)}</div><div class="pc-meta">${o.estimated_knife_count||'?'} knivar <span class="pc-badge ${days>1?'warn':'ok'}">${days}d</span></div></div>`;
+        }).join('');
+        return `<div class="pipeline-col"><div class="pipeline-col-header">${labels[status]} <span class="count">${orders.length}</span></div>${cards||'<div class="pipeline-empty">Inga</div>'}</div>`;
+      }).join('');
+      parent.appendChild(container);
+    }
+
+    function renderSchedule(main) {
+      const div = document.createElement('div'); div.className = 'section';
+      div.innerHTML = '<div class="section-header"><h2>Schema</h2></div>';
+      main.appendChild(div);
+      renderScheduleContent(div);
+    }
+
+    function renderScheduleContent(parent) {
+      const grid = document.createElement('div'); grid.className = 'schedule-grid';
+      [{ date: today(), label: 'Idag' }, { date: tomorrow(), label: 'Imorgon' }].forEach(({ date, label }) => {
+        const sched = DATA.schedule.filter(s => s.date === date);
+        const stops = sched.flatMap(s => s.stops.map(st => ({...st, assigned_to: s.assigned_to})));
+        const total = sched.reduce((s,d) => s + (d.estimated_total_time_min||0), 0);
+        grid.innerHTML += `<div class="schedule-day"><h3>${label} (${date}) <small style="color:var(--gray-400);font-weight:400;">${stops.length} stopp</small></h3>${stops.length ? stops.map(s => `<div class="schedule-stop"><span class="stop-type ${s.type}">${s.type==='pickup'?'Hamt':'Lev'}</span><div class="stop-info"><div class="stop-name">${s.customer_name}</div><div class="stop-address">${s.address}</div></div><div class="stop-time">${s.time_window||''}<br><small>${s.assigned_to||''}</small></div></div>`).join('') : '<div class="schedule-empty">Inget planerat</div>'}</div>`;
+      });
+      parent.appendChild(grid);
+    }
+
+    function renderCustomers(main) {
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <div class="table-controls">
+            <input type="text" class="search-input" id="cs" placeholder="Sok pa namn, telefon, adress...">
+            <select class="filter-select" id="sf"><option value="">Alla kallor</option><option value="dorr">Dorr</option><option value="facebook">Facebook</option><option value="referral">Referral</option></select>
+          </div>
+          <div class="card"><table><thead><tr><th>Namn</th><th>Telefon</th><th>Adress</th><th>Kalla</th><th>Ordrar</th><th>Senaste</th></tr></thead><tbody id="ctable"></tbody></table></div>
+        </div>
+      `);
+      function render() {
+        const s = document.getElementById('cs').value.toLowerCase();
+        const f = document.getElementById('sf').value;
+        let custs = DATA.customers.filter(c => !c.is_deleted);
+        if (s) custs = custs.filter(c => c.name.toLowerCase().includes(s) || (c.phone&&c.phone.includes(s)) || (c.address&&c.address.toLowerCase().includes(s)));
+        if (f) custs = custs.filter(c => c.source === f);
+        document.getElementById('ctable').innerHTML = custs.map(c => {
+          const ords = DATA.orders.filter(o => o.customer_id === c.id);
+          const last = ords.sort((a,b) => b.created_at.localeCompare(a.created_at))[0];
+          return `<tr><td><strong>${c.name}</strong></td><td>${c.phone||'<span class="missing">Saknas</span>'}</td><td>${c.address||'-'}</td><td><span class="source-tag ${c.source}">${c.source}</span></td><td>${ords.length}</td><td>${last?formatDate(last.created_at):'-'}</td></tr>`;
+        }).join('');
+      }
+      document.getElementById('cs').addEventListener('input', render);
+      document.getElementById('sf').addEventListener('change', render);
+      render();
+    }
+
+    function renderReminders(main) {
+      const threeMonthsAgo = new Date(Date.now() - 90*86400000).toISOString();
+      const completed = DATA.orders.filter(o => o.status === 'completed');
+      const lastOrder = {};
+      completed.forEach(o => { const d = o.delivery?.completed_at || o.updated_at; if (!lastOrder[o.customer_id] || d > lastOrder[o.customer_id]) lastOrder[o.customer_id] = d; });
+      const reminders = Object.entries(lastOrder).filter(([_,d]) => d < threeMonthsAgo).map(([id,d]) => ({c: DATA.customers.find(c=>c.id===id), d})).filter(r => r.c && !r.c.is_deleted);
+
+      main.insertAdjacentHTML('beforeend', `<div class="section"><div class="section-header"><h2>Paminnelser</h2><span class="badge">${reminders.length}</span></div><div class="reminder-list">${reminders.length ? reminders.map(r => `<div class="reminder-card"><div class="rc-name">${r.c.name}</div><div class="rc-date">Senast: ${formatDate(r.d)} (${daysBetween(r.d, now())} dagar)</div><div class="rc-phone">${r.c.phone||'<span class="missing">Telefon saknas</span>'}</div></div>`).join('') : '<div style="color:var(--gray-400);font-style:italic;">Inga paminnelser annu</div>'}</div></div>`);
+    }
+
+    function renderFinance(main) {
+      if (!DATA.invoices.length && !DATA.transactions.length) {
+        main.insertAdjacentHTML('beforeend', '<div class="card"><div class="finance-placeholder"><div class="fp-icon">&#128200;</div><p>Inga fakturor annu. Kor <code>/ekonomi</code> for att borja.</p></div></div>');
+        return;
+      }
+      const inc = DATA.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+(t.amount_incl_vat||0),0);
+      const exp = DATA.transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+(t.amount_incl_vat||0),0);
+      main.insertAdjacentHTML('beforeend', `<div class="card" style="padding:1.5rem;display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;text-align:center;"><div><div style="font-size:0.8rem;color:var(--gray-500);text-transform:uppercase;">Intakter</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${inc} kr</div></div><div><div style="font-size:0.8rem;color:var(--gray-500);text-transform:uppercase;">Kostnader</div><div style="font-size:1.5rem;font-weight:800;color:var(--red);">${exp} kr</div></div><div><div style="font-size:0.8rem;color:var(--gray-500);text-transform:uppercase;">Betalda</div><div style="font-size:1.5rem;font-weight:800;">${DATA.invoices.filter(i=>i.payment?.paid).length}</div></div><div><div style="font-size:0.8rem;color:var(--gray-500);text-transform:uppercase;">Obetalda</div><div style="font-size:1.5rem;font-weight:800;color:var(--red);">${DATA.invoices.filter(i=>!i.payment?.paid).length}</div></div></div>`);
+    }
+
+    // === ROUTE MAP ===
+    // Address coordinates for Nacka area (approximate, add more as needed)
+    const ADDRESS_COORDS = {
+      'klostervagen 6': [59.3107, 18.1268],
+      'sickla alle 7': [59.3055, 18.1235],
+      'varmdovagen 88': [59.3100, 18.1420],
+      'saltsjobadsvagen 42': [59.2850, 18.1600],
+      'ormingeringen 145': [59.3250, 18.2100],
+      'fisksatravagen 19': [59.2900, 18.1500],
+    };
+
+    function coordsForAddress(addr) {
+      const clean = addr.toLowerCase().replace(/[åä]/g,'a').replace(/ö/g,'o').replace(/é/g,'e').replace(/,.*$/,'').trim();
+      for (const [key, val] of Object.entries(ADDRESS_COORDS)) {
+        if (clean.includes(key) || key.includes(clean.split(' ')[0])) return val;
+      }
+      // Fallback: offset from Nacka center based on hash
+      let hash = 0;
+      for (let i = 0; i < addr.length; i++) hash = ((hash << 5) - hash) + addr.charCodeAt(i);
+      return [59.31 + (hash % 50) * 0.0003, 18.14 + (hash % 70) * 0.0004];
+    }
+
+    function buildGoogleMapsURL(stops, homeBase) {
+      const base = homeBase || 'Klostervagen+6,+Nacka';
+      const waypoints = stops.map(s => encodeURIComponent(s.address.replace(/\s+/g, '+'))).join('/');
+      return `https://www.google.com/maps/dir/${encodeURIComponent(base)}/${waypoints}/${encodeURIComponent(base)}`;
+    }
+
+    function renderRouteMap(main) {
+      const todayDate = today();
+      const tomorrowDate = tomorrow();
+      const allDates = [...new Set(DATA.schedule.map(s => s.date))].sort();
+      const selectedDate = allDates.includes(tomorrowDate) ? tomorrowDate : (allDates[0] || todayDate);
+
+      // Date selector
+      main.insertAdjacentHTML('beforeend', `
+        <div class="map-controls">
+          ${allDates.map(d => `<button class="map-btn toggle ${d===selectedDate?'active':''}" onclick="renderRouteMapForDate('${d}')">${d === todayDate ? 'Idag' : d === tomorrowDate ? 'Imorgon' : d}</button>`).join('')}
+        </div>
+        <div id="route-map-container"></div>
+      `);
+
+      renderRouteMapForDate(selectedDate);
+    }
+
+    let routeMap = null;
+    let routeFilter = 'all'; // 'all', 'pickup', 'delivery'
+    let routeDriverFilter = 'all'; // 'all' or driver name
+    let routeDate = '';
+
+    // Nearest-neighbor route optimization
+    function optimizeRoute(stops, home) {
+      if (stops.length <= 1) return stops;
+      const remaining = [...stops];
+      const optimized = [];
+      let current = home;
+      while (remaining.length) {
+        let nearest = 0, minDist = Infinity;
+        remaining.forEach((s, i) => {
+          const c = coordsForAddress(s.address);
+          const d = Math.sqrt(Math.pow(c[0]-current[0],2) + Math.pow(c[1]-current[1],2));
+          if (d < minDist) { minDist = d; nearest = i; }
+        });
+        const stop = remaining.splice(nearest, 1)[0];
+        optimized.push(stop);
+        current = coordsForAddress(stop.address);
+      }
+      return optimized;
+    }
+
+    function renderRouteMapForDate(date) {
+      routeDate = date;
+      const container = document.getElementById('route-map-container');
+      let schedules = DATA.schedule.filter(s => s.date === date);
+
+      if (!schedules.length) {
+        container.innerHTML = '<div style="color:var(--gray-400);font-style:italic;padding:2rem;">Inga rutter planerade for ' + date + '</div>';
+        return;
+      }
+
+      const colors = { gustav: '#e85d04', philip: '#2563eb', adam: '#16a34a' };
+      const homeCoords = [59.3107, 18.1268];
+      const drivers = [...new Set(schedules.map(s => s.assigned_to))];
+
+      // Filter by driver
+      if (routeDriverFilter !== 'all') {
+        schedules = schedules.filter(s => s.assigned_to === routeDriverFilter);
+      }
+
+      // Optimize each driver's route
+      schedules.forEach(s => {
+        s.stops = optimizeRoute(s.stops, homeCoords);
+        s.stops.forEach((st, i) => st.sequence = i + 1);
+      });
+
+      // Filter stops
+      const filterStops = (stops) => {
+        if (routeFilter === 'pickup') return stops.filter(s => s.type === 'pickup');
+        if (routeFilter === 'delivery') return stops.filter(s => s.type === 'delivery');
+        return stops;
+      };
+
+      // Google Maps links
+      let gmapsHTML = schedules.map(s => {
+        const filtered = filterStops(s.stops);
+        if (!filtered.length) return '';
+        const url = buildGoogleMapsURL(filtered, 'Klostervagen 6, Nacka');
+        return `<a href="${url}" target="_blank" class="map-btn google">&#128205; ${s.assigned_to} i Google Maps</a>`;
+      }).join('');
+
+      // Filter buttons — type
+      const filterHTML = `
+        <button class="map-btn toggle ${routeFilter==='all'?'active':''}" onclick="routeFilter='all';renderRouteMapForDate('${date}')">Alla</button>
+        <button class="map-btn toggle ${routeFilter==='pickup'?'active':''}" onclick="routeFilter='pickup';renderRouteMapForDate('${date}')" style="border-left:3px solid var(--blue);">Hamtningar</button>
+        <button class="map-btn toggle ${routeFilter==='delivery'?'active':''}" onclick="routeFilter='delivery';renderRouteMapForDate('${date}')" style="border-left:3px solid var(--green);">Leveranser</button>
+        <span style="color:var(--gray-300);margin:0 0.25rem;">|</span>
+        <button class="map-btn toggle ${routeDriverFilter==='all'?'active':''}" onclick="routeDriverFilter='all';renderRouteMapForDate('${date}')">Alla forare</button>
+        ${drivers.map(d => `<button class="map-btn toggle ${routeDriverFilter===d?'active':''}" onclick="routeDriverFilter='${d}';renderRouteMapForDate('${date}')" style="border-left:3px solid ${colors[d]||'#999'};">${d}</button>`).join('')}
+      `;
+
+      // Stop list with customer details + reassign
+      let stopsHTML = '';
+      schedules.forEach((s, si) => {
+        const filtered = filterStops(s.stops);
+        if (!filtered.length && routeFilter !== 'all') return;
+        const color = colors[s.assigned_to] || '#737373';
+        const totalKnives = filtered.reduce((sum, st) => {
+          const order = DATA.orders.find(o => o.order_id === st.order_id || o.id === st.order_id);
+          return sum + (order?.estimated_knife_count || 0);
+        }, 0);
+
+        stopsHTML += `<div style="margin-bottom:1.5rem;"><h3 style="font-size:1rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${color};"></span>${s.assigned_to} — ${filtered.length} stopp, ~${s.estimated_total_time_min} min</h3>`;
+
+        filtered.forEach((stop, i) => {
+          const cust = DATA.customers.find(c => c.id === stop.customer_id);
+          const order = DATA.orders.find(o => o.id === stop.order_id);
+          const phone = cust?.phone || null;
+          const knives = order?.estimated_knife_count || '?';
+          const otherDrivers = drivers.filter(d => d !== s.assigned_to);
+          const reassignBtns = otherDrivers.map(d =>
+            `<button onclick="reassignStop('${date}','${s.assigned_to}','${stop.order_id}','${d}')" style="padding:0.2rem 0.5rem;border:1px solid ${colors[d]||'#999'};border-radius:4px;background:none;cursor:pointer;font-size:0.7rem;color:${colors[d]||'#999'};">→ ${d}</button>`
+          ).join(' ');
+
+          stopsHTML += `
+            <div class="card" style="padding:0.75rem 1rem;margin-bottom:0.5rem;">
+              <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+                <span style="font-weight:800;color:${color};font-size:1.1rem;min-width:20px;">${i+1}</span>
+                <span class="stop-type ${stop.type}">${stop.type==='pickup'?'Hamt':'Lev'}</span>
+                <div style="flex:1;">
+                  <div style="font-weight:600;">${stop.customer_name}</div>
+                  <div style="font-size:0.85rem;color:var(--gray-500);">${stop.address}</div>
+                  <div style="display:flex;gap:1rem;margin-top:0.4rem;flex-wrap:wrap;font-size:0.8rem;">
+                    ${phone ? `<a href="tel:${phone.replace(/\s/g,'')}" style="color:var(--accent);font-weight:600;text-decoration:none;">&#128222; ${phone}</a>` : '<span style="color:var(--red);font-style:italic;">Telefon saknas</span>'}
+                    <span style="color:var(--gray-500);">&#128298; ${knives} knivar</span>
+                    <span style="color:var(--gray-500);">&#128339; ${stop.time_window || 'Flexibel'}</span>
+                  </div>
+                  ${stop.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">${stop.notes}</div>` : ''}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.25rem;align-items:flex-end;">
+                  ${reassignBtns}
+                </div>
+              </div>
+            </div>`;
+        });
+        stopsHTML += '</div>';
+      });
+
+      container.innerHTML = `
+        <div class="map-controls">${filterHTML}<div style="flex:1;"></div>${gmapsHTML}</div>
+        <div class="route-legend">
+          ${schedules.map(s => `<span><span class="legend-dot" style="background:${colors[s.assigned_to]||'#737373'};"></span>${s.assigned_to}</span>`).join('')}
+          <span><span class="legend-dot" style="background:#000;"></span>Hem</span>
+          <span style="margin-left:auto;font-size:0.8rem;color:var(--green);">&#10003; Rutt optimerad (nearest-neighbor)</span>
+        </div>
+        <div id="map-div" class="route-map"></div>
+        ${stopsHTML}
+      `;
+
+      // Leaflet map
+      if (routeMap) { routeMap.remove(); routeMap = null; }
+      routeMap = L.map('map-div').setView(homeCoords, 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(routeMap);
+
+      L.marker(homeCoords, {
+        icon: L.divIcon({ className: '', html: '<div style="background:#000;color:#fff;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">HEM</div>', iconSize: [40, 24], iconAnchor: [20, 12] })
+      }).addTo(routeMap);
+
+      schedules.forEach(s => {
+        const color = colors[s.assigned_to] || '#737373';
+        const filtered = filterStops(s.stops);
+        const points = [homeCoords];
+
+        filtered.forEach((stop, i) => {
+          const coords = coordsForAddress(stop.address);
+          points.push(coords);
+          const cust = DATA.customers.find(c => c.id === stop.customer_id);
+          const order = DATA.orders.find(o => o.id === stop.order_id);
+          const phone = cust?.phone ? `<br>&#128222; ${cust.phone}` : '';
+          const knives = order?.estimated_knife_count || '?';
+
+          L.marker(coords, {
+            icon: L.divIcon({
+              className: '',
+              html: `<div style="background:${color};color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${i+1}</div>`,
+              iconSize: [28, 28], iconAnchor: [14, 14]
+            })
+          }).bindPopup(`<strong>${stop.customer_name}</strong><br>${stop.address}${phone}<br>${stop.type==='pickup'?'Hamtning':'Leverans'} — ${knives} knivar<br><em>${stop.notes||''}</em>`).addTo(routeMap);
+        });
+
+        points.push(homeCoords);
+        if (filtered.length) L.polyline(points, { color, weight: 3, opacity: 0.7, dashArray: '8 4' }).addTo(routeMap);
+      });
+
+      const allPts = [homeCoords, ...schedules.flatMap(s => filterStops(s.stops).map(st => coordsForAddress(st.address)))];
+      if (allPts.length > 1) routeMap.fitBounds(allPts, { padding: [30, 30] });
+    }
+
+    function reassignStop(date, fromDriver, orderId, toDriver) {
+      const fromSched = DATA.schedule.find(s => s.date === date && s.assigned_to === fromDriver);
+      let toSched = DATA.schedule.find(s => s.date === date && s.assigned_to === toDriver);
+
+      if (!fromSched) return;
+      const stopIdx = fromSched.stops.findIndex(s => s.order_id === orderId);
+      if (stopIdx === -1) return;
+
+      const stop = fromSched.stops.splice(stopIdx, 1)[0];
+
+      if (!toSched) {
+        toSched = { date, assigned_to: toDriver, stops: [], estimated_total_time_min: 0, estimated_start: '', estimated_end: '', notes: '' };
+        DATA.schedule.push(toSched);
+      }
+      toSched.stops.push(stop);
+
+      // Re-optimize both routes
+      const homeCoords = [59.3107, 18.1268];
+      fromSched.stops = optimizeRoute(fromSched.stops, homeCoords);
+      toSched.stops = optimizeRoute(toSched.stops, homeCoords);
+
+      // Update time estimates
+      fromSched.estimated_total_time_min = fromSched.stops.length * 20 + 15;
+      toSched.estimated_total_time_min = toSched.stops.length * 20 + 15;
+
+      // Remove empty schedules
+      DATA.schedule = DATA.schedule.filter(s => s.stops.length > 0);
+
+      saveSchedule();
+      renderRouteMapForDate(date);
+    }
+
+    // === TEAM MANAGEMENT (admin only) ===
+    function renderTeam(main) {
+      const div = document.createElement('div'); div.className = 'section';
+      div.innerHTML = '<div class="team-grid" id="team-grid"></div>';
+      main.appendChild(div);
+
+      const grid = document.getElementById('team-grid');
+      USERS.forEach(u => {
+        const payLabel = u.pay_type === 'hourly' ? u.pay_rate + ' kr/h' : u.pay_type === 'per_knife' ? u.pay_rate + ' kr/kniv' : u.pay_type === 'monthly' ? u.pay_rate + ' kr/man' : 'Ej satt';
+        grid.insertAdjacentHTML('beforeend', `
+          <div class="team-card">
+            <div class="tc-name">${u.name} ${!u.active ? '<span style="color:var(--red);">(inaktiv)</span>' : ''}</div>
+            <div class="tc-role" style="margin-bottom:0.5rem;">${u.role}</div>
+
+            <div style="margin-bottom:0.75rem;padding-bottom:0.75rem;border-bottom:1px solid var(--gray-200);">
+              <label style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;display:block;margin-bottom:0.25rem;">PIN-kod</label>
+              <div style="display:flex;gap:0.5rem;align-items:center;">
+                <input type="password" id="pin-${u.id}" value="${u.pin}" maxlength="6" style="width:80px;padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:0.9rem;font-family:inherit;letter-spacing:0.2em;text-align:center;">
+                <button onclick="document.getElementById('pin-${u.id}').type = document.getElementById('pin-${u.id}').type === 'password' ? 'text' : 'password'" style="padding:0.3rem 0.5rem;border:1px solid var(--gray-300);border-radius:4px;background:none;cursor:pointer;font-size:0.75rem;">Visa</button>
+                <button onclick="changePin('${u.id}')" style="padding:0.3rem 0.6rem;border:none;border-radius:4px;background:var(--accent);color:white;cursor:pointer;font-size:0.75rem;font-weight:600;">Spara</button>
+              </div>
+            </div>
+
+            <div style="margin-bottom:0.75rem;padding-bottom:0.75rem;border-bottom:1px solid var(--gray-200);">
+              <label style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;display:block;margin-bottom:0.25rem;">Lon: ${payLabel}</label>
+              <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                <select id="paytype-${u.id}" style="padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:0.85rem;font-family:inherit;">
+                  <option value="" ${!u.pay_type?'selected':''}>Valj...</option>
+                  <option value="hourly" ${u.pay_type==='hourly'?'selected':''}>Timlon (kr/h)</option>
+                  <option value="per_knife" ${u.pay_type==='per_knife'?'selected':''}>Per kniv (kr/kniv)</option>
+                  <option value="monthly" ${u.pay_type==='monthly'?'selected':''}>Manadslon (kr/man)</option>
+                </select>
+                <input type="number" id="payrate-${u.id}" value="${u.pay_rate||''}" placeholder="Belopp" style="width:80px;padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:0.85rem;font-family:inherit;">
+                <button onclick="changePay('${u.id}')" style="padding:0.3rem 0.6rem;border:none;border-radius:4px;background:var(--accent);color:white;cursor:pointer;font-size:0.75rem;font-weight:600;">Spara</button>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+              <select class="role-select" onchange="changeRole('${u.id}', this.value)">
+                <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+                <option value="slipare" ${u.role==='slipare'?'selected':''}>Slipare</option>
+                <option value="forare" ${u.role==='forare'?'selected':''}>Forare</option>
+              </select>
+              <button onclick="toggleUser('${u.id}')" style="padding:0.4rem 0.8rem;border:1px solid var(--gray-300);border-radius:4px;background:none;cursor:pointer;font-size:0.8rem;">${u.active?'Inaktivera':'Aktivera'}</button>
+            </div>
+          </div>
+        `);
+      });
+
+      // Lönekostnad sammanfattning
+      const paidUsers = USERS.filter(u => u.active && u.pay_type);
+      if (paidUsers.length) {
+        const summary = paidUsers.map(u => {
+          const label = u.pay_type === 'hourly' ? u.pay_rate + ' kr/h' : u.pay_type === 'per_knife' ? u.pay_rate + ' kr/kniv' : u.pay_rate + ' kr/man';
+          return `<div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--gray-100);"><span>${u.name} (${u.role})</span><strong>${label}</strong></div>`;
+        }).join('');
+        grid.insertAdjacentHTML('beforeend', `<div class="team-card" style="border-left:3px solid var(--accent);"><div style="font-weight:700;margin-bottom:0.75rem;">Loneoversikt</div>${summary}</div>`);
+      }
+
+      // Add user form
+      grid.insertAdjacentHTML('beforeend', `
+        <div class="add-user-form">
+          <h3>+ Lagg till anvandare</h3>
+          <input type="text" id="new-name" placeholder="Namn">
+          <input type="text" id="new-pin" placeholder="PIN (4-6 siffror)" maxlength="6">
+          <select id="new-role"><option value="slipare">Slipare</option><option value="forare">Forare</option><option value="admin">Admin</option></select>
+          <div style="margin-top:0.5rem;">
+            <select id="new-paytype"><option value="">Lon (valfritt)</option><option value="hourly">Timlon</option><option value="per_knife">Per kniv</option><option value="monthly">Manadslon</option></select>
+            <input type="number" id="new-payrate" placeholder="Belopp" style="margin-top:0.5rem;">
+          </div>
+          <button class="log-submit" onclick="addUser()" style="margin-top:0.5rem;">Lagg till</button>
+        </div>
+      `);
+    }
+
+    function changePin(id) {
+      const input = document.getElementById('pin-' + id);
+      const newPin = input.value.trim();
+      if (newPin.length < 4) { alert('PIN maste vara minst 4 siffror'); return; }
+      const conflict = USERS.find(u => u.pin === newPin && u.id !== id);
+      if (conflict) { alert('PIN redan anvand av ' + conflict.name); return; }
+      const user = USERS.find(u => u.id === id);
+      if (user) { user.pin = newPin; alert('PIN andrad for ' + user.name); }
+      if (user.id === CURRENT_USER.id) sessionStorage.setItem('knivslip_pin', newPin);
+      saveUsers();
+    }
+
+    function changePay(id) {
+      const payType = document.getElementById('paytype-' + id).value;
+      const payRate = parseFloat(document.getElementById('payrate-' + id).value) || null;
+      const user = USERS.find(u => u.id === id);
+      if (user) {
+        user.pay_type = payType || null;
+        user.pay_rate = payRate;
+        saveUsers();
+        renderView('team');
+      }
+    }
+
+    function changeRole(id, role) { const u = USERS.find(u=>u.id===id); if(u) { u.role = role; saveUsers(); } }
+    function toggleUser(id) { const u = USERS.find(u=>u.id===id); if(u) { u.active = !u.active; saveUsers(); renderView('team'); } }
+    function addUser() {
+      const name = document.getElementById('new-name').value.trim();
+      const pin = document.getElementById('new-pin').value.trim();
+      const role = document.getElementById('new-role').value;
+      const payType = document.getElementById('new-paytype').value || null;
+      const payRate = parseFloat(document.getElementById('new-payrate').value) || null;
+      if (!name || pin.length < 4) { alert('Fyll i namn och PIN (minst 4 siffror)'); return; }
+      if (USERS.find(u => u.pin === pin)) { alert('PIN redan anvand — valj en annan'); return; }
+      const id = 'USR-' + String(USERS.length + 1).padStart(3, '0');
+      USERS.push({ id, name, pin, role, active: true, pay_type: payType, pay_rate: payRate, created_at: now() });
+      saveUsers();
+      renderView('team');
+    }
+
+    // === ARBETE & LÖN (admin) ===
+    function renderArbete(main) {
+      // Group timelog by user
+      const userLogs = {};
+      TIMELOG.forEach(e => {
+        if (!userLogs[e.user_id]) userLogs[e.user_id] = [];
+        userLogs[e.user_id].push(e);
+      });
+
+      // Summary per user
+      main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:1rem;">Oversikt per person</h2><div id="arbete-cards" class="team-grid"></div></div>');
+      const cards = document.getElementById('arbete-cards');
+
+      USERS.filter(u => u.active).forEach(u => {
+        const logs = userLogs[u.id] || [];
+        const totalKnives = logs.reduce((s,l) => s + (l.knives_sharpened || 0), 0);
+        const totalStops = logs.reduce((s,l) => s + (l.stops_completed || 0), 0);
+        const totalHours = logs.reduce((s,l) => {
+          if (l.clock_in && l.clock_out) {
+            const [h1,m1] = l.clock_in.split(':').map(Number);
+            const [h2,m2] = l.clock_out.split(':').map(Number);
+            return s + ((h2*60+m2) - (h1*60+m1)) / 60;
+          }
+          return s;
+        }, 0);
+
+        let payCalc = '';
+        if (u.pay_type === 'per_knife') {
+          const earned = totalKnives * (u.pay_rate || 0);
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beraknad lon</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalKnives} knivar x ${u.pay_rate} kr</div></div>`;
+        } else if (u.pay_type === 'hourly') {
+          const earned = Math.round(totalHours * (u.pay_rate || 0));
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beraknad lon</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalHours.toFixed(1)}h x ${u.pay_rate} kr/h</div></div>`;
+        } else if (u.pay_type === 'monthly') {
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Manadslon</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${u.pay_rate} kr</div></div>`;
+        }
+
+        cards.insertAdjacentHTML('beforeend', `
+          <div class="team-card">
+            <div class="tc-name">${u.name}</div>
+            <div class="tc-role" style="margin-bottom:0.75rem;">${u.role}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;text-align:center;">
+              <div><div style="font-size:1.3rem;font-weight:800;color:var(--accent);">${totalKnives}</div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Knivar</div></div>
+              <div><div style="font-size:1.3rem;font-weight:800;color:var(--blue);">${totalStops}</div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Stopp</div></div>
+              <div><div style="font-size:1.3rem;font-weight:800;">${totalHours.toFixed(1)}h</div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Tid</div></div>
+            </div>
+            ${payCalc}
+          </div>
+        `);
+      });
+
+      // Detailed log table
+      const allLogs = TIMELOG.slice().sort((a,b) => b.date.localeCompare(a.date));
+      if (allLogs.length) {
+        main.insertAdjacentHTML('beforeend', `
+          <div class="section"><h2 style="margin-bottom:1rem;">Detaljerad logg</h2>
+          <div class="card"><table><thead><tr><th>Datum</th><th>Person</th><th>In</th><th>Ut</th><th>Knivar</th><th>Stopp</th><th>Lon</th></tr></thead><tbody id="log-table"></tbody></table></div></div>
+        `);
+        const tbody = document.getElementById('log-table');
+        allLogs.forEach(l => {
+          const u = USERS.find(u => u.id === l.user_id);
+          const name = u ? u.name : l.user_id;
+          let pay = '-';
+          if (u?.pay_type === 'per_knife') pay = ((l.knives_sharpened||0) * (u.pay_rate||0)) + ' kr';
+          else if (u?.pay_type === 'hourly' && l.clock_in && l.clock_out) {
+            const [h1,m1] = l.clock_in.split(':').map(Number);
+            const [h2,m2] = l.clock_out.split(':').map(Number);
+            const hrs = ((h2*60+m2)-(h1*60+m1))/60;
+            pay = Math.round(hrs * (u.pay_rate||0)) + ' kr';
+          }
+          tbody.insertAdjacentHTML('beforeend', `<tr><td>${l.date}</td><td>${name}</td><td>${l.clock_in||'-'}</td><td>${l.clock_out||'-'}</td><td>${l.knives_sharpened||0}</td><td>${l.stops_completed||0}</td><td><strong>${pay}</strong></td></tr>`);
+        });
+      }
+    }
+
+    // === ADMIN LOGGA ARBETE ===
+    function renderAdminLog(main) {
+      // Clock in/out for admin
+      const todayLog = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      const clockedIn = todayLog && todayLog.clock_in && !todayLog.clock_out;
+      main.insertAdjacentHTML('beforeend', `
+        <div class="clock-section">
+          <div class="clock-status">
+            <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
+            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Utklockad ' + todayLog.clock_out : 'Ej inklockad')}</div>
+          </div>
+          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'};renderView('admin-log')">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
+        </div>
+      `);
+
+      // Stats
+      const myLogs = TIMELOG.filter(e => e.user_id === CURRENT_USER.id);
+      const myKnives = myLogs.reduce((s,l) => s + (l.knives_sharpened||0), 0);
+      const myStops = myLogs.reduce((s,l) => s + (l.stops_completed||0), 0);
+      const todayKnives = todayLog?.knives_sharpened || 0;
+      const todayStops = todayLog?.stops_completed || 0;
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="stats-row">
+          <div class="stat-box"><div class="sb-value" style="color:var(--green);">${todayKnives}</div><div class="sb-label">Knivar idag</div></div>
+          <div class="stat-box"><div class="sb-value" style="color:var(--blue);">${todayStops}</div><div class="sb-label">Stopp idag</div></div>
+          <div class="stat-box"><div class="sb-value">${myKnives}</div><div class="sb-label">Knivar totalt</div></div>
+        </div>
+      `);
+
+      // Sharpening queue
+      const queue = getSharpQueue();
+      if (queue.length) {
+        main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:0.5rem;">Slipningsko</h2><p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:1rem;">Klicka "Slipat klart" nar du ar klar med en kunds knivar</p><div id="admin-sharp-queue"></div></div>');
+        renderSharpQueue('admin-sharp-queue');
+      }
+
+      // Log knives
+      main.insertAdjacentHTML('beforeend', `
+        <div class="log-form">
+          <h3>Logga extra knivar (utan order)</h3>
+          <div class="log-row">
+            <div class="log-field"><label>Antal knivar</label><input type="number" id="admin-knife-count" min="1" value="1"></div>
+            <div class="log-field"><label>Anteckningar</label><input type="text" id="admin-knife-notes" placeholder="Valfritt"></div>
+            <button class="log-submit" onclick="adminLogKnives()">Spara knivar</button>
+          </div>
+        </div>
+      `);
+
+      // Log stops/deliveries
+      main.insertAdjacentHTML('beforeend', `
+        <div class="log-form">
+          <h3>Logga leveranser / stopp</h3>
+          <div class="log-row">
+            <div class="log-field"><label>Antal stopp</label><input type="number" id="admin-stop-count" min="1" value="1"></div>
+            <div class="log-field"><label>Anteckningar</label><input type="text" id="admin-stop-notes" placeholder="Valfritt"></div>
+            <button class="log-submit" onclick="adminLogStops()">Spara stopp</button>
+          </div>
+        </div>
+      `);
+
+      // My recent log
+      if (myLogs.length) {
+        main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:1rem;">Min logg</h2><div class="card"><table><thead><tr><th>Datum</th><th>In</th><th>Ut</th><th>Knivar</th><th>Stopp</th></tr></thead><tbody>' +
+          myLogs.sort((a,b) => b.date.localeCompare(a.date)).map(l => `<tr><td>${l.date}</td><td>${l.clock_in||'-'}</td><td>${l.clock_out||'-'}</td><td>${l.knives_sharpened||0}</td><td>${l.stops_completed||0}</td></tr>`).join('') +
+          '</tbody></table></div></div>');
+      }
+    }
+
+    function adminLogKnives() {
+      const count = parseInt(document.getElementById('admin-knife-count').value) || 0;
+      if (count <= 0) return;
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '' }; TIMELOG.push(entry); }
+      entry.knives_sharpened = (entry.knives_sharpened || 0) + count;
+      document.getElementById('admin-knife-count').value = 1;
+      saveTimelog();
+      renderView('admin-log');
+    }
+
+    function adminLogStops() {
+      const count = parseInt(document.getElementById('admin-stop-count').value) || 0;
+      if (count <= 0) return;
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '' }; TIMELOG.push(entry); }
+      entry.stops_completed = (entry.stops_completed || 0) + count;
+      document.getElementById('admin-stop-count').value = 1;
+      saveTimelog();
+      renderView('admin-log');
+    }
+
+    // === SLIPARE VIEWS ===
+    function renderSlipareHome(main) {
+      const todayLog = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      const clockedIn = todayLog && todayLog.clock_in && !todayLog.clock_out;
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="clock-section">
+          <div class="clock-status">
+            <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
+            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Utklockad ' + todayLog.clock_out : 'Ej inklockad')}</div>
+          </div>
+          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
+        </div>
+      `);
+
+      // Today's stats
+      const knivesToday = todayLog?.knives_sharpened || 0;
+      const stopsToday = todayLog?.stops_completed || 0;
+      const ordersToSharp = DATA.orders.filter(o => ['picked_up','registered','sharpening'].includes(o.status));
+      const knivesWaiting = ordersToSharp.reduce((s,o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
+
+      // Pay calculation
+      const user = USERS.find(u => u.id === CURRENT_USER.id);
+      let payToday = '';
+      if (user?.pay_type === 'per_knife') payToday = `<div class="stat-box"><div class="sb-value" style="color:var(--green);">${knivesToday * (user.pay_rate||0)} kr</div><div class="sb-label">Lon idag</div></div>`;
+      else if (user?.pay_type === 'hourly' && todayLog?.clock_in) {
+        const [h1,m1] = todayLog.clock_in.split(':').map(Number);
+        const nowH = new Date().getHours(), nowM = new Date().getMinutes();
+        const hrs = todayLog.clock_out ? (() => { const [h2,m2] = todayLog.clock_out.split(':').map(Number); return ((h2*60+m2)-(h1*60+m1))/60; })() : ((nowH*60+nowM)-(h1*60+m1))/60;
+        payToday = `<div class="stat-box"><div class="sb-value" style="color:var(--green);">${Math.round(hrs * (user.pay_rate||0))} kr</div><div class="sb-label">Lon idag (${hrs.toFixed(1)}h)</div></div>`;
+      }
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="stats-row">
+          <div class="stat-box"><div class="sb-value" style="color:var(--accent);">${knivesToday}</div><div class="sb-label">Knivar idag</div></div>
+          <div class="stat-box"><div class="sb-value" style="color:var(--blue);">${stopsToday}</div><div class="sb-label">Stopp idag</div></div>
+          ${payToday || `<div class="stat-box"><div class="sb-value">${knivesWaiting}</div><div class="sb-label">Knivar vantar</div></div>`}
+        </div>
+      `);
+
+      // Orders waiting — sorted by priority (oldest pickup first = most urgent)
+      const ordersQueue = getSharpQueue();
+      if (ordersQueue.length) {
+        main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:0.5rem;">Slipningsko</h2><p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:1rem;">Sorterad efter prioritet — aldsta hamtning forst (2-dagars loftet)</p><div id="sharp-queue"></div></div>');
+        renderSharpQueue('sharp-queue');
+      }
+    }
+
+    function getSharpQueue() {
+      return DATA.orders
+        .filter(o => ['picked_up','registered','sharpening'].includes(o.status))
+        .sort((a, b) => {
+          // Oldest pickup first (most urgent to deliver)
+          const aDate = a.pickup?.completed_at || a.pickup?.date || a.created_at;
+          const bDate = b.pickup?.completed_at || b.pickup?.date || b.created_at;
+          return aDate.localeCompare(bDate);
+        });
+    }
+
+    function renderSharpQueue(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const queue = getSharpQueue();
+
+      container.innerHTML = queue.map((o, i) => {
+        const cust = DATA.customers.find(c => c.id === o.customer_id);
+        const knives = o.actual_knife_count || o.estimated_knife_count || '?';
+        const pickupDate = o.pickup?.completed_at || o.pickup?.date || o.created_at;
+        const daysAgo = daysBetween(pickupDate, now());
+        const urgent = daysAgo >= 1;
+        const deadline = daysAgo >= 2;
+
+        return `
+          <div class="card" style="padding:1rem;margin-bottom:0.5rem;border-left:4px solid ${deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--green)'};">
+            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+              <div style="text-align:center;min-width:35px;">
+                <div style="font-size:1.3rem;font-weight:800;color:${deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--accent)'};">#${i+1}</div>
+                <div style="font-size:0.65rem;color:var(--gray-500);">PRIO</div>
+              </div>
+              <div style="flex:1;">
+                <div style="font-weight:700;font-size:1rem;">${cust?.name || 'Okand'}</div>
+                <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.3rem;font-size:0.85rem;">
+                  <span>&#128298; ${knives} knivar</span>
+                  <span style="color:${deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--gray-500)'};">&#128339; Hamtad ${daysAgo === 0 ? 'idag' : daysAgo + 'd sedan'}${deadline ? ' — FORSENAD!' : urgent ? ' — bradskande' : ''}</span>
+                  <span class="pc-badge ${o.status==='sharpening'?'warn':'ok'}">${o.status}</span>
+                </div>
+                ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">${o.notes}</div>` : ''}
+              </div>
+              <div style="display:flex;flex-direction:column;gap:0.4rem;">
+                <button onclick="markSharpened('${o.id}', ${knives === '?' ? 0 : knives})" class="log-submit" style="padding:0.4rem 0.8rem;font-size:0.8rem;">&#10003; Slipat klart</button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      if (!queue.length) container.innerHTML = '<div style="color:var(--gray-400);font-style:italic;">Inga knivar att slipa just nu</div>';
+    }
+
+    function markSharpened(orderId, kniveCount) {
+      // Log knives for current user
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '', sharpened_orders: [] }; TIMELOG.push(entry); }
+      entry.knives_sharpened = (entry.knives_sharpened || 0) + (kniveCount || 0);
+      if (!entry.sharpened_orders) entry.sharpened_orders = [];
+      entry.sharpened_orders.push({ order_id: orderId, knives: kniveCount, timestamp: now() });
+
+      // Update order status to quality_check
+      const order = DATA.orders.find(o => o.id === orderId);
+      if (order) {
+        order.status = 'quality_check';
+        order.status_history.push({ status: 'quality_check', timestamp: now(), by: CURRENT_USER.name.toLowerCase().split(' ')[0] });
+      }
+
+      saveTimelog();
+      saveOrders();
+
+      // Re-render current view
+      const role = CURRENT_USER.role;
+      renderView(role === 'admin' ? 'admin-log' : 'slipare-home');
+    }
+
+    function renderSlipareLog(main) {
+      // Sharpening queue
+      const queue = getSharpQueue();
+      main.insertAdjacentHTML('beforeend', `<div class="section"><h2 style="margin-bottom:0.5rem;">Slipningsko — klicka nar du slipat klart</h2><p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:1rem;">Ror = aldsta hamtning forst. Rod = forsenad. Gul = bradskande.</p><div id="slip-queue"></div></div>`);
+      renderSharpQueue('slip-queue');
+
+      // Manual log
+      main.insertAdjacentHTML('beforeend', `
+        <div class="log-form" style="margin-top:1.5rem;">
+          <h3>Logga extra knivar (utan order)</h3>
+          <div class="log-row">
+            <div class="log-field"><label>Antal knivar</label><input type="number" id="log-count" min="1" value="1"></div>
+            <div class="log-field"><label>Anteckningar</label><input type="text" id="log-notes" placeholder="Valfritt"></div>
+            <button class="log-submit" onclick="logKnives()">Spara</button>
+          </div>
+        </div>
+        <div class="log-form">
+          <h3>Logga leveranser / stopp</h3>
+          <div class="log-row">
+            <div class="log-field"><label>Antal stopp</label><input type="number" id="log-stops" min="1" value="1"></div>
+            <div class="log-field"><label>Anteckningar</label><input type="text" id="log-stop-notes" placeholder="Valfritt"></div>
+            <button class="log-submit" onclick="logStops()">Spara stopp</button>
+          </div>
+        </div>
+        <div class="section"><h2 style="margin-bottom:1rem;">Dagens logg</h2><div id="today-log"></div></div>
+      `);
+      renderTodayLog();
+    }
+
+    function logKnives() {
+      const count = parseInt(document.getElementById('log-count').value) || 0;
+      if (count <= 0) return;
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '' }; TIMELOG.push(entry); }
+      entry.knives_sharpened = (entry.knives_sharpened || 0) + count;
+      document.getElementById('log-count').value = 1;
+      document.getElementById('log-notes').value = '';
+      saveTimelog();
+      renderTodayLog();
+    }
+
+    function logStops() {
+      const count = parseInt(document.getElementById('log-stops').value) || 0;
+      if (count <= 0) return;
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '' }; TIMELOG.push(entry); }
+      entry.stops_completed = (entry.stops_completed || 0) + count;
+      document.getElementById('log-stops').value = 1;
+      saveTimelog();
+      renderTodayLog();
+    }
+
+    function renderTodayLog() {
+      const el = document.getElementById('today-log');
+      if (!el) return;
+      const entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { el.innerHTML = '<div style="color:var(--gray-400);font-style:italic;">Inget loggat annu</div>'; return; }
+      const user = USERS.find(u => u.id === CURRENT_USER.id);
+      let payInfo = '';
+      if (user?.pay_type === 'per_knife') payInfo = `<div style="margin-top:0.5rem;color:var(--green);font-weight:700;">Lon: ${(entry.knives_sharpened||0) * (user.pay_rate||0)} kr (${entry.knives_sharpened} x ${user.pay_rate} kr)</div>`;
+
+      let ordersLog = '';
+      if (entry.sharpened_orders?.length) {
+        ordersLog = '<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);font-size:0.85rem;"><strong>Slipade ordrar:</strong>' +
+          entry.sharpened_orders.map(so => {
+            const order = DATA.orders.find(o => o.id === so.order_id);
+            const cust = order ? DATA.customers.find(c => c.id === order.customer_id) : null;
+            return `<div style="padding:0.25rem 0;">&#10003; ${cust?.name || so.order_id} — ${so.knives} knivar (${so.timestamp.split('T')[1]?.slice(0,5) || ''})</div>`;
+          }).join('') + '</div>';
+      }
+
+      el.innerHTML = `<div class="card" style="padding:1rem;"><strong>${entry.knives_sharpened||0}</strong> knivar slipade &nbsp;|&nbsp; <strong>${entry.stops_completed||0}</strong> stopp/leveranser${payInfo}${ordersLog}</div>`;
+    }
+
+    // === FÖRARE VIEWS ===
+    function renderForareHome(main) {
+      const todayLog = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      const clockedIn = todayLog && todayLog.clock_in && !todayLog.clock_out;
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="clock-section">
+          <div class="clock-status">
+            <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
+            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Utklockad ' + todayLog.clock_out : 'Ej inklockad')}</div>
+          </div>
+          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
+        </div>
+      `);
+
+      const todaySched = DATA.schedule.filter(s => s.date === today());
+      const stops = todaySched.flatMap(s => s.stops);
+      const done = stops.filter(s => s.completed).length;
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="stats-row">
+          <div class="stat-box"><div class="sb-value" style="color:var(--green);">${done}</div><div class="sb-label">Stopp klara</div></div>
+          <div class="stat-box"><div class="sb-value" style="color:var(--accent);">${stops.length - done}</div><div class="sb-label">Stopp kvar</div></div>
+          <div class="stat-box"><div class="sb-value">${stops.length}</div><div class="sb-label">Totalt idag</div></div>
+        </div>
+      `);
+    }
+
+    function renderForareRoute(main) {
+      const todaySched = DATA.schedule.filter(s => s.date === today());
+      const stops = todaySched.flatMap(s => s.stops.map(st => ({...st, assigned_to: s.assigned_to})));
+
+      main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:1rem;">Dagens rutt</h2></div>');
+      const section = main.querySelector('.section:last-child');
+
+      if (!stops.length) {
+        section.insertAdjacentHTML('beforeend', '<div class="schedule-empty">Inga stopp planerade idag</div>');
+        return;
+      }
+
+      stops.forEach((s, i) => {
+        section.insertAdjacentHTML('beforeend', `
+          <div class="card" style="padding:1rem;margin-bottom:0.5rem;display:flex;align-items:center;gap:1rem;">
+            <span style="font-weight:800;color:var(--gray-400);font-size:1.2rem;">${i+1}</span>
+            <span class="stop-type ${s.type}">${s.type==='pickup'?'Hamt':'Lev'}</span>
+            <div style="flex:1;"><div style="font-weight:600;">${s.customer_name}</div><div style="font-size:0.85rem;color:var(--gray-500);">${s.address}</div></div>
+            <div style="text-align:right;"><div style="font-size:0.85rem;color:var(--gray-500);">${s.time_window||''}</div></div>
+            <button class="stop-done-btn ${s.completed?'completed':''}" onclick="markStop(${i})">${s.completed?'Klar':'Markera klar'}</button>
+          </div>
+        `);
+      });
+    }
+
+    function markStop(index) {
+      const todaySched = DATA.schedule.filter(s => s.date === today());
+      let i = 0;
+      for (const s of todaySched) {
+        for (const stop of s.stops) {
+          if (i === index) { stop.completed = true; saveSchedule(); renderView('forare-route'); return; }
+          i++;
+        }
+      }
+    }
+
+    // === CLOCK IN/OUT ===
+    function clockIn() {
+      const time = new Date().toLocaleTimeString('sv-SE', {hour:'2-digit', minute:'2-digit'});
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '' }; TIMELOG.push(entry); }
+      entry.clock_in = time;
+      saveTimelog();
+      renderView(CURRENT_USER.role === 'slipare' ? 'slipare-home' : CURRENT_USER.role === 'forare' ? 'forare-home' : 'dashboard');
+    }
+
+    function clockOut() {
+      const time = new Date().toLocaleTimeString('sv-SE', {hour:'2-digit', minute:'2-digit'});
+      const entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (entry) entry.clock_out = time;
+      saveTimelog();
+      renderView(CURRENT_USER.role === 'slipare' ? 'slipare-home' : CURRENT_USER.role === 'forare' ? 'forare-home' : 'dashboard');
+    }
+
+    // === INIT ===
+    document.getElementById('login-btn').addEventListener('click', () => login(document.getElementById('login-pin').value));
+    document.getElementById('login-pin').addEventListener('keydown', e => { if (e.key === 'Enter') login(document.getElementById('login-pin').value); });
+
+    // Auto-login from sessionStorage or triple-click PIN
+    (async function() {
+      await loadUsers();
+      const savedPin = sessionStorage.getItem('knivslip_pin');
+      if (savedPin) {
+        const ok = await login(savedPin);
+        if (!ok) sessionStorage.removeItem('knivslip_pin');
+      }
+    })();
+  </script>
+</body>
+</html>

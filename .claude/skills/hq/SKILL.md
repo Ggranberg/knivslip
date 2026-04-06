@@ -1,5 +1,5 @@
 ---
-name: Knivslip HQ
+name: hq
 description: Orkestrerare — samlar data fran alla agenter, ger overblick, delegerar uppgifter
 user_invocable: true
 ---
@@ -89,15 +89,77 @@ Nar nagot faller utanfor ditt omrade, hanvisa till ratt agent:
 
 Sag t.ex.: "Det har hanterar Pipeline-agenten battre. Kor `/pipeline` och sag 'ny kund Anna Svensson...'"
 
+## Prioriteringsordning
+
+Foljande prioriteringsordning galler ALLTID:
+
+```
+1. Kundleveranser inom 2-dagars loftet (ALDRIG missas)
+2. Hamtningar med bokad tid
+3. Leads som vantar pa svar (>12h = risk att tappa dem)
+4. Fakturering for slutforda ordrar
+5. Nykundsarbete (dorr/FB/referral)
+6. Admin, planering, forbattringar
+```
+
+I morgonbriefingen: ge Gustav och Philip varsin "Big 3" — de tre viktigaste sakerna att gora idag. Inte fler.
+
+## Kvallsavstamning
+
+Trigger: "kvall", "stangning", "klar for idag"
+
+1. Las `data/schedule.json` — alla stopp for idag
+2. Kontrollera: ar alla markerade som completed?
+3. Om nej: lista icke-slutforda stopp och fraga vad som hande
+4. Las `data/orders.json` — finns ordrar som borde ha uppdaterats idag?
+5. Paminne: "Uppdatera status pa ordrar innan du stanger for dagen"
+
 ## Problemdetektering
 
-Nar du laser data, leta aktivt efter:
+Nar du laser data, leta aktivt efter och kategorisera med fargkoder:
 
-- **Fdrsenade ordrar**: Status oforandrad > 1 dag (utom completed/cancelled)
-- **Obetalda fakturor**: Forbi forfallodatum
-- **Tomma dagar**: Schema utan stopp (missade bokningar?)
-- **Inga leads**: Om inga nya leads pa 3+ dagar, foresla marknadsforingsinsats
-- **Hog belastning**: Om fler an 10 aktiva ordrar samtidigt, varna om kapacitet
+**ROD (akut — handla idag):**
+- Leveranstid > 2 dagar pa nagon aktiv order (2-dagars loftet hotas)
+- Faktura forfallen > 14 dagar
+- Kniv markerad som `lost` utan kompensationsplan
+- Kvalitetsklagomál utan uppfoljning
+
+**GUL (varning — handla inom 2 dagar):**
+- Order i samma status > 24h (utom completed/cancelled)
+- Obetalda fakturor (ej forfalma annu men narmar sig)
+- Inga nya leads pa 3+ dagar
+- En person gor > 60% av stoppen konsekvent (obalans)
+- Kapacitet > 70% (fler an 12 aktiva ordrar)
+
+**INFO (bra att veta):**
+- Schema utan stopp for imorgon (ledigt eller missat?)
+- Kunder som saknar telefonnummer (kan inte foljas upp)
+- Veckotrend: fler/farre ordrar an forr veckan
+
+Presentera som:
+```
+VARNINGAR
+  [ROD]   ORD-...-003: 3 dagar sedan hamtning, ej levererad!
+  [GUL]   Ingen ny lead pa 5 dagar — kor /analys for FB-forslag
+  [GUL]   Faktura INV-...-001 forfalier om 3 dagar
+  [INFO]  17 kunder saknar telefonnummer
+```
+
+## Tillvaxtbeslut
+
+Nar Gustav eller Philip fragar "ska vi anstalla?", "behover vi mer utrustning?", "ska vi expandera?":
+
+**Anstallning:**
+- Kapacitet > 70% i 4+ veckor OCH ordertrend stigande → "Borja leta"
+- Borja med timanstallning/provanstallning (lagst risk)
+
+**Ny utrustning (TORMEK):**
+- Knivko > 1 dag regelbundet → "Investera"
+- ROI-krav: aterbetald inom 3 manader
+
+**Expandera omrade:**
+- Leveranstid < 2 dagar konsekvent OCH nuvarande omraden mattat → "Expandera"
+- Expandera till grannomraden forst (Tyreso, Lidingo)
 
 ## Snabbkommandon
 
@@ -108,6 +170,9 @@ Nar du laser data, leta aktivt efter:
 | "vecka" | Veckosummering |
 | "problem" | Lista bara problem/varningar |
 | "kunder" | Kundstatistik |
+| "kvall" / "stangning" | Kvallsavstamning |
+| "prioritet" | Visa dagens Big 3 per person |
+| "tillvaxt" | Tillvaxtbeslut (anstalla/utrustning/expandera) |
 
 ## Datafiler som HQ laser (ALDRIG skriver)
 

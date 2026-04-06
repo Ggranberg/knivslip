@@ -1,0 +1,100 @@
+{
+  "legal_compliance": {
+    "last_reviewed": "2026-04-06",
+    "laws": [
+      {
+        "name": "GDPR (Dataskyddsforordningen)",
+        "applies_to": ["pipeline", "hq", "analys", "hemsida"],
+        "requirements": [
+          "Samtycke kravs innan persondata sparas — spara timestamp och metod",
+          "Ratt till radering — anonymisera persondata pa begaran",
+          "Ratt till registerutdrag — kunden kan begara all sin data",
+          "Dataminimering — samla bara nodvandig data",
+          "Inga kanslinga kategorier i anteckningar (halsa, religion, politik)",
+          "Ingen DPO kravs vid nuvarande storlek"
+        ],
+        "agent_actions": {
+          "pipeline": "Kontrollera samtycke vid varje ny kund. Aldrig skapa order utan samtycke. Stod radering och registerutdrag.",
+          "analys": "Anvand aldrig kundnamn i marknadsforingsforslag. Anonymisera all statistik.",
+          "hemsida": "Informera om datainsamling pa hemsidan. Cookiehantering om cookies anvands."
+        }
+      },
+      {
+        "name": "Bokforingslagen (BFL)",
+        "applies_to": ["ekonomi"],
+        "requirements": [
+          "Bokfor alla affarshandelser lopande",
+          "Spara bokforing i 7 ar (fakturor, kvitton, transaktioner)",
+          "Uppratta arsredovisning och lamna till Bolagsverket",
+          "Radera ALDRIG fakturor eller transaktioner",
+          "Vid GDPR-radering: anonymisera kund men behall ekonomiska poster"
+        ]
+      },
+      {
+        "name": "Momslagen",
+        "applies_to": ["ekonomi"],
+        "requirements": [
+          "25% moms pa tjanster (slipning)",
+          "Momsdeklaration kvartalsvis till Skatteverket",
+          "Deadline: 12:e i 2:a manaden efter kvartal (e-deklaration: 17:e)",
+          "Behall alla kvitton for ingaende moms",
+          "Satt undan 25% av intakter som momsreserv"
+        ]
+      },
+      {
+        "name": "Aktiebolagslagen",
+        "applies_to": ["ekonomi", "hq"],
+        "requirements": [
+          "Aktiekapital 25 000 kr minimum",
+          "Styrelse med minst en ledamot",
+          "Arsredovisning till Bolagsverket senast 31 juli (kalenderarsforetag)",
+          "Bolagsstamma minst en gang per ar"
+        ]
+      },
+      {
+        "name": "F-skatt",
+        "applies_to": ["ekonomi"],
+        "requirements": [
+          "Skriv 'Innehar F-skattsedel' pa alla fakturor",
+          "Betala preliminarskatt manadsvis baserat pa prognos"
+        ]
+      },
+      {
+        "name": "Konsumenttjanstlagen",
+        "applies_to": ["pipeline", "ekonomi"],
+        "requirements": [
+          "Tjansten ska utforas fackmannamassigt",
+          "Ansvar for knivar i er besittning — ersatt vid skada eller forlust",
+          "Kunden har ratt att reklamera daligt resultat",
+          "Kompensation vid fel: omgor gratis, rabatt vid forsening, ersattning vid forlust"
+        ]
+      },
+      {
+        "name": "Marknadsforingslagen",
+        "applies_to": ["analys", "hemsida"],
+        "requirements": [
+          "Ingen vilseledande reklam — 2-dagars loftet maste hallas",
+          "Priser mot konsumenter ska ALLTID visas inklusive moms",
+          "Erbjudanden maste vara tydliga med villkor och giltighetstid"
+        ]
+      },
+      {
+        "name": "Produktsakerhet",
+        "applies_to": ["pipeline"],
+        "requirements": [
+          "Kniven maste vara saker efter slipning (inga losa delar, korrekt skarpa)",
+          "Kvalitetskontroll pa varje kniv innan leverans"
+        ]
+      }
+    ],
+    "deadlines": {
+      "momsdeklaration_Q1": "12 maj (e-deklaration: 17 maj)",
+      "momsdeklaration_Q2": "12 augusti (e-deklaration: 17 augusti)",
+      "momsdeklaration_Q3": "12 november (e-deklaration: 17 november)",
+      "momsdeklaration_Q4": "12 februari (e-deklaration: 17 februari)",
+      "arsredovisning_bolagsverket": "31 juli",
+      "inkomstdeklaration_2": "1 juli (e-deklaration: 1 augusti)",
+      "kontrolluppgifter": "31 januari"
+    }
+  }
+}
