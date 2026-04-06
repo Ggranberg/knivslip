@@ -1,0 +1,54 @@
+{
+  "areas": [
+    {
+      "id": "AREA-NACKA-C",
+      "name": "Nacka centrum/Sickla",
+      "postnummer_prefix": ["131"],
+      "notes": "Nacka kommun, tatort"
+    },
+    {
+      "id": "AREA-NACKA-SALTSJOBADEN",
+      "name": "Saltsjobaden/Fisksatra",
+      "postnummer_prefix": ["133"],
+      "notes": "Nacka kommun, villaomrade, hog potential"
+    },
+    {
+      "id": "AREA-NACKA-BOO",
+      "name": "Boo/Orminge",
+      "postnummer_prefix": ["132"],
+      "notes": "Nacka kommun, blandad bebyggelse"
+    },
+    {
+      "id": "AREA-VARMDO-C",
+      "name": "Gustavsberg",
+      "postnummer_prefix": ["134"],
+      "notes": "Varmdo kommun, centralort"
+    },
+    {
+      "id": "AREA-VARMDO-HALSO",
+      "name": "Halso/Djuro/Moja",
+      "postnummer_prefix": ["139"],
+      "notes": "Varmdo kommun, skargard, langre restid"
+    },
+    {
+      "id": "AREA-VARMDO-INGARSO",
+      "name": "Ingarso/Fagelbro",
+      "postnummer_prefix": ["130"],
+      "notes": "Varmdo kommun"
+    }
+  ],
+  "distances_minutes": [
+    {"from": "AREA-NACKA-C", "to": "AREA-NACKA-SALTSJOBADEN", "minutes": 15},
+    {"from": "AREA-NACKA-C", "to": "AREA-NACKA-BOO", "minutes": 10},
+    {"from": "AREA-NACKA-C", "to": "AREA-VARMDO-C", "minutes": 20},
+    {"from": "AREA-NACKA-BOO", "to": "AREA-VARMDO-C", "minutes": 15},
+    {"from": "AREA-NACKA-BOO", "to": "AREA-NACKA-SALTSJOBADEN", "minutes": 15},
+    {"from": "AREA-NACKA-SALTSJOBADEN", "to": "AREA-VARMDO-C", "minutes": 20},
+    {"from": "AREA-VARMDO-C", "to": "AREA-VARMDO-HALSO", "minutes": 25},
+    {"from": "AREA-VARMDO-C", "to": "AREA-VARMDO-INGARSO", "minutes": 20},
+    {"from": "AREA-VARMDO-HALSO", "to": "AREA-VARMDO-INGARSO", "minutes": 30}
+  ],
+  "home_base": "AREA-NACKA-C",
+  "home_base_address": "Klostervagen 6, Nacka",
+  "notes": "Nacka & Varmdo kommun. Uppdatera restider baserat pa erfarenhet. Postnummerprefix ar ungefärliga — korrigera vid behov."
+}
