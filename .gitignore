@@ -1,0 +1,15 @@
+# Känslig data — pushas ALDRIG
+data/customers.json
+data/orders.json
+data/knives.json
+data/invoices.json
+data/transactions.json
+data/timelog.json
+data/users.json
+data/backups/
+
+# macOS
+.DS_Store
+
+# Server
+server.py
