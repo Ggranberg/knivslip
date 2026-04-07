@@ -350,22 +350,79 @@
         timer = setTimeout(() => { clicks = 0; }, 600);
         if (clicks >= 3) {
           clicks = 0;
+          const isTouch = window.innerWidth <= 768;
           const overlay = document.createElement('div');
-          overlay.innerHTML = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;"><div style="background:#1a1a1a;padding:2rem;border-radius:12px;text-align:center;max-width:300px;"><div style="color:#e85d04;font-size:1.2rem;font-weight:800;letter-spacing:0.1em;margin-bottom:1rem;">KNIVSLIP</div><input id="pin-input" type="password" maxlength="6" placeholder="Ange PIN" style="width:100%;padding:0.8rem;border:2px solid #404040;border-radius:8px;background:#262626;color:#fff;font-size:1.2rem;text-align:center;letter-spacing:0.3em;font-family:inherit;" autofocus><p id="pin-error" style="color:#dc2626;font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p></div></div>';
-          document.body.appendChild(overlay);
-          const input = document.getElementById('pin-input');
-          const error = document.getElementById('pin-error');
-          let attempts = 0;
-          input.focus();
-          input.addEventListener('keydown', function(ev) {
-            if (ev.key === 'Escape') { overlay.remove(); return; }
-            if (ev.key === 'Enter' && input.value.length >= 4) {
-              window.location.href = 'https://knivkillarna.up.railway.app/admin#pin=' + input.value;
-            }
-          });
-          overlay.addEventListener('click', function(ev) {
-            if (ev.target === overlay.firstChild) overlay.remove();
-          });
+
+          if (isTouch) {
+            // Mobile: PIN pad
+            overlay.innerHTML = `
+              <div style="position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;">
+                <div style="text-align:center;max-width:300px;width:100%;padding:1.5rem;">
+                  <div style="color:#e85d04;font-size:1.3rem;font-weight:800;letter-spacing:0.15em;margin-bottom:0.5rem;">KNIVSLIP</div>
+                  <div style="color:#737373;font-size:0.8rem;margin-bottom:1.5rem;">Ange PIN</div>
+                  <div id="pp-dots" style="display:flex;justify-content:center;gap:12px;margin-bottom:1.5rem;">
+                    <div class="pp-dot" style="width:16px;height:16px;border-radius:50%;border:2px solid #737373;transition:all 0.2s;"></div>
+                    <div class="pp-dot" style="width:16px;height:16px;border-radius:50%;border:2px solid #737373;transition:all 0.2s;"></div>
+                    <div class="pp-dot" style="width:16px;height:16px;border-radius:50%;border:2px solid #737373;transition:all 0.2s;"></div>
+                    <div class="pp-dot" style="width:16px;height:16px;border-radius:50%;border:2px solid #737373;transition:all 0.2s;"></div>
+                  </div>
+                  <div id="pp-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto;">
+                    ${[1,2,3,4,5,6,7,8,9,'',0,'del'].map(d => {
+                      if (d === '') return '<div></div>';
+                      if (d === 'del') return '<button data-d="del" style="height:60px;width:60px;margin:0 auto;border:none;border-radius:50%;background:transparent;color:#999;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;">&#9003;</button>';
+                      return '<button data-d="'+d+'" style="height:60px;width:60px;margin:0 auto;border:none;border-radius:50%;background:#333;color:#fff;font-size:1.5rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:background 0.1s;">'+d+'</button>';
+                    }).join('')}
+                  </div>
+                  <button id="pp-cancel" style="margin-top:1.5rem;background:none;border:none;color:#737373;font-size:0.9rem;cursor:pointer;font-family:inherit;padding:0.5rem 1rem;">Avbryt</button>
+                </div>
+              </div>`;
+            document.body.appendChild(overlay);
+
+            let pin = '';
+            const dots = overlay.querySelectorAll('.pp-dot');
+            const updateDots = () => dots.forEach((d,i) => {
+              d.style.background = i < pin.length ? '#e85d04' : 'transparent';
+              d.style.borderColor = i < pin.length ? '#e85d04' : '#737373';
+              d.style.transform = i < pin.length ? 'scale(1.15)' : 'scale(1)';
+            });
+
+            overlay.querySelectorAll('[data-d]').forEach(btn => {
+              btn.addEventListener('click', function() {
+                const d = this.dataset.d;
+                if (d === 'del') { pin = pin.slice(0,-1); updateDots(); return; }
+                if (pin.length >= 6) return;
+                pin += d;
+                updateDots();
+                if (pin.length >= 4) {
+                  setTimeout(() => {
+                    window.location.href = 'https://knivkillarna.up.railway.app/admin#pin=' + pin;
+                  }, 250);
+                }
+              });
+              // Active press effect
+              btn.addEventListener('touchstart', function() { if(this.dataset.d !== 'del') this.style.background='#e85d04'; }, {passive:true});
+              btn.addEventListener('touchend', function() { if(this.dataset.d !== 'del') this.style.background='#333'; }, {passive:true});
+            });
+
+            document.getElementById('pp-cancel').addEventListener('click', () => overlay.remove());
+            overlay.firstElementChild.addEventListener('click', function(ev) { if (ev.target === this) overlay.remove(); });
+
+          } else {
+            // Desktop: standard input
+            overlay.innerHTML = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;"><div style="background:#1a1a1a;padding:2rem;border-radius:12px;text-align:center;max-width:300px;"><div style="color:#e85d04;font-size:1.2rem;font-weight:800;letter-spacing:0.1em;margin-bottom:1rem;">KNIVSLIP</div><input id="pin-input" type="password" maxlength="6" placeholder="Ange PIN" style="width:100%;padding:0.8rem;border:2px solid #404040;border-radius:8px;background:#262626;color:#fff;font-size:1.2rem;text-align:center;letter-spacing:0.3em;font-family:inherit;" autofocus><p id="pin-error" style="color:#dc2626;font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p></div></div>';
+            document.body.appendChild(overlay);
+            const input = document.getElementById('pin-input');
+            input.focus();
+            input.addEventListener('keydown', function(ev) {
+              if (ev.key === 'Escape') { overlay.remove(); return; }
+              if (ev.key === 'Enter' && input.value.length >= 4) {
+                window.location.href = 'https://knivkillarna.up.railway.app/admin#pin=' + input.value;
+              }
+            });
+            overlay.addEventListener('click', function(ev) {
+              if (ev.target === overlay.firstChild) overlay.remove();
+            });
+          }
         }
       });
     })();
