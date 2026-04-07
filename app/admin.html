@@ -480,11 +480,65 @@
             </div>
             <div style="display:flex;gap:0.5rem;flex-direction:column;">
               <button onclick="importBooking(${i})" class="log-submit" style="padding:0.5rem 1rem;white-space:nowrap;">Importera</button>
+              <button onclick="editBooking(${i})" style="padding:0.5rem 1rem;white-space:nowrap;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ändra</button>
               <button onclick="deleteBooking(${i})" style="padding:0.5rem 1rem;white-space:nowrap;background:var(--red);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ta bort</button>
             </div>
           </div>
         </div>
       `).join('');
+    }
+
+    function editBooking(index) {
+      const b = SHEET_BOOKINGS[index];
+      const card = document.querySelectorAll('#booking-list .card')[index];
+      if (!card) return;
+      card.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+            <div>
+              <label style="font-size:0.75rem;color:var(--gray-400);">Namn</label>
+              <input id="edit-name-${index}" value="${b.name||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:var(--gray-400);">Telefon</label>
+              <input id="edit-phone-${index}" value="${b.phone||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0.5rem;">
+            <div>
+              <label style="font-size:0.75rem;color:var(--gray-400);">Adress</label>
+              <input id="edit-address-${index}" value="${b.address||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:var(--gray-400);">Postnummer</label>
+              <input id="edit-zip-${index}" value="${b.postnummer||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:var(--gray-400);">Knivar</label>
+              <input id="edit-knives-${index}" value="${b.knives||''}" type="number" min="1" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:0.75rem;color:var(--gray-400);">Meddelande</label>
+            <input id="edit-msg-${index}" value="${b.message||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
+          </div>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.25rem;">
+            <button onclick="saveBookingEdit(${index})" class="log-submit" style="padding:0.4rem 1rem;font-size:0.85rem;">Spara</button>
+            <button onclick="renderView('bookings')" style="padding:0.4rem 1rem;font-size:0.85rem;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">Avbryt</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function saveBookingEdit(index) {
+      const b = SHEET_BOOKINGS[index];
+      b.name = document.getElementById('edit-name-' + index).value.trim() || b.name;
+      b.phone = document.getElementById('edit-phone-' + index).value.trim() || b.phone;
+      b.address = document.getElementById('edit-address-' + index).value.trim() || b.address;
+      b.postnummer = document.getElementById('edit-zip-' + index).value.trim() || b.postnummer;
+      b.knives = document.getElementById('edit-knives-' + index).value.trim() || b.knives;
+      b.message = document.getElementById('edit-msg-' + index).value.trim();
+      renderView('bookings');
     }
 
     // === CUSTOMER PROFILE ===
