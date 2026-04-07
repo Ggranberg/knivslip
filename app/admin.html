@@ -948,11 +948,13 @@
           { view: 'slipare-home', icon: '&#9632;', label: 'Min dag' },
           { view: 'slipare-log', icon: '&#128221;', label: 'Logga' },
           { view: 'forare-route', icon: '&#128197;', label: 'Leveranser' },
+          { view: 'more', icon: '&#8943;', label: 'Mer' },
         ];
       } else if (role === 'forare') {
         items = [
           { view: 'forare-home', icon: '&#9632;', label: 'Min dag' },
           { view: 'forare-route', icon: '&#128197;', label: 'Rutt' },
+          { view: 'more', icon: '&#8943;', label: 'Mer' },
         ];
       }
 
@@ -986,14 +988,18 @@
       const existing = document.querySelector('.more-menu-overlay');
       if (existing) { existing.remove(); return; }
 
-      const moreItems = [
-        { view: 'routes', icon: '&#128205;', label: 'Ruttkarta' },
-        { view: 'reminders', icon: '&#128276;', label: 'Paminnelser' },
-        { view: 'finance', icon: '&#128176;', label: 'Ekonomi' },
-        { view: 'arbete', icon: '&#128200;', label: 'Arbete/Lon' },
-        { view: 'admin-log', icon: '&#128221;', label: 'Logga arbete' },
-        { view: 'team', icon: '&#128100;', label: 'Team' },
-      ];
+      let moreItems = [];
+      if (CURRENT_USER.role === 'admin') {
+        moreItems = [
+          { view: 'routes', icon: '&#128205;', label: 'Ruttkarta' },
+          { view: 'reminders', icon: '&#128276;', label: 'Paminnelser' },
+          { view: 'finance', icon: '&#128176;', label: 'Ekonomi' },
+          { view: 'arbete', icon: '&#128200;', label: 'Arbete/Lon' },
+          { view: 'admin-log', icon: '&#128221;', label: 'Logga arbete' },
+          { view: 'team', icon: '&#128100;', label: 'Team' },
+        ];
+      }
+      // Slipare och förare får inga extra vyer — bara tillbaka + logga ut
 
       const overlay = document.createElement('div');
       overlay.className = 'more-menu-overlay';
