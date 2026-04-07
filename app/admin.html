@@ -24,11 +24,91 @@
     .login-box { background: var(--gray-900); padding: 2.5rem; border-radius: 16px; text-align: center; width: 340px; }
     .login-box .logo { color: var(--accent); font-size: 1.5rem; font-weight: 800; letter-spacing: 0.15em; margin-bottom: 0.5rem; }
     .login-box .subtitle { color: var(--gray-500); font-size: 0.85rem; margin-bottom: 2rem; }
+    /* Desktop: standard input */
     .login-box input { width: 100%; padding: 0.9rem; border: 2px solid var(--gray-700); border-radius: var(--radius); background: var(--gray-800); color: var(--white); font-size: 1.3rem; text-align: center; letter-spacing: 0.4em; font-family: inherit; margin-bottom: 1rem; }
     .login-box input:focus { outline: none; border-color: var(--accent); }
     .login-box .login-btn { width: 100%; padding: 0.8rem; background: var(--accent); color: var(--white); border: none; border-radius: var(--radius); font-size: 1rem; font-weight: 600; cursor: pointer; font-family: inherit; }
     .login-box .login-btn:hover { background: var(--accent-hover); }
     .login-box .login-error { color: var(--red); font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.2em; }
+
+    /* PIN PAD — custom numpad for touch */
+    .pin-pad { display: none; }
+    .pin-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 1.5rem; }
+    .pin-dot {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid var(--gray-500);
+      background: transparent;
+      transition: all 0.2s ease;
+    }
+    .pin-dot.filled {
+      background: var(--accent);
+      border-color: var(--accent);
+      transform: scale(1.15);
+    }
+    .pin-dot.error {
+      border-color: var(--red);
+      background: var(--red);
+      animation: pinShake 0.4s ease;
+    }
+    @keyframes pinShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
+    .pin-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      max-width: 280px;
+      margin: 0 auto;
+    }
+    .pin-key {
+      height: 64px;
+      border: none;
+      border-radius: 50%;
+      width: 64px;
+      margin: 0 auto;
+      font-size: 1.6rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      background: var(--gray-800);
+      color: var(--white);
+    }
+    .pin-key:active {
+      background: var(--accent);
+      transform: scale(0.92);
+    }
+    .pin-key.fn {
+      background: transparent;
+      color: var(--gray-400);
+      font-size: 1rem;
+    }
+    .pin-key.fn:active {
+      background: rgba(255,255,255,0.05);
+      color: var(--white);
+    }
+    .pin-key.fn.delete-key {
+      font-size: 1.4rem;
+    }
+
+    @media (max-width: 768px) {
+      .login-box { width: calc(100% - 2rem); max-width: 340px; padding: 2rem 1.5rem; background: transparent; }
+      .login-box .desktop-login { display: none; }
+      .pin-pad { display: block; }
+    }
+    @media (min-width: 769px) {
+      .pin-pad { display: none !important; }
+      .login-box .desktop-login { display: block; }
+    }
 
     /* APP LAYOUT */
     .app { display: none; min-height: 100vh; }
@@ -431,8 +511,37 @@
     <div class="login-box">
       <div class="logo">KNIVSLIP</div>
       <div class="subtitle">Personalportal</div>
-      <input type="password" id="login-pin" maxlength="6" placeholder="PIN-kod" autofocus>
-      <button class="login-btn" id="login-btn">Logga in</button>
+
+      <!-- Desktop: standard input -->
+      <div class="desktop-login">
+        <input type="password" id="login-pin" maxlength="6" placeholder="PIN-kod" autofocus>
+        <button class="login-btn" id="login-btn">Logga in</button>
+      </div>
+
+      <!-- Mobile: custom PIN pad -->
+      <div class="pin-pad" id="pin-pad">
+        <div class="pin-dots" id="pin-dots">
+          <div class="pin-dot" data-i="0"></div>
+          <div class="pin-dot" data-i="1"></div>
+          <div class="pin-dot" data-i="2"></div>
+          <div class="pin-dot" data-i="3"></div>
+        </div>
+        <div class="pin-grid">
+          <button class="pin-key" data-digit="1">1</button>
+          <button class="pin-key" data-digit="2">2</button>
+          <button class="pin-key" data-digit="3">3</button>
+          <button class="pin-key" data-digit="4">4</button>
+          <button class="pin-key" data-digit="5">5</button>
+          <button class="pin-key" data-digit="6">6</button>
+          <button class="pin-key" data-digit="7">7</button>
+          <button class="pin-key" data-digit="8">8</button>
+          <button class="pin-key" data-digit="9">9</button>
+          <button class="pin-key fn" data-digit=""></button>
+          <button class="pin-key" data-digit="0">0</button>
+          <button class="pin-key fn delete-key" data-digit="del">&#9003;</button>
+        </div>
+      </div>
+
       <div class="login-error" id="login-error"></div>
     </div>
   </div>
@@ -2064,8 +2173,73 @@
     }
 
     // === INIT ===
-    document.getElementById('login-btn').addEventListener('click', () => login(document.getElementById('login-pin').value));
-    document.getElementById('login-pin').addEventListener('keydown', e => { if (e.key === 'Enter') login(document.getElementById('login-pin').value); });
+    // Desktop login
+    document.getElementById('login-btn')?.addEventListener('click', () => login(document.getElementById('login-pin').value));
+    document.getElementById('login-pin')?.addEventListener('keydown', e => { if (e.key === 'Enter') login(document.getElementById('login-pin').value); });
+
+    // Mobile PIN pad
+    (function() {
+      let pinCode = '';
+      const MAX_PIN = 6;
+      const dots = document.querySelectorAll('#pin-dots .pin-dot');
+      const pad = document.getElementById('pin-pad');
+      if (!pad) return;
+
+      function updateDots() {
+        dots.forEach((dot, i) => {
+          dot.classList.toggle('filled', i < pinCode.length);
+          dot.classList.remove('error');
+        });
+      }
+
+      function showError() {
+        dots.forEach(d => { d.classList.add('error'); d.classList.remove('filled'); });
+        setTimeout(() => {
+          pinCode = '';
+          updateDots();
+        }, 500);
+      }
+
+      pad.querySelectorAll('.pin-key').forEach(key => {
+        key.addEventListener('click', async function(e) {
+          e.preventDefault();
+          const digit = this.dataset.digit;
+
+          if (digit === '') return; // empty spacer
+
+          if (digit === 'del') {
+            if (pinCode.length > 0) {
+              pinCode = pinCode.slice(0, -1);
+              updateDots();
+            }
+            return;
+          }
+
+          if (pinCode.length >= MAX_PIN) return;
+          pinCode += digit;
+          updateDots();
+
+          // Auto-submit when 4+ digits entered
+          if (pinCode.length >= 4) {
+            // Small delay so user sees last dot fill
+            await new Promise(r => setTimeout(r, 200));
+            const ok = await login(pinCode);
+            if (!ok) {
+              showError();
+              document.getElementById('login-error').textContent = 'Fel PIN-kod';
+            }
+          }
+        });
+      });
+
+      // Reset PIN pad on logout
+      const origLogout = window.logout;
+      window.logout = function() {
+        pinCode = '';
+        updateDots();
+        origLogout();
+      };
+    })();
 
     // Auto-login from URL hash, sessionStorage, or triple-click PIN
     (async function() {
