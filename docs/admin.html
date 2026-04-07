@@ -430,6 +430,19 @@
       }
     }
 
+    function deleteBooking(index) {
+      const b = SHEET_BOOKINGS[index];
+      if (!b) return;
+      if (!confirm(`Ta bort bokning från ${b.name}?`)) return;
+
+      // Mark as imported so it won't show again
+      const localImported = JSON.parse(localStorage.getItem('knivslip_imported') || '[]');
+      localImported.push(b.datum);
+      localStorage.setItem('knivslip_imported', JSON.stringify(localImported));
+      SHEET_BOOKINGS.splice(index, 1);
+      renderView('bookings');
+    }
+
     function renderBookings(main) {
       const count = SHEET_BOOKINGS.length;
       main.insertAdjacentHTML('beforeend', `
@@ -465,7 +478,10 @@
               ${b.message ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">"${b.message}"</div>` : ''}
               <div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.25rem;">Bokad: ${b.datum ? new Date(b.datum).toLocaleString('sv-SE') : '?'}</div>
             </div>
-            <button onclick="importBooking(${i})" class="log-submit" style="padding:0.5rem 1rem;white-space:nowrap;">Importera</button>
+            <div style="display:flex;gap:0.5rem;flex-direction:column;">
+              <button onclick="importBooking(${i})" class="log-submit" style="padding:0.5rem 1rem;white-space:nowrap;">Importera</button>
+              <button onclick="deleteBooking(${i})" style="padding:0.5rem 1rem;white-space:nowrap;background:var(--red);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ta bort</button>
+            </div>
           </div>
         </div>
       `).join('');
@@ -1502,6 +1518,7 @@
                 ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">${o.notes}</div>` : ''}
               </div>
               <div style="display:flex;flex-direction:column;gap:0.4rem;">
+                ${o.assigned_to ? `<div style="font-size:0.75rem;padding:0.3rem 0.6rem;background:var(--blue-light);color:var(--blue);border-radius:var(--radius);text-align:center;font-weight:600;">${DATA.team?.find(t=>t.id===o.assigned_to)?.name || o.assigned_to}</div>` : `<button onclick="claimOrder('${o.id}')" style="padding:0.4rem 0.8rem;font-size:0.8rem;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">&#9997; Jag tar den</button>`}
                 <button onclick="markSharpened('${o.id}', ${knives === '?' ? 0 : knives})" class="log-submit" style="padding:0.4rem 0.8rem;font-size:0.8rem;">&#10003; Slipat klart</button>
               </div>
             </div>
@@ -1509,6 +1526,19 @@
       }).join('');
 
       if (!queue.length) container.innerHTML = '<div style="color:var(--gray-400);font-style:italic;">Inga knivar att slipa just nu</div>';
+    }
+
+    function claimOrder(orderId) {
+      const order = DATA.orders.find(o => o.id === orderId);
+      if (!order) return;
+      order.assigned_to = CURRENT_USER.id;
+      if (order.status === 'picked_up' || order.status === 'registered') {
+        order.status = 'sharpening';
+        order.status_history.push({ status: 'sharpening', timestamp: now(), by: CURRENT_USER.name.toLowerCase().split(' ')[0] });
+      }
+      saveOrders();
+      const role = CURRENT_USER.role;
+      renderView(role === 'admin' ? 'admin-log' : 'slipare-home');
     }
 
     function markSharpened(orderId, kniveCount) {
