@@ -189,7 +189,7 @@
   <section id="boka" class="section">
     <h2>Boka slipning</h2>
     <p class="section-sub">Fyll i formuläret så hör vi av oss inom några timmar för att bekräfta tid.</p>
-    <form class="booking-form" action="https://formspree.io/f/xjgpjean" method="POST">
+    <form class="booking-form" action="https://knivkillarna.up.railway.app/api/booking" method="POST">
       <div class="form-row">
         <div class="form-group">
           <label for="name">Namn *</label>
@@ -379,12 +379,30 @@
         btn.textContent = 'Skickar...';
         btn.disabled = true;
 
+        const addressRaw = form.querySelector('#address').value.trim();
+        const parts = addressRaw.split(',').map(s => s.trim());
+        const address = parts[0] || addressRaw;
+        const stad = parts[1] || 'Nacka';
+
+        const data = {
+          name: form.querySelector('#name').value.trim(),
+          phone: form.querySelector('#phone').value.trim(),
+          address: address,
+          stad: stad,
+          knives: form.querySelector('#knives').value,
+          message: form.querySelector('#message').value.trim()
+        };
+
         fetch(form.action, {
           method: 'POST',
-          body: new FormData(form),
-          headers: { 'Accept': 'application/json' }
+          body: JSON.stringify(data),
+          headers: { 'Content-Type': 'application/json' }
         })
-        .then(r => r.ok ? window.location.href = 'tack.html' : Promise.reject())
+        .then(r => r.json())
+        .then(r => {
+          if (r.ok) window.location.href = 'tack.html';
+          else throw new Error(r.error || 'Fel');
+        })
         .catch(() => {
           btn.textContent = 'Skicka bokning';
           btn.disabled = false;

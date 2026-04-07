@@ -14,7 +14,7 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 APP_DIR = os.path.join(BASE_DIR, 'app')
 ALLOWED_FILES = ['users.json', 'timelog.json', 'customers.json', 'orders.json',
                  'knives.json', 'invoices.json', 'transactions.json', 'schedule.json',
-                 'pricing.json', 'areas.json', 'legal.json']
+                 'pricing.json', 'areas.json', 'legal.json', 'bookings.json']
 
 # Template for empty data files (created on first run if missing)
 DATA_TEMPLATES = {
@@ -25,6 +25,7 @@ DATA_TEMPLATES = {
     'transactions.json': {'transactions': []},
     'schedule.json': {'schedule': []},
     'timelog.json': {'entries': []},
+    'bookings.json': {'bookings': []},
     'pricing.json': {'pricing': {'currency': 'SEK', 'vat_rate': 0.25, 'last_updated': '2026-04-06', 'price_tiers': [{'min_knives': 1, 'max_knives': 2, 'price_incl_vat': 170, 'price_excl_vat': 136, 'description': '1-2 knivar: 170 kr/st'}, {'min_knives': 3, 'max_knives': 5, 'price_incl_vat': 140, 'price_excl_vat': 112, 'description': '3-5 knivar: 140 kr/st'}, {'min_knives': 6, 'max_knives': 999, 'price_incl_vat': 120, 'price_excl_vat': 96, 'description': '6+ knivar: 120 kr/st'}], 'minimum_order': 0, 'pickup_fee': 0}},
     'areas.json': {'areas': [{'id': 'AREA-NACKA-C', 'name': 'Nacka centrum/Sickla', 'postnummer_prefix': ['131']}, {'id': 'AREA-NACKA-SALTSJOBADEN', 'name': 'Saltsjobaden/Fisksatra', 'postnummer_prefix': ['133']}, {'id': 'AREA-NACKA-BOO', 'name': 'Boo/Orminge', 'postnummer_prefix': ['132']}, {'id': 'AREA-VARMDO-C', 'name': 'Gustavsberg', 'postnummer_prefix': ['134']}], 'home_base': 'AREA-NACKA-C'},
     'users.json': {'users': [
@@ -230,7 +231,7 @@ def optimize_schedule():
 
 
 def handle_booking(data):
-    """Process a new booking from the website form."""
+    """Save a new booking as pending (not yet approved)."""
     name = data.get('name', '').strip()
     phone = data.get('phone', '').strip()
     email = data.get('email', '').strip() or None
@@ -245,27 +246,68 @@ def handle_booking(data):
     if not name or not phone or not address:
         return {'ok': False, 'error': 'Namn, telefon och adress kravs'}
 
-    # Estimate knife count from tier
+    now_str = datetime.now().isoformat()
+    bookings_data = load_json('bookings.json')
+    bookings = bookings_data.get('bookings', [])
+
+    booking_id = generate_id('BOK', [b['id'] for b in bookings])
+
+    new_booking = {
+        'id': booking_id,
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'address': address,
+        'postnummer': postnummer,
+        'stad': stad,
+        'knives': knives_str,
+        'preferred_date': preferred_date or None,
+        'time_window': time_window or None,
+        'message': message,
+        'created_at': now_str,
+        'status': 'pending'
+    }
+    bookings.append(new_booking)
+    save_json('bookings.json', {'bookings': bookings})
+    print(f'[BOKNING] Ny bokning: {booking_id} — {name}, {knives_str} knivar')
+
+    return {'ok': True, 'booking_id': booking_id}
+
+
+def approve_booking(booking_id):
+    """Approve a pending booking — creates customer + order."""
+    bookings_data = load_json('bookings.json')
+    bookings = bookings_data.get('bookings', [])
+    booking = next((b for b in bookings if b['id'] == booking_id), None)
+    if not booking:
+        return {'ok': False, 'error': 'Bokning hittades inte'}
+
+    name = booking['name']
+    phone = booking['phone']
+    email = booking.get('email')
+    address = booking['address']
+    postnummer = booking.get('postnummer')
+    stad = booking.get('stad', 'Nacka')
+    knives_str = booking.get('knives', '3-5')
+    preferred_date = booking.get('preferred_date')
+    time_window = booking.get('time_window')
+    message = booking.get('message', '')
+
     knife_map = {'1-2': 2, '3-5': 4, '6+': 7}
     knife_count = knife_map.get(knives_str, 4)
 
-    # Load data
     customers_data = load_json('customers.json')
     orders_data = load_json('orders.json')
     areas_data = load_json('areas.json')
-
     customers = customers_data.get('customers', [])
     orders = orders_data.get('orders', [])
 
-    # Check if customer already exists (by phone)
-    existing = next((c for c in customers if c.get('phone') == phone), None)
-
+    existing = next((c for c in customers if c.get('phone') == phone and not c.get('is_deleted')), None)
     now_str = datetime.now().isoformat()
 
     if existing:
         customer_id = existing['id']
     else:
-        # Create new customer
         customer_id = generate_id('CUS', [c['id'] for c in customers])
         area_id = detect_area(address, areas_data)
         new_customer = {
@@ -277,9 +319,8 @@ def handle_booking(data):
         }
         customers.append(new_customer)
         save_json('customers.json', {'customers': customers})
-        print(f'[AUTO] Ny kund: {name} ({customer_id})')
+        print(f'[GODKAND] Ny kund: {name} ({customer_id})')
 
-    # Create order
     pickup_date = preferred_date or (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
     order_id = generate_id('ORD', [o['id'] for o in orders])
     new_order = {
@@ -297,10 +338,13 @@ def handle_booking(data):
     }
     orders.append(new_order)
     save_json('orders.json', {'orders': orders})
-    print(f'[AUTO] Ny order: {order_id} for {name}, {knife_count} knivar, hamtning {pickup_date}')
 
-    # Auto-optimize schedule
+    # Remove from pending bookings
+    booking['status'] = 'approved'
+    save_json('bookings.json', {'bookings': bookings})
+
     optimize_schedule()
+    print(f'[GODKAND] Order: {order_id} for {name}, {knife_count} knivar')
 
     return {'ok': True, 'customer_id': customer_id, 'order_id': order_id}
 
@@ -364,6 +408,18 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({'ok': True}).encode())
             except Exception as e:
                 self.send_error(500, str(e))
+
+        elif path == '/api/approve':
+            booking_id = data.get('booking_id')
+            if not booking_id:
+                self.send_error(400, 'booking_id saknas')
+                return
+            result = approve_booking(booking_id)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode())
 
         elif path == '/api/optimize':
             optimize_schedule()

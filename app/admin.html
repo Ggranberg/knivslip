@@ -331,12 +331,12 @@
         invoices: invoices.invoices, transactions: transactions.transactions, schedule: schedule.schedule,
         pricing: pricing.pricing, areas: areas };
       TIMELOG = timelog.entries;
-      await loadSheetBookings();
+      await loadPendingBookings();
       // Update booking badge
       const badge = document.getElementById('booking-badge');
       if (badge) {
-        if (SHEET_BOOKINGS.length > 0) {
-          badge.textContent = SHEET_BOOKINGS.length;
+        if (PENDING_BOOKINGS.length > 0) {
+          badge.textContent = PENDING_BOOKINGS.length;
           badge.style.display = 'inline';
         } else {
           badge.style.display = 'none';
@@ -344,107 +344,96 @@
       }
     }
 
-    // === GOOGLE SHEETS BOOKINGS ===
-    const SHEET_ID = '1EP0WPB1N_aXCfo5s1kRXC-IvKEJhjy_M9DlPxxAYc7I';
-    let SHEET_BOOKINGS = [];
+    // === BOKNINGAR (from bookings.json) ===
+    let PENDING_BOOKINGS = [];
 
-    async function loadSheetBookings() {
+    async function loadPendingBookings() {
       try {
-        const res = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`);
-        const text = await res.text();
-        const json = JSON.parse(text.substring(47).slice(0, -2));
-        const rows = json.table.rows;
-        SHEET_BOOKINGS = [];
-        rows.forEach(row => {
-          const cells = row.c;
-          if (!cells || !cells[1]?.v) return; // Skip empty/header
-          // Use .f (formatted) if available, fallback to .v (value)
-          const val = (c) => c?.f || (c?.v != null ? String(c.v) : '');
-          SHEET_BOOKINGS.push({
-            datum: cells[0]?.v || '',
-            name: val(cells[1]),
-            phone: val(cells[2]),
-            email: val(cells[3]),
-            address: val(cells[4]),
-            postnummer: val(cells[5]),
-            stad: val(cells[6]),
-            knives: val(cells[7]),
-            preferred_date: val(cells[8]),
-            time_window: val(cells[9]),
-            message: val(cells[10]),
-            imported: val(cells[11]) || 'NEJ'
-          });
-        });
-        // Filter: remove imported (from Sheet) and locally dismissed
-        const localImported = JSON.parse(localStorage.getItem('knivslip_imported') || '[]');
-        SHEET_BOOKINGS = SHEET_BOOKINGS.filter(b => b.imported === 'NEJ' && b.name !== 'Namn' && !localImported.includes(b.datum));
-      } catch(e) { console.error('Kunde inte lasa Google Sheet', e); }
+        const d = await fetchJSON('bookings.json');
+        PENDING_BOOKINGS = (d.bookings || []).filter(b => b.status === 'pending');
+      } catch(e) { console.error('Kunde inte ladda bokningar', e); PENDING_BOOKINGS = []; }
     }
 
-    async function markSheetRowImported(bookingDatum) {
-      // Mark row as imported in Google Sheet via Apps Script
-      const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz2mmfw8yXNHLnVSQ5k6n_rPZdodznTYjPXtkMtE7_HG1Tk5Zi36Pi71fGYkxDnDoWlow/exec';
-      try {
-        await fetch(SHEETS_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'markImported', datum: bookingDatum }),
-          mode: 'no-cors'
-        });
-      } catch(e) {}
-    }
-
-    async function importBooking(index) {
-      const b = SHEET_BOOKINGS[index];
-      if (!b) return;
-
+    async function approveBooking(bookingId) {
       const btn = event?.target;
-      if (btn) { btn.textContent = 'Importerar...'; btn.disabled = true; }
-
-      // Send to local API
-      const res = await fetch('/api/booking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: b.name, phone: b.phone, email: b.email,
-          address: b.address, postnummer: b.postnummer, stad: b.stad || 'Nacka',
-          knives: b.knives, preferred_date: b.preferred_date,
-          time_window: b.time_window, message: b.message
-        })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        // Mark as imported locally + in Google Sheet
-        const localImported = JSON.parse(localStorage.getItem('knivslip_imported') || '[]');
-        localImported.push(b.datum);
-        localStorage.setItem('knivslip_imported', JSON.stringify(localImported));
-        await markSheetRowImported(b.datum);
-        SHEET_BOOKINGS.splice(index, 1);
-        await loadAllData();
-        renderView('bookings');
-      }
+      if (btn) { btn.textContent = 'Godkanner...'; btn.disabled = true; }
+      try {
+        const res = await fetch('/api/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking_id: bookingId })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          await loadPendingBookings();
+          await loadAllData();
+          renderView('bookings');
+        }
+      } catch(e) { alert('Kunde inte godkanna'); }
     }
 
-    async function importAllBookings() {
-      for (let i = SHEET_BOOKINGS.length - 1; i >= 0; i--) {
-        await importBooking(0);
-      }
-    }
-
-    function deleteBooking(index) {
-      const b = SHEET_BOOKINGS[index];
+    async function deleteBooking(bookingId) {
+      const b = PENDING_BOOKINGS.find(x => x.id === bookingId);
       if (!b) return;
-      if (!confirm(`Ta bort bokning från ${b.name}?`)) return;
+      if (!confirm(`Ta bort bokning fran ${b.name}?`)) return;
 
-      // Mark as imported so it won't show again
-      const localImported = JSON.parse(localStorage.getItem('knivslip_imported') || '[]');
-      localImported.push(b.datum);
-      localStorage.setItem('knivslip_imported', JSON.stringify(localImported));
-      SHEET_BOOKINGS.splice(index, 1);
+      // Load, remove, save
+      const d = await fetchJSON('bookings.json');
+      d.bookings = (d.bookings || []).filter(x => x.id !== bookingId);
+      await saveJSON('bookings.json', d);
+      await loadPendingBookings();
+      renderView('bookings');
+    }
+
+    function editBooking(bookingId) {
+      const b = PENDING_BOOKINGS.find(x => x.id === bookingId);
+      if (!b) return;
+      const card = document.querySelector(`[data-booking-id="${bookingId}"]`);
+      if (!card) return;
+      const inputStyle = 'width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;';
+      card.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+            <div><label style="font-size:0.75rem;color:var(--gray-400);">Namn</label><input id="edit-name" value="${b.name||''}" style="${inputStyle}"></div>
+            <div><label style="font-size:0.75rem;color:var(--gray-400);">Telefon</label><input id="edit-phone" value="${b.phone||''}" style="${inputStyle}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0.5rem;">
+            <div><label style="font-size:0.75rem;color:var(--gray-400);">Adress</label><input id="edit-address" value="${b.address||''}" style="${inputStyle}"></div>
+            <div><label style="font-size:0.75rem;color:var(--gray-400);">Postnummer</label><input id="edit-zip" value="${b.postnummer||''}" style="${inputStyle}"></div>
+            <div><label style="font-size:0.75rem;color:var(--gray-400);">Knivar</label>
+              <select id="edit-knives" style="${inputStyle}">
+                <option value="1-2" ${b.knives==='1-2'?'selected':''}>1-2 knivar</option>
+                <option value="3-5" ${b.knives==='3-5'?'selected':''}>3-5 knivar</option>
+                <option value="6+" ${b.knives==='6+'?'selected':''}>6+ knivar</option>
+              </select>
+            </div>
+          </div>
+          <div><label style="font-size:0.75rem;color:var(--gray-400);">Meddelande</label><input id="edit-msg" value="${b.message||''}" style="${inputStyle}"></div>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.25rem;">
+            <button onclick="saveBookingEdit('${bookingId}')" class="log-submit" style="padding:0.4rem 1rem;font-size:0.85rem;">Spara</button>
+            <button onclick="renderView('bookings')" style="padding:0.4rem 1rem;font-size:0.85rem;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">Avbryt</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function saveBookingEdit(bookingId) {
+      const d = await fetchJSON('bookings.json');
+      const b = (d.bookings || []).find(x => x.id === bookingId);
+      if (!b) return;
+      b.name = document.getElementById('edit-name').value.trim() || b.name;
+      b.phone = document.getElementById('edit-phone').value.trim() || b.phone;
+      b.address = document.getElementById('edit-address').value.trim() || b.address;
+      b.postnummer = document.getElementById('edit-zip').value.trim() || b.postnummer;
+      b.knives = document.getElementById('edit-knives').value || b.knives;
+      b.message = document.getElementById('edit-msg').value.trim();
+      await saveJSON('bookings.json', d);
+      await loadPendingBookings();
       renderView('bookings');
     }
 
     function renderBookings(main) {
-      const count = SHEET_BOOKINGS.length;
+      const count = PENDING_BOOKINGS.length;
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
@@ -452,7 +441,6 @@
               <span style="font-size:2rem;font-weight:800;color:${count > 0 ? 'var(--accent)' : 'var(--gray-400)'};">${count}</span>
               <span style="font-size:1rem;color:var(--gray-500);margin-left:0.5rem;">nya bokningar vantar</span>
             </div>
-            ${count > 0 ? '<button class="refresh-btn" onclick="importAllBookings()">Importera alla</button>' : ''}
           </div>
           <div id="booking-list"></div>
         </div>
@@ -460,85 +448,34 @@
 
       const list = document.getElementById('booking-list');
       if (!count) {
-        list.innerHTML = '<div style="color:var(--gray-400);font-style:italic;padding:2rem;text-align:center;">Inga nya bokningar fran hemsidan. Nar en kund bokar pa ggranberg.github.io/knivslip/boka.html dyker den upp har.</div>';
+        list.innerHTML = '<div style="color:var(--gray-400);font-style:italic;padding:2rem;text-align:center;">Inga nya bokningar. Nar en kund bokar pa knivkillarna.se dyker den upp har.</div>';
         return;
       }
 
-      list.innerHTML = SHEET_BOOKINGS.map((b, i) => `
-        <div class="card" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid var(--accent);">
+      const knifeLabel = {'1-2': '1–2 knivar (170 kr/st)', '3-5': '3–5 knivar (140 kr/st)', '6+': '6+ knivar (120 kr/st)'};
+
+      list.innerHTML = PENDING_BOOKINGS.map(b => `
+        <div class="card" data-booking-id="${b.id}" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid var(--accent);">
           <div style="display:flex;gap:1rem;align-items:flex-start;">
             <div style="flex:1;">
               <div style="font-weight:700;font-size:1.1rem;">${b.name}</div>
               <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.4rem;font-size:0.85rem;">
-                <span>&#128222; ${b.phone || '<span class="missing">Saknas</span>'}</span>
+                <span>&#128222; ${b.phone || '<span style="color:var(--red);">Saknas</span>'}</span>
                 <span>&#127968; ${b.address}${b.postnummer ? ', ' + b.postnummer : ''} ${b.stad || ''}</span>
-                <span>&#128298; ${b.knives || '?'} knivar</span>
+                <span>&#128298; ${knifeLabel[b.knives] || b.knives || '?'}</span>
               </div>
               ${b.preferred_date ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;">&#128339; Onskat datum: ${b.preferred_date} ${b.time_window || ''}</div>` : ''}
               ${b.message ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">"${b.message}"</div>` : ''}
-              <div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.25rem;">Bokad: ${b.datum ? new Date(b.datum).toLocaleString('sv-SE') : '?'}</div>
+              <div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.25rem;">Bokad: ${b.created_at ? new Date(b.created_at).toLocaleString('sv-SE') : '?'}</div>
             </div>
             <div style="display:flex;gap:0.5rem;flex-direction:column;">
-              <button onclick="importBooking(${i})" class="log-submit" style="padding:0.5rem 1rem;white-space:nowrap;">Importera</button>
-              <button onclick="editBooking(${i})" style="padding:0.5rem 1rem;white-space:nowrap;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ändra</button>
-              <button onclick="deleteBooking(${i})" style="padding:0.5rem 1rem;white-space:nowrap;background:var(--red);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ta bort</button>
+              <button onclick="approveBooking('${b.id}')" class="log-submit" style="padding:0.5rem 1rem;white-space:nowrap;">&#10003; Godkann</button>
+              <button onclick="editBooking('${b.id}')" style="padding:0.5rem 1rem;white-space:nowrap;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Andra</button>
+              <button onclick="deleteBooking('${b.id}')" style="padding:0.5rem 1rem;white-space:nowrap;background:var(--red);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ta bort</button>
             </div>
           </div>
         </div>
       `).join('');
-    }
-
-    function editBooking(index) {
-      const b = SHEET_BOOKINGS[index];
-      const card = document.querySelectorAll('#booking-list .card')[index];
-      if (!card) return;
-      card.innerHTML = `
-        <div style="display:flex;flex-direction:column;gap:0.5rem;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-            <div>
-              <label style="font-size:0.75rem;color:var(--gray-400);">Namn</label>
-              <input id="edit-name-${index}" value="${b.name||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
-            </div>
-            <div>
-              <label style="font-size:0.75rem;color:var(--gray-400);">Telefon</label>
-              <input id="edit-phone-${index}" value="${b.phone||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0.5rem;">
-            <div>
-              <label style="font-size:0.75rem;color:var(--gray-400);">Adress</label>
-              <input id="edit-address-${index}" value="${b.address||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
-            </div>
-            <div>
-              <label style="font-size:0.75rem;color:var(--gray-400);">Postnummer</label>
-              <input id="edit-zip-${index}" value="${b.postnummer||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
-            </div>
-            <div>
-              <label style="font-size:0.75rem;color:var(--gray-400);">Knivar</label>
-              <input id="edit-knives-${index}" value="${b.knives||''}" type="number" min="1" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
-            </div>
-          </div>
-          <div>
-            <label style="font-size:0.75rem;color:var(--gray-400);">Meddelande</label>
-            <input id="edit-msg-${index}" value="${b.message||''}" style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-600);border-radius:var(--radius);background:var(--gray-800);color:var(--white);font-family:inherit;font-size:0.9rem;">
-          </div>
-          <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.25rem;">
-            <button onclick="saveBookingEdit(${index})" class="log-submit" style="padding:0.4rem 1rem;font-size:0.85rem;">Spara</button>
-            <button onclick="renderView('bookings')" style="padding:0.4rem 1rem;font-size:0.85rem;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">Avbryt</button>
-          </div>
-        </div>
-      `;
-    }
-
-    function saveBookingEdit(index) {
-      const b = SHEET_BOOKINGS[index];
-      b.name = document.getElementById('edit-name-' + index).value.trim() || b.name;
-      b.phone = document.getElementById('edit-phone-' + index).value.trim() || b.phone;
-      b.address = document.getElementById('edit-address-' + index).value.trim() || b.address;
-      b.postnummer = document.getElementById('edit-zip-' + index).value.trim() || b.postnummer;
-      b.knives = document.getElementById('edit-knives-' + index).value.trim() || b.knives;
-      b.message = document.getElementById('edit-msg-' + index).value.trim();
-      renderView('bookings');
     }
 
     // === CUSTOMER PROFILE ===
