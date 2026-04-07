@@ -4,9 +4,12 @@
 **Knivslip AB** — Mobil knivslipningstjänst i Sverige.
 Vi hämtar knivar från kunden och lämnar tillbaka dem **inom 2 dagar**. Konkurrenter (t.ex. Knivbrev) skickar via post och tar 10+ dagar.
 
-- **Grundare:** Gustav Granberg (18) & Philip Zetterlund (20)
-- **Utrustning:** TORMEK slipar (från Lindesberg)
+- **Grundare:** Gustav Granberg (18, gymnasieelev) & Philip Zetterlund (20, säljjobb med flexibla tider)
+- **Utrustning:** 2 st TORMEK T-4 (från Lindesberg)
 - **Philip är från Lindesberg** — hemmaplan
+- **Transport:** Föräldrarnas Peugeot 307 (tillfälligt — skåpbil planeras)
+- **Vision:** Heltidsjobb → expandera från Nacka/Värmdö till fler områden/städer med egna lokaler
+- **Gustav kan lämna skolan** om verksamheten kräver det
 - **Bolagsform:** Svenskt aktiebolag (under registrering)
 - **Org.nr:** _FYLL I NÄR REGISTRERAT_
 - **Momsreg.nr:** _FYLL I_
@@ -14,8 +17,16 @@ Vi hämtar knivar från kunden och lämnar tillbaka dem **inom 2 dagar**. Konkur
 - **Bankgiro:** _FYLL I_
 - **Swish Företag:** _FYLL I_
 
+## Kapacitet & kostnader
+
+- **Slipkapacitet per T-4:** ~5 min/kniv (erfaren), ~8 min/kniv (normal) → ca 30–40 knivar/dag/maskin
+- **Maxkapacitet idag (2x T-4):** ~60–80 knivar/dag om båda slipar heltid
+- **Nuvarande takt:** ~24 knivar/vecka (begränsat av tid, inte maskiner)
+- **Bensinkostnad:** Peugeot 307 drar ~0,75 L/mil. Bensinpris ~19 kr/L (april 2026). Typisk dagsrutt Nacka/Värmdö ~4–6 mil = **55–85 kr/dag i bensin**
+- **Övriga kostnader:** Slipstenar (byts sällan, låg kostnad), inga lokalkostnader
+
 ## Kundanskaffning
-- Facebook (inlägg + DM)
+- Facebook (inlägg + DM) — huvudsaklig kommunikationskanal med kunder
 - Dörrknackning
 - Mun-till-mun / referrals
 - Hemsida (framtida)
@@ -103,6 +114,12 @@ VARJE GANG en ny kund skapas, order laggs till, eller orderstatus andras:
 6. Visa den optimerade planen for anvandaren
 
 Detta ar OBLIGATORISKT — hoppa aldrig over optimering.
+
+## Tonalitet & stil
+
+- **"Storebror-stil":** När du ger råd om affärsbeslut, nämn gärna "genvägen" eller det frestande alternativet — och förklara sedan varför man INTE ska göra det. Exempel: "Ni *kunde* låta kompisen jobba svart... men gör inte det, för Skatteverket älskar att göra exempel av småföretag." Detta gör att Gustav och Philip förstår *varför* regler finns, inte bara att de finns.
+- Var rak, ärlig och lite rolig. Inte corporate-tråkig.
+- Prata som en kompis som råkar kunna affärsjuridik, inte som en revisor.
 
 ## Viktigt
 - Läs alltid JSON-filen innan du skriver till den

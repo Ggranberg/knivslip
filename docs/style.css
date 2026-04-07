@@ -30,6 +30,7 @@ body {
   color: var(--dark);
   line-height: 1.6;
   background: var(--white);
+  overflow-x: hidden;
 }
 
 h1, h2, h3, h4 {
@@ -49,15 +50,17 @@ a {
   left: 0;
   right: 0;
   z-index: 50;
+  max-width: 100%;
   padding: 1.5rem 2rem;
-  transition: background 0.3s, backdrop-filter 0.3s, padding 0.3s;
+  transition: background 0.3s, backdrop-filter 0.3s, padding 0.3s, box-shadow 0.3s;
 }
 
 .hero nav.scrolled {
-  background: rgba(10, 10, 10, 0.85);
+  background: rgba(10, 10, 10, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   padding: 0.75rem 2rem;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.3);
 }
 
 nav {
@@ -67,6 +70,12 @@ nav {
   padding: 1.5rem 2rem;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+/* Desktop: visa nav-links direkt */
+@media (min-width: 769px) {
+  .menu-toggle { display: none !important; }
+  .nav-links { display: flex !important; }
 }
 
 .logo {
@@ -180,9 +189,9 @@ nav {
   display: inline-block;
   background: var(--accent);
   color: var(--white);
-  padding: 1rem 2.5rem;
+  padding: 0.9rem 2rem;
   border-radius: var(--radius);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   border: none;
   cursor: pointer;
@@ -362,6 +371,27 @@ nav {
 .step p {
   font-size: 0.95rem;
   color: var(--gray-500);
+}
+
+/* Connecting line between steps */
+@media (min-width: 769px) {
+  .steps-connected {
+    position: relative;
+  }
+  .steps-connected::before {
+    content: '';
+    position: absolute;
+    top: 24px;
+    left: calc(12.5% + 24px);
+    right: calc(12.5% + 24px);
+    height: 2px;
+    background: var(--gray-300);
+    z-index: 0;
+  }
+  .steps-connected .step-number {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 /* === WHY SECTION === */
