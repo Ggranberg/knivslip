@@ -219,29 +219,208 @@
     .card { overflow-x: auto; }
     table { min-width: 600px; }
 
-    /* RESPONSIVE */
+    /* MOBILE BOTTOM NAV */
+    .mobile-nav { display: none; }
+
+    /* RESPONSIVE — DESKTOP */
     @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } .reminder-list { grid-template-columns: repeat(2, 1fr); } }
+
+    /* RESPONSIVE — TABLET & MOBILE */
     @media (max-width: 768px) {
+      /* Hide desktop sidebar */
       .sidebar { display: none; }
-      .main { margin-left: 0; padding: 1rem; }
-      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-      .kpi-card .kpi-value { font-size: 1.5rem; }
-      .schedule-grid { grid-template-columns: 1fr; }
-      .reminder-list { grid-template-columns: 1fr; }
-      .stats-row { grid-template-columns: repeat(3, 1fr); }
-      .stat-box .sb-value { font-size: 1.5rem; }
-      .pipeline-col { min-width: 150px; }
-      .main-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-      .main-header h1 { font-size: 1.25rem; }
-      .clock-section { flex-direction: column; text-align: center; }
-      .log-row { flex-direction: column; }
-      .table-controls { flex-direction: column; }
-      .search-input { max-width: 100%; }
-      .team-grid { grid-template-columns: 1fr; }
+
+      /* Show mobile bottom navigation */
+      .mobile-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--black);
+        border-top: 1px solid var(--gray-900);
+        z-index: 100;
+        padding: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0);
+        justify-content: space-around;
+        align-items: stretch;
+      }
+
+      .mobile-nav a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: 8px 4px 6px;
+        color: var(--gray-500);
+        text-decoration: none;
+        font-size: 0.65rem;
+        font-weight: 600;
+        flex: 1;
+        text-align: center;
+        transition: color 0.15s;
+        position: relative;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .mobile-nav a.active {
+        color: var(--accent);
+      }
+
+      .mobile-nav a .nav-icon {
+        font-size: 1.25rem;
+        line-height: 1;
+      }
+
+      .mobile-nav .nav-badge {
+        position: absolute;
+        top: 4px;
+        right: calc(50% - 18px);
+        background: var(--red);
+        color: white;
+        font-size: 0.6rem;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 8px;
+        min-width: 16px;
+        text-align: center;
+      }
+
+      /* Main content — full width, padding for bottom nav */
+      .main {
+        margin-left: 0;
+        padding: 1rem 0.75rem;
+        padding-bottom: calc(70px + env(safe-area-inset-bottom, 0));
+      }
+
+      /* Header — compact */
+      .main-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      .main-header h1 { font-size: 1.2rem; }
+      .main-header .date { font-size: 0.8rem; }
+      .refresh-btn { padding: 0.4rem 0.75rem; font-size: 0.8rem; }
+
+      /* KPI cards — 2-column, compact */
+      .kpi-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      .kpi-card {
+        padding: 0.75rem;
+        border-radius: 10px;
+      }
+      .kpi-card .kpi-label { font-size: 0.7rem; margin-bottom: 0.25rem; }
+      .kpi-card .kpi-value { font-size: 1.4rem; }
+      .kpi-card .kpi-sub { font-size: 0.7rem; }
+
+      /* Schedule — single column */
+      .schedule-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+      .schedule-day { padding: 0.75rem; }
+      .schedule-day h3 { font-size: 0.9rem; }
+      .schedule-stop { padding: 0.5rem 0; }
+
+      /* Pipeline — horizontal scroll, snap */
+      .pipeline { gap: 0.5rem; scroll-snap-type: x mandatory; }
+      .pipeline-col { min-width: 200px; scroll-snap-align: start; flex: 0 0 70vw; }
+      .pipeline-card { padding: 0.6rem; }
+
+      /* Stats row */
+      .stats-row { grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+      .stat-box { padding: 0.75rem; }
+      .stat-box .sb-value { font-size: 1.4rem; }
+      .stat-box .sb-label { font-size: 0.7rem; }
+
+      /* Clock section — vertical, centered */
+      .clock-section {
+        flex-direction: column;
+        text-align: center;
+        padding: 1.25rem;
+        border-radius: 12px;
+      }
+      .clock-status .clock-time { font-size: 2rem; }
+      .clock-btn { width: 100%; padding: 0.85rem; font-size: 1rem; border-radius: 10px; }
+
+      /* Log forms */
+      .log-form { padding: 1rem; }
+      .log-row { flex-direction: column; gap: 0.5rem; }
+      .log-field input, .log-field select { font-size: 16px; } /* Prevent iOS zoom */
+      .log-submit { width: 100%; padding: 0.7rem; min-height: 44px; }
+
+      /* Tables — horizontal scroll with hint */
+      .card { border-radius: 8px; }
+      table { min-width: 500px; }
+      th { padding: 0.5rem; font-size: 0.7rem; }
+      td { padding: 0.5rem; font-size: 0.8rem; }
+
+      /* Table controls */
+      .table-controls { flex-direction: column; gap: 0.5rem; }
+      .search-input { max-width: 100%; font-size: 16px; padding: 0.6rem; }
+      .filter-select { font-size: 16px; padding: 0.6rem; }
+
+      /* Team grid */
+      .team-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+      .team-card { padding: 1rem; }
+
+      /* Reminder cards */
+      .reminder-list { grid-template-columns: 1fr; gap: 0.5rem; }
+
+      /* Booking cards */
+      .section { margin-bottom: 1rem; }
+
+      /* Modal — full screen on mobile */
+      .modal-overlay { padding: 0; align-items: flex-end; }
+      .modal {
+        max-width: 100%;
+        max-height: 95vh;
+        border-radius: 16px 16px 0 0;
+        width: 100%;
+      }
+      .modal-header { padding: 1rem; }
+      .modal-header h2 { font-size: 1.1rem; }
+      .modal-body { padding: 1rem; }
+      .profile-row { grid-template-columns: 1fr; gap: 0.75rem; }
+      .profile-field input, .profile-field select, .profile-field textarea { font-size: 16px; }
+      .modal-actions {
+        flex-wrap: wrap;
+        padding: 0.75rem;
+        gap: 0.5rem;
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0));
+      }
+      .modal-actions button { flex: 1; min-width: 120px; min-height: 44px; font-size: 0.85rem; }
+
+      /* Route map */
+      .route-map { height: 280px; }
+      .map-controls { flex-wrap: wrap; gap: 0.4rem; }
+      .map-btn { padding: 0.4rem 0.6rem; font-size: 0.75rem; }
+      .route-legend { flex-wrap: wrap; gap: 0.5rem; font-size: 0.75rem; }
+
+      /* All buttons — minimum 44px touch target */
+      button, .log-submit, .clock-btn, .stop-done-btn, .map-btn {
+        min-height: 44px;
+      }
+
+      /* Prevent iOS font zoom */
+      input, select, textarea { font-size: 16px !important; }
+
+      /* Login box — full width on mobile */
+      .login-box { width: calc(100% - 2rem); max-width: 340px; }
     }
-    @media (max-width: 480px) {
-      .kpi-grid { grid-template-columns: 1fr 1fr; }
-      .stats-row { grid-template-columns: 1fr; }
+
+    /* Extra small phones */
+    @media (max-width: 380px) {
+      .kpi-grid { grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+      .kpi-card .kpi-value { font-size: 1.2rem; }
+      .stats-row { grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; }
+      .stat-box .sb-value { font-size: 1.1rem; }
+      .main { padding: 0.5rem; padding-bottom: calc(70px + env(safe-area-inset-bottom, 0)); }
+      .mobile-nav a { font-size: 0.6rem; padding: 6px 2px 4px; }
+      .mobile-nav a .nav-icon { font-size: 1.1rem; }
     }
   </style>
 </head>
@@ -273,6 +452,8 @@
       </div>
     </aside>
     <div class="main" id="main-content"></div>
+    <!-- Mobile bottom navigation -->
+    <nav class="mobile-nav" id="mobile-nav"></nav>
   </div>
 
   <script>
@@ -332,7 +513,7 @@
         pricing: pricing.pricing, areas: areas };
       TIMELOG = timelog.entries;
       await loadPendingBookings();
-      // Update booking badge
+      // Update booking badges (sidebar + mobile nav)
       const badge = document.getElementById('booking-badge');
       if (badge) {
         if (PENDING_BOOKINGS.length > 0) {
@@ -340,6 +521,16 @@
           badge.style.display = 'inline';
         } else {
           badge.style.display = 'none';
+        }
+      }
+      // Mobile nav badge
+      const mobileBadge = document.querySelector('#mobile-nav .nav-badge');
+      if (mobileBadge) {
+        if (PENDING_BOOKINGS.length > 0) {
+          mobileBadge.textContent = PENDING_BOOKINGS.length;
+          mobileBadge.style.display = 'block';
+        } else {
+          mobileBadge.style.display = 'none';
         }
       }
     }
@@ -456,23 +647,19 @@
 
       list.innerHTML = PENDING_BOOKINGS.map(b => `
         <div class="card" data-booking-id="${b.id}" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid var(--accent);">
-          <div style="display:flex;gap:1rem;align-items:flex-start;">
-            <div style="flex:1;">
-              <div style="font-weight:700;font-size:1.1rem;">${b.name}</div>
-              <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.4rem;font-size:0.85rem;">
-                <span>&#128222; ${b.phone || '<span style="color:var(--red);">Saknas</span>'}</span>
-                <span>&#127968; ${b.address}${b.postnummer ? ', ' + b.postnummer : ''} ${b.stad || ''}</span>
-                <span>&#128298; ${knifeLabel[b.knives] || b.knives || '?'}</span>
-              </div>
-              ${b.preferred_date ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;">&#128339; Onskat datum: ${b.preferred_date} ${b.time_window || ''}</div>` : ''}
-              ${b.message ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">"${b.message}"</div>` : ''}
-              <div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.25rem;">Bokad: ${b.created_at ? new Date(b.created_at).toLocaleString('sv-SE') : '?'}</div>
-            </div>
-            <div style="display:flex;gap:0.5rem;flex-direction:column;">
-              <button onclick="approveBooking('${b.id}')" class="log-submit" style="padding:0.5rem 1rem;white-space:nowrap;">&#10003; Godkann</button>
-              <button onclick="editBooking('${b.id}')" style="padding:0.5rem 1rem;white-space:nowrap;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Andra</button>
-              <button onclick="deleteBooking('${b.id}')" style="padding:0.5rem 1rem;white-space:nowrap;background:var(--red);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ta bort</button>
-            </div>
+          <div style="font-weight:700;font-size:1.1rem;margin-bottom:0.4rem;">${b.name}</div>
+          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;font-size:0.85rem;">
+            <span>&#128222; ${b.phone || '<span style="color:var(--red);">Saknas</span>'}</span>
+            <span>&#127968; ${b.address}${b.postnummer ? ', ' + b.postnummer : ''} ${b.stad || ''}</span>
+            <span>&#128298; ${knifeLabel[b.knives] || b.knives || '?'}</span>
+          </div>
+          ${b.preferred_date ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;">&#128339; Onskat datum: ${b.preferred_date} ${b.time_window || ''}</div>` : ''}
+          ${b.message ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">"${b.message}"</div>` : ''}
+          <div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.25rem;">Bokad: ${b.created_at ? new Date(b.created_at).toLocaleString('sv-SE') : '?'}</div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
+            <button onclick="approveBooking('${b.id}')" class="log-submit" style="padding:0.5rem 1rem;flex:1;min-width:90px;">&#10003; Godkann</button>
+            <button onclick="editBooking('${b.id}')" style="padding:0.5rem 1rem;flex:1;min-width:70px;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Andra</button>
+            <button onclick="deleteBooking('${b.id}')" style="padding:0.5rem 1rem;min-width:70px;background:var(--red);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ta bort</button>
           </div>
         </div>
       `).join('');
@@ -727,19 +914,137 @@
           e.preventDefault();
           nav.querySelectorAll('a').forEach(x => x.classList.remove('active'));
           this.classList.add('active');
+          // Sync mobile nav
+          document.querySelectorAll('#mobile-nav a').forEach(x => x.classList.remove('active'));
+          const mobileMatch = document.querySelector(`#mobile-nav a[data-view="${this.dataset.view}"]`);
+          if (mobileMatch) mobileMatch.classList.add('active');
           renderView(this.dataset.view);
         });
       });
+
+      // Build mobile bottom nav
+      buildMobileNav(role);
 
       // Render first view
       const firstView = nav.querySelector('a.active')?.dataset.view;
       if (firstView) renderView(firstView);
     }
 
+    function buildMobileNav(role) {
+      const mobileNav = document.getElementById('mobile-nav');
+      let items = [];
+
+      if (role === 'admin') {
+        items = [
+          { view: 'dashboard', icon: '&#9632;', label: 'Hem' },
+          { view: 'bookings', icon: '&#128229;', label: 'Bokningar', badge: true },
+          { view: 'pipeline', icon: '&#9654;', label: 'Pipeline' },
+          { view: 'schedule', icon: '&#128197;', label: 'Schema' },
+          { view: 'customers', icon: '&#128101;', label: 'Kunder' },
+          { view: 'more', icon: '&#8943;', label: 'Mer' },
+        ];
+      } else if (role === 'slipare') {
+        items = [
+          { view: 'slipare-home', icon: '&#9632;', label: 'Min dag' },
+          { view: 'slipare-log', icon: '&#128221;', label: 'Logga' },
+          { view: 'forare-route', icon: '&#128197;', label: 'Leveranser' },
+        ];
+      } else if (role === 'forare') {
+        items = [
+          { view: 'forare-home', icon: '&#9632;', label: 'Min dag' },
+          { view: 'forare-route', icon: '&#128197;', label: 'Rutt' },
+        ];
+      }
+
+      mobileNav.innerHTML = items.map((item, i) => {
+        const active = i === 0 ? ' active' : '';
+        const badge = item.badge && PENDING_BOOKINGS.length > 0 ? `<span class="nav-badge">${PENDING_BOOKINGS.length}</span>` : '';
+        return `<a href="#" data-view="${item.view}" class="${active}"><span class="nav-icon">${item.icon}</span>${item.label}${badge}</a>`;
+      }).join('');
+
+      // Handle "Mer" (more) menu for admin
+      mobileNav.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (this.dataset.view === 'more') {
+            showMoreMenu();
+            return;
+          }
+          // Sync both navs
+          mobileNav.querySelectorAll('a').forEach(x => x.classList.remove('active'));
+          this.classList.add('active');
+          document.querySelectorAll('#sidebar-nav a').forEach(x => x.classList.remove('active'));
+          const sidebarMatch = document.querySelector(`#sidebar-nav a[data-view="${this.dataset.view}"]`);
+          if (sidebarMatch) sidebarMatch.classList.add('active');
+          renderView(this.dataset.view);
+          window.scrollTo(0, 0);
+        });
+      });
+    }
+
+    function showMoreMenu() {
+      const existing = document.querySelector('.more-menu-overlay');
+      if (existing) { existing.remove(); return; }
+
+      const moreItems = [
+        { view: 'routes', icon: '&#128205;', label: 'Ruttkarta' },
+        { view: 'reminders', icon: '&#128276;', label: 'Paminnelser' },
+        { view: 'finance', icon: '&#128176;', label: 'Ekonomi' },
+        { view: 'arbete', icon: '&#128200;', label: 'Arbete/Lon' },
+        { view: 'admin-log', icon: '&#128221;', label: 'Logga arbete' },
+        { view: 'team', icon: '&#128100;', label: 'Team' },
+      ];
+
+      const overlay = document.createElement('div');
+      overlay.className = 'more-menu-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;display:flex;align-items:flex-end;justify-content:center;';
+      overlay.innerHTML = `
+        <div style="background:var(--white);border-radius:16px 16px 0 0;width:100%;max-width:500px;padding:1rem 0;padding-bottom:calc(70px + env(safe-area-inset-bottom, 0));">
+          <div style="text-align:center;padding:0.5rem 0 1rem;"><div style="width:40px;height:4px;background:var(--gray-300);border-radius:2px;margin:0 auto;"></div></div>
+          ${moreItems.map(item => `
+            <a href="#" data-view="${item.view}" style="display:flex;align-items:center;gap:0.75rem;padding:0.85rem 1.5rem;color:var(--dark);text-decoration:none;font-size:1rem;font-weight:500;-webkit-tap-highlight-color:transparent;">
+              <span style="font-size:1.3rem;width:28px;text-align:center;">${item.icon}</span>
+              ${item.label}
+            </a>
+          `).join('')}
+          <div style="border-top:1px solid var(--gray-200);margin-top:0.5rem;padding-top:0.5rem;">
+            <a href="https://knivkillarna.se" style="display:flex;align-items:center;gap:0.75rem;padding:0.85rem 1.5rem;color:var(--gray-500);text-decoration:none;font-size:0.9rem;">
+              <span style="font-size:1.3rem;width:28px;text-align:center;">&#8592;</span>
+              Till hemsidan
+            </a>
+            <button onclick="logout()" style="display:flex;align-items:center;gap:0.75rem;padding:0.85rem 1.5rem;color:var(--red);font-size:0.9rem;background:none;border:none;cursor:pointer;font-family:inherit;width:100%;text-align:left;">
+              <span style="font-size:1.3rem;width:28px;text-align:center;">&#10005;</span>
+              Logga ut
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      // Click on menu item
+      overlay.querySelectorAll('a[data-view]').forEach(a => {
+        a.addEventListener('click', function(e) {
+          e.preventDefault();
+          overlay.remove();
+          // Update mobile nav active state
+          const mobileNav = document.getElementById('mobile-nav');
+          mobileNav.querySelectorAll('a').forEach(x => x.classList.remove('active'));
+          renderView(this.dataset.view);
+          window.scrollTo(0, 0);
+        });
+      });
+
+      // Click backdrop to close
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) overlay.remove();
+      });
+    }
+
     function renderView(view) {
       const main = document.getElementById('main-content');
-      const logoutMobile = window.innerWidth <= 768 ? `<button onclick="logout()" style="background:none;border:1px solid var(--gray-300);padding:0.4rem 0.8rem;border-radius:var(--radius);font-size:0.8rem;cursor:pointer;color:var(--gray-500);font-family:inherit;">Logga ut (${CURRENT_USER.name})</button>` : '';
-      const header = `<div class="main-header"><div><h1>${getViewTitle(view)}</h1><span class="date">${new Date().toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></div><div style="display:flex;gap:0.5rem;">${logoutMobile}<button class="refresh-btn" onclick="loadAllData().then(()=>renderView('${view}'))">Uppdatera</button></div></div>`;
+      const isMobile = window.innerWidth <= 768;
+      const header = `<div class="main-header"><div><h1>${getViewTitle(view)}</h1><span class="date">${new Date().toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></div><div style="display:flex;gap:0.5rem;align-items:center;"><button class="refresh-btn" onclick="loadAllData().then(()=>renderView('${view}'))">&#8635;${isMobile ? '' : ' Uppdatera'}</button></div></div>`;
 
       switch(view) {
         case 'dashboard': main.innerHTML = header; renderAdminDashboard(main); break;

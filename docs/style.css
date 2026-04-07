@@ -307,11 +307,36 @@ nav {
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  will-change: transform, opacity;
 }
 
 .reveal.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* GPU-accelerera animationer för smidig scroll */
+.step, .why-card, .price-card, .area-tag {
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Stäng av hover-animationer på touch-enheter */
+@media (hover: none) {
+  .step:hover { transform: none; }
+  .step:hover .step-number { transform: none; box-shadow: none; }
+  .why-card:hover { transform: none; box-shadow: none; }
+  .price-card:hover { transform: none; box-shadow: none; }
+  .area-tag:hover { transform: none; box-shadow: none; border-color: var(--gray-300); background: var(--white); color: var(--gray-700); }
+  .why-card--clock:hover .clock-hour,
+  .why-card--clock:hover .clock-minute { animation: none; }
+  .why-card--gear:hover .why-icon { animation: none; }
+  .why-card--check:hover .why-icon { animation: none; }
+  .why-card--cart:hover .why-icon { animation: none; }
+  .why-card--clock:hover .clock-svg { transform: none; }
+  .btn-primary:hover { transform: none; box-shadow: none; }
+  .phone-link:hover { transform: none; box-shadow: none; background: transparent; color: var(--accent); }
 }
 
 /* Stagger children */
@@ -993,8 +1018,37 @@ footer {
   color: var(--gray-500);
 }
 
-/* === RESPONSIVE === */
+/* === RESPONSIVE — MOBILE FIRST === */
+
+/* Reduce animation intensity on mobile for smooth scrolling */
 @media (max-width: 768px) {
+  .reveal {
+    transform: translateY(16px);
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+  }
+
+  /* Remove stagger delays on mobile — faster perceived load */
+  .steps .reveal:nth-child(2),
+  .steps .reveal:nth-child(3),
+  .steps .reveal:nth-child(4),
+  .why-grid .reveal:nth-child(2),
+  .why-grid .reveal:nth-child(3),
+  .why-grid .reveal:nth-child(4),
+  .pricing-cards .reveal:nth-child(2),
+  .pricing-cards .reveal:nth-child(3) {
+    transition-delay: 0s;
+  }
+
+  /* Disable CTA glow animation on mobile (saves GPU) */
+  .hero .btn-primary {
+    animation: heroSlideUp 0.8s ease-out 0.4s both;
+  }
+
+  @keyframes heroSlideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   .menu-toggle {
     display: flex;
   }
@@ -1019,60 +1073,230 @@ footer {
 
   .nav-links a {
     font-size: 1.1rem;
+    padding: 0.5rem 0;
   }
 
   nav {
     position: relative;
   }
 
+  /* Hero — tighter on mobile */
   .hero-content {
-    padding: 4rem 1.5rem 2rem;
+    padding: 5rem 1.25rem 2rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.8rem, 8vw, 2.5rem);
+    margin-bottom: 1rem;
+  }
+
+  .hero-sub {
+    font-size: 1.05rem;
+    margin-bottom: 2rem;
+  }
+
+  .btn-primary {
+    padding: 0.85rem 1.75rem;
+    font-size: 1rem;
+    /* Bigger tap target on mobile */
+    min-height: 48px;
   }
 
   .hero-stats {
-    flex-direction: column;
-    gap: 1.5rem;
+    flex-direction: row;
+    gap: 1rem;
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
+  .stat-number {
+    font-size: 1.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+  }
+
+  /* Sections — less padding */
+  .section {
+    padding: 3rem 1.25rem;
+  }
+
+  .section-dark {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .section h2 {
+    font-size: 1.6rem;
+  }
+
+  .section-sub {
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+  }
+
+  /* Steps — horizontal scroll-snap on mobile */
   .steps {
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
+  .step {
+    padding: 1rem 0.75rem;
+  }
+
+  .step h3 {
+    font-size: 1rem;
+  }
+
+  .step p {
+    font-size: 0.85rem;
+  }
+
+  .step-number {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Why grid — single column, tighter */
   .why-grid {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
 
+  .why-card {
+    padding: 1.25rem;
+    border-radius: 12px;
+  }
+
+  .why-card h3 {
+    font-size: 1rem;
+  }
+
+  .why-card p {
+    font-size: 0.9rem;
+  }
+
+  /* Pricing — single column, centered */
   .pricing-cards {
     grid-template-columns: 1fr;
-    max-width: 350px;
+    max-width: 320px;
     margin-left: auto;
     margin-right: auto;
+    gap: 1.25rem;
   }
 
+  .price-card {
+    padding: 2rem 1.25rem;
+  }
+
+  .price-amount {
+    font-size: 2.5rem;
+  }
+
+  /* Form — full width */
   .form-row {
     grid-template-columns: 1fr;
   }
 
-  .footer-content {
-    flex-direction: column;
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    padding: 0.75rem 0.9rem;
   }
 
+  .btn-full {
+    min-height: 52px;
+    font-size: 1.05rem;
+  }
+
+  /* Phone link — full width on mobile */
+  .phone-link {
+    font-size: 1.25rem;
+    padding: 0.85rem 2rem;
+    width: 100%;
+    max-width: 320px;
+    justify-content: center;
+  }
+
+  /* Footer */
+  .footer-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 1.5rem;
+  }
+
+  footer {
+    padding: 2rem 1.25rem 1.25rem;
+  }
+
+  /* FAQ — larger tap targets */
+  .faq-item summary {
+    padding: 1rem;
+    min-height: 48px;
+  }
+
+  /* Area tags — larger touch targets */
+  .area-tag {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  /* Booking page */
   .booking-page {
     grid-template-columns: 1fr;
+    padding: 2rem 1.25rem 3rem;
+    gap: 1.5rem;
   }
 
   .booking-right {
     order: -1;
   }
+
+  .booking-left h1 {
+    font-size: 1.5rem;
+  }
 }
 
+/* Extra small — phones ≤ 380px */
 @media (max-width: 480px) {
   .steps {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    text-align: left;
+    padding: 0.75rem;
+  }
+
+  .step-number {
+    margin: 0;
+    min-width: 40px;
+  }
+
+  .step h3 {
+    margin-bottom: 0.25rem;
   }
 
   .hero h1 {
-    font-size: 2rem;
+    font-size: 1.75rem;
+  }
+
+  .hero-stats {
+    gap: 0.75rem;
+  }
+
+  .stat {
+    min-width: 0;
   }
 }
