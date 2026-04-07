@@ -1819,9 +1819,17 @@
     document.getElementById('login-btn').addEventListener('click', () => login(document.getElementById('login-pin').value));
     document.getElementById('login-pin').addEventListener('keydown', e => { if (e.key === 'Enter') login(document.getElementById('login-pin').value); });
 
-    // Auto-login from sessionStorage or triple-click PIN
+    // Auto-login from URL hash, sessionStorage, or triple-click PIN
     (async function() {
       await loadUsers();
+      // Check URL hash first (from triple-click on main site)
+      const hashPin = window.location.hash.match(/pin=(\d+)/);
+      if (hashPin) {
+        history.replaceState(null, '', window.location.pathname); // rensa PIN från URL
+        const ok = await login(hashPin[1]);
+        if (ok) return;
+      }
+      // Fallback to sessionStorage
       const savedPin = sessionStorage.getItem('knivslip_pin');
       if (savedPin) {
         const ok = await login(savedPin);

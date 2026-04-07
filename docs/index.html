@@ -360,8 +360,7 @@
           input.addEventListener('keydown', function(ev) {
             if (ev.key === 'Escape') { overlay.remove(); return; }
             if (ev.key === 'Enter' && input.value.length >= 4) {
-              sessionStorage.setItem('knivslip_pin', input.value);
-              window.location.href = 'https://knivkillarna.up.railway.app/admin';
+              window.location.href = 'https://knivkillarna.up.railway.app/admin#pin=' + input.value;
             }
           });
           overlay.addEventListener('click', function(ev) {
