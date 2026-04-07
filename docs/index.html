@@ -361,7 +361,7 @@
             if (ev.key === 'Escape') { overlay.remove(); return; }
             if (ev.key === 'Enter' && input.value.length >= 4) {
               sessionStorage.setItem('knivslip_pin', input.value);
-              window.location.href = 'admin.html';
+              window.location.href = 'https://knivkillarna.up.railway.app/admin';
             }
           });
           overlay.addEventListener('click', function(ev) {
