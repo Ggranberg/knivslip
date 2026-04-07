@@ -363,6 +363,21 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
             except Exception as e:
                 self.send_error(500, str(e))
 
+        elif path == '/api/debug':
+            info = {
+                'base_dir': BASE_DIR,
+                'data_dir': DATA_DIR,
+                'cwd': os.getcwd(),
+                'data_files': os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else 'DIR NOT FOUND',
+                'data_exists': os.path.exists(DATA_DIR)
+            }
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(info).encode())
+            return
+
         elif path == '/api/optimize':
             optimize_schedule()
             self.send_response(200)
