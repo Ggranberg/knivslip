@@ -26,9 +26,9 @@ DATA_TEMPLATES = {
     'schedule.json': {'schedule': []},
     'timelog.json': {'entries': []},
     'users.json': {'users': [
-        {'id': 'USR-001', 'name': 'Gustav Granberg', 'pin': '9680', 'role': 'admin'},
-        {'id': 'USR-002', 'name': 'Philip Zetterlund', 'pin': '0000', 'role': 'admin'},
-        {'id': 'USR-003', 'name': 'Adam', 'pin': '1111', 'role': 'slipare'}
+        {'id': 'USR-001', 'name': 'Gustav Granberg', 'pin': '9680', 'role': 'admin', 'active': True, 'pay_type': None, 'pay_rate': None, 'created_at': '2026-04-06T00:00:00'},
+        {'id': 'USR-002', 'name': 'Philip Zetterlund', 'pin': '6769', 'role': 'admin', 'active': True, 'pay_type': None, 'pay_rate': None, 'created_at': '2026-04-06T00:00:00'},
+        {'id': 'USR-003', 'name': 'Adam Zetterlund', 'pin': '1111', 'role': 'slipare', 'active': True, 'pay_type': 'per_knife', 'pay_rate': 30, 'created_at': '2026-04-06T00:00:00'}
     ]},
 }
 
