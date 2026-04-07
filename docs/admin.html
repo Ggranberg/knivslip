@@ -1518,7 +1518,7 @@
                 ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">${o.notes}</div>` : ''}
               </div>
               <div style="display:flex;flex-direction:column;gap:0.4rem;">
-                ${o.assigned_to ? `<div style="font-size:0.75rem;padding:0.3rem 0.6rem;background:var(--blue-light);color:var(--blue);border-radius:var(--radius);text-align:center;font-weight:600;">${DATA.team?.find(t=>t.id===o.assigned_to)?.name || o.assigned_to}</div>` : `<button onclick="claimOrder('${o.id}')" style="padding:0.4rem 0.8rem;font-size:0.8rem;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">&#9997; Jag tar den</button>`}
+                ${o.assigned_to ? `<div style="font-size:0.75rem;padding:0.3rem 0.6rem;background:var(--blue-light);color:var(--blue);border-radius:var(--radius);text-align:center;font-weight:600;">${(USERS.find(u=>u.id===o.assigned_to)||{}).name || o.assigned_to}</div>` : `<button onclick="claimOrder('${o.id}')" style="padding:0.4rem 0.8rem;font-size:0.8rem;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">&#9997; Jag tar den</button>`}
                 <button onclick="markSharpened('${o.id}', ${knives === '?' ? 0 : knives})" class="log-submit" style="padding:0.4rem 0.8rem;font-size:0.8rem;">&#10003; Slipat klart</button>
               </div>
             </div>
