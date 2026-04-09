@@ -199,9 +199,13 @@
         .then(r => r.json())
         .then(data => {
           if (data.ok) { window.location.href = 'tack.html'; }
-          else { btn.textContent = 'Skicka bokning'; btn.disabled = false; alert(data.error || 'Fel'); }
+          else { btn.textContent = 'Skicka bokning'; btn.disabled = false; alert('Bokning misslyckades: ' + (data.error || 'Okant fel')); }
         })
-        .catch(() => { window.location.href = 'tack.html'; });
+        .catch(err => {
+          btn.textContent = 'Skicka bokning';
+          btn.disabled = false;
+          alert('Kunde inte skicka bokning (nätverksfel): ' + err.message);
+        });
     });
   </script>
 
