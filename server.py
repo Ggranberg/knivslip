@@ -7,8 +7,10 @@ import math
 from datetime import datetime, timedelta
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 PORT = int(os.environ.get('PORT', 8080))
+NTFY_TOPIC = os.environ.get('NTFY_TOPIC', 'knivslip-bok-a7x9m')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 APP_DIR = os.path.join(BASE_DIR, 'app')
@@ -270,8 +272,30 @@ def handle_booking(data):
     bookings.append(new_booking)
     save_json('bookings.json', {'bookings': bookings})
     print(f'[BOKNING] Ny bokning: {booking_id} — {name}, {knives_str} knivar')
+    send_notification(new_booking)
 
     return {'ok': True, 'booking_id': booking_id}
+
+
+def send_notification(booking):
+    """Push-notis via ntfy.sh när ny bokning kommer in."""
+    try:
+        title = f"Ny bokning: {booking['name']}"
+        body = f"{booking.get('knives', '?')} knivar\n{booking['address']}\nTel: {booking['phone']}"
+        req = Request(
+            f'https://ntfy.sh/{NTFY_TOPIC}',
+            data=body.encode('utf-8'),
+            headers={
+                'Title': title,
+                'Tags': 'knife,incoming_envelope',
+                'Priority': '4',
+                'Click': 'https://knivkillarna.up.railway.app/admin',
+            }
+        )
+        urlopen(req, timeout=5)
+        print(f'[NTFY] Notis skickad for {booking["id"]}')
+    except Exception as e:
+        print(f'[NTFY] Kunde inte skicka notis: {e}')
 
 
 def approve_booking(booking_id):

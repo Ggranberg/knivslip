@@ -7,6 +7,49 @@
   <meta name="description" content="Boka knivslipning i Nacka och Värmdö. Vi hämtar och lämnar inom 2 dagar.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🔪</text></svg>">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Wizard */
+    .wizard-progress { display:flex; align-items:center; justify-content:center; gap:0.5rem; margin-bottom:2rem; }
+    .wizard-dot { width:36px; height:36px; border-radius:50%; background:#e0e0e0; color:#888; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem; transition:all 0.3s; }
+    .wizard-dot.active { background:var(--accent, #e85d04); color:#fff; transform:scale(1.1); }
+    .wizard-dot.done { background:var(--accent, #e85d04); color:#fff; opacity:0.5; }
+    .wizard-line { flex:1; max-width:60px; height:3px; background:#e0e0e0; border-radius:2px; transition:background 0.3s; }
+    .wizard-line.done { background:var(--accent, #e85d04); opacity:0.5; }
+
+    .wizard-panel { display:none; animation:wizardIn 0.3s ease-out; }
+    .wizard-panel.active { display:block; }
+    @keyframes wizardIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+    .wizard-panel h2 { font-size:1.4rem; margin-bottom:0.5rem; color:var(--dark, #1a1a1a); }
+    .wizard-panel .wizard-sub { color:#888; font-size:0.9rem; margin-bottom:1.5rem; }
+
+    /* Knife buttons */
+    .knife-buttons { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin:1.5rem 0; }
+    .knife-btn { background:#fff; border:3px solid #e0e0e0; border-radius:12px; padding:1.5rem 1rem; text-align:center; cursor:pointer; transition:all 0.2s; font-family:inherit; }
+    .knife-btn:hover { border-color:var(--accent, #e85d04); background:#fef3e6; }
+    .knife-btn.selected { border-color:var(--accent, #e85d04); background:#fef3e6; }
+    .knife-count { display:block; font-size:2rem; font-weight:800; color:var(--dark, #1a1a1a); }
+    .knife-label { display:block; font-size:0.85rem; color:#888; margin-top:0.15rem; }
+    .knife-price { display:block; font-size:1.1rem; font-weight:700; color:var(--accent, #e85d04); margin-top:0.5rem; }
+
+    .wizard-back { background:none; border:none; color:#888; cursor:pointer; font-size:0.9rem; font-family:inherit; padding:0; margin-bottom:1rem; }
+    .wizard-back:hover { color:var(--accent, #e85d04); }
+
+    .extras-toggle { margin:1rem 0; border:none; }
+    .extras-toggle summary { color:var(--accent, #e85d04); cursor:pointer; font-weight:600; font-size:0.9rem; padding:0.5rem 0; list-style:none; }
+    .extras-toggle summary::-webkit-details-marker { display:none; }
+    .extras-toggle summary::before { content:'+ '; }
+    .extras-toggle[open] summary::before { content:'- '; }
+    .extras-content { padding-top:1rem; display:flex; flex-direction:column; gap:0.75rem; }
+
+    @media (max-width: 480px) {
+      .knife-buttons { grid-template-columns:1fr; }
+      .knife-btn { padding:1.2rem; display:flex; align-items:center; gap:1rem; text-align:left; }
+      .knife-count { font-size:1.5rem; min-width:50px; }
+      .knife-label { margin-top:0; }
+      .knife-price { margin-top:0; margin-left:auto; }
+    }
+  </style>
 </head>
 <body>
 
@@ -21,76 +64,121 @@
 
   <main class="booking-page">
     <div class="booking-left fade-in">
-      <h1>Boka slipning</h1>
-      <p class="booking-intro">Fyll i formuläret så hör vi av oss inom några timmar för att bekräfta tid.</p>
 
       <form class="booking-form" action="https://formspree.io/f/xjgpjean" method="POST">
-        <div class="form-group">
-          <label for="name">Namn *</label>
-          <input type="text" id="name" name="name" required placeholder="Anna Svensson">
-        </div>
-        <div class="form-group">
-          <label for="phone">Telefon *</label>
-          <input type="tel" id="phone" name="phone" required placeholder="070-123 45 67">
-        </div>
-        <div class="form-group">
-          <label for="email">E-post (valfritt)</label>
-          <input type="email" id="email" name="email" placeholder="anna@exempel.se">
-        </div>
-        <div class="form-group">
-          <label for="address">Adress *</label>
-          <input type="text" id="address" name="address" required placeholder="Storgatan 12">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="postnummer">Postnummer</label>
-            <input type="text" id="postnummer" name="postnummer" placeholder="131 45" maxlength="6">
-          </div>
-          <div class="form-group">
-            <label for="stad">Stad</label>
-            <input type="text" id="stad" name="stad" value="Nacka">
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="knives">Antal knivar (ungefär)</label>
-          <select id="knives" name="knives">
-            <option value="1-2">1–2 knivar (170 kr/st)</option>
-            <option value="3-5" selected>3–5 knivar (140 kr/st)</option>
-            <option value="6+">6+ knivar (120 kr/st)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="preferred_date">Önskat datum för hämtning</label>
-          <input type="date" id="preferred_date" name="preferred_date">
-        </div>
-        <div class="form-group">
-          <label for="time_window">Önskad tid</label>
-          <select id="time_window" name="time_window">
-            <option value="">Välj tid...</option>
-            <option value="16:00-17:00">16:00–17:00</option>
-            <option value="17:00-18:00">17:00–18:00</option>
-            <option value="18:00-19:00">18:00–19:00</option>
-            <option value="19:00-20:00">19:00–20:00</option>
-            <option value="helg-10-12">Helg: 10:00–12:00</option>
-            <option value="helg-12-14">Helg: 12:00–14:00</option>
-            <option value="helg-14-16">Helg: 14:00–16:00</option>
-            <option value="flexibel">Flexibel</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="message">Meddelande (valfritt)</label>
-          <textarea id="message" name="message" rows="3" placeholder="T.ex. portkod, speciella knivar, annat vi bör veta..."></textarea>
-        </div>
-        <div class="form-group" style="margin-top: 0.5rem;">
-          <label style="display:flex;gap:0.6rem;align-items:flex-start;cursor:pointer;font-weight:400;font-size:0.85rem;color:var(--gray-700);line-height:1.4;">
-            <input type="checkbox" id="gdpr-consent" name="gdpr_consent" required style="margin-top:3px;min-width:18px;min-height:18px;accent-color:var(--accent);">
-            <span>Jag samtycker till att Knivslip AB sparar mina uppgifter (namn, telefon, adress) för att kunna utföra tjänsten. Jag kan när som helst begära att mina uppgifter raderas. <a href="integritet.html" target="_blank" style="color:var(--accent);">Läs vår integritetspolicy</a></span>
-          </label>
-        </div>
+        <input type="hidden" name="knives" id="knives-hidden" value="3-5">
         <input type="hidden" name="_subject" value="Ny bokning via hemsidan!">
         <input type="hidden" name="_next" value="tack.html">
-        <button type="submit" class="btn-primary btn-full">Skicka bokning</button>
-        <p class="form-note">Vi hör av oss inom några timmar. Inga förpliktelser.</p>
+
+        <!-- Progress -->
+        <div class="wizard-progress">
+          <div class="wizard-dot active" id="dot-1">1</div>
+          <div class="wizard-line" id="line-1"></div>
+          <div class="wizard-dot" id="dot-2">2</div>
+          <div class="wizard-line" id="line-2"></div>
+          <div class="wizard-dot" id="dot-3">3</div>
+        </div>
+
+        <!-- Step 1: Knife count -->
+        <div class="wizard-panel active" id="panel-1">
+          <h2>Hur många knivar?</h2>
+          <p class="wizard-sub">Välj ungefärligt antal — vi räknar exakt vid hämtning.</p>
+          <div class="knife-buttons">
+            <button type="button" class="knife-btn" data-knives="1-2">
+              <span class="knife-count">1–2</span>
+              <span class="knife-label">knivar</span>
+              <span class="knife-price">170 kr/st</span>
+            </button>
+            <button type="button" class="knife-btn selected" data-knives="3-5">
+              <span class="knife-count">3–5</span>
+              <span class="knife-label">knivar</span>
+              <span class="knife-price">140 kr/st</span>
+            </button>
+            <button type="button" class="knife-btn" data-knives="6+">
+              <span class="knife-count">6+</span>
+              <span class="knife-label">knivar</span>
+              <span class="knife-price">120 kr/st</span>
+            </button>
+          </div>
+          <button type="button" class="btn-primary btn-full" id="step1-next">Nästa</button>
+        </div>
+
+        <!-- Step 2: Contact info -->
+        <div class="wizard-panel" id="panel-2">
+          <button type="button" class="wizard-back" onclick="goToStep(1)">&larr; Tillbaka</button>
+          <h2>Kontaktuppgifter</h2>
+          <p class="wizard-sub">Så vi kan ringa och bekräfta tid.</p>
+          <div class="form-group">
+            <label for="name">Namn</label>
+            <input type="text" id="name" name="name" required placeholder="Anna Svensson">
+          </div>
+          <div class="form-group">
+            <label for="phone">Telefon</label>
+            <input type="tel" id="phone" name="phone" required placeholder="070-123 45 67">
+          </div>
+          <button type="button" class="btn-primary btn-full" id="step2-next">Nästa</button>
+        </div>
+
+        <!-- Step 3: Address + submit -->
+        <div class="wizard-panel" id="panel-3">
+          <button type="button" class="wizard-back" onclick="goToStep(2)">&larr; Tillbaka</button>
+          <h2>Var hämtar vi?</h2>
+          <p class="wizard-sub">Vi kommer hem till dig.</p>
+          <div class="form-group">
+            <label for="address">Adress</label>
+            <input type="text" id="address" name="address" required placeholder="Storgatan 12, Nacka">
+          </div>
+
+          <details class="extras-toggle">
+            <summary>Fler alternativ</summary>
+            <div class="extras-content">
+              <div class="form-group">
+                <label for="email">E-post</label>
+                <input type="email" id="email" name="email" placeholder="anna@exempel.se">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="postnummer">Postnummer</label>
+                  <input type="text" id="postnummer" name="postnummer" placeholder="131 45" maxlength="6">
+                </div>
+                <div class="form-group">
+                  <label for="stad">Stad</label>
+                  <input type="text" id="stad" name="stad" value="Nacka">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="preferred_date">Önskat datum</label>
+                <input type="date" id="preferred_date" name="preferred_date">
+              </div>
+              <div class="form-group">
+                <label for="time_window">Önskad tid</label>
+                <select id="time_window" name="time_window">
+                  <option value="">Flexibel</option>
+                  <option value="16:00-17:00">16:00–17:00</option>
+                  <option value="17:00-18:00">17:00–18:00</option>
+                  <option value="18:00-19:00">18:00–19:00</option>
+                  <option value="19:00-20:00">19:00–20:00</option>
+                  <option value="helg-10-12">Helg: 10:00–12:00</option>
+                  <option value="helg-12-14">Helg: 12:00–14:00</option>
+                  <option value="helg-14-16">Helg: 14:00–16:00</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="message">Meddelande</label>
+                <textarea id="message" name="message" rows="2" placeholder="Portkod, speciella knivar..."></textarea>
+              </div>
+            </div>
+          </details>
+
+          <div class="form-group" style="margin-top:0.5rem;">
+            <label style="display:flex;gap:0.6rem;align-items:flex-start;cursor:pointer;font-weight:400;font-size:0.85rem;color:var(--gray-700, #555);line-height:1.4;">
+              <input type="checkbox" id="gdpr-consent" name="gdpr_consent" required style="margin-top:3px;min-width:18px;min-height:18px;accent-color:var(--accent, #e85d04);">
+              <span>Jag samtycker till att Knivslip AB sparar mina uppgifter (namn, telefon, adress) för att kunna utföra tjänsten. <a href="integritet.html" target="_blank" style="color:var(--accent, #e85d04);">Integritetspolicy</a></span>
+            </label>
+          </div>
+          <button type="submit" class="btn-primary btn-full">Skicka bokning</button>
+          <p class="form-note">Vi hör av oss inom några timmar. Inga förpliktelser.</p>
+        </div>
       </form>
     </div>
 
@@ -99,27 +187,17 @@
         <h3>Så funkar det</h3>
         <div class="info-step">
           <div class="info-step-num">1</div>
-          <div>
-            <strong>Du bokar</strong>
-            <p>Fyll i formuläret. Vi ringer för att bekräfta.</p>
-          </div>
+          <div><strong>Du bokar</strong><p>Fyll i formuläret. Vi ringer för att bekräfta.</p></div>
         </div>
         <div class="info-step">
           <div class="info-step-num">2</div>
-          <div>
-            <strong>Vi hämtar</strong>
-            <p>Vi kommer hem till dig vid avtalad tid.</p>
-          </div>
+          <div><strong>Vi hämtar</strong><p>Vi kommer hem till dig vid avtalad tid.</p></div>
         </div>
         <div class="info-step">
           <div class="info-step-num">3</div>
-          <div>
-            <strong>Klart inom 2 dagar</strong>
-            <p>Vassa knivar tillbaka hem till dig.</p>
-          </div>
+          <div><strong>Klart inom 2 dagar</strong><p>Vassa knivar tillbaka hem till dig.</p></div>
         </div>
       </div>
-
       <div class="booking-info-card">
         <h3>Priser</h3>
         <div class="info-price"><span>1–2 knivar</span> <strong>170 kr/st</strong></div>
@@ -127,11 +205,10 @@
         <div class="info-price"><span>6+ knivar</span> <strong>120 kr/st</strong></div>
         <p class="info-small">Inkl. moms. Hämtning & leverans ingår.</p>
       </div>
-
       <div class="booking-info-card">
         <h3>Serviceområde</h3>
         <p class="info-small">Nacka & Värmdö kommun</p>
-        <div class="areas" style="margin-top: 0.5rem;">
+        <div class="areas" style="margin-top:0.5rem;">
           <span class="area-tag">Nacka</span>
           <span class="area-tag">Saltsjöbaden</span>
           <span class="area-tag">Boo</span>
@@ -143,7 +220,46 @@
   </main>
 
   <script>
-    // Secret admin access — triple click on logo, single click = go home
+    // === WIZARD ===
+    let currentStep = 1;
+
+    function goToStep(n) {
+      document.querySelectorAll('.wizard-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + n).classList.add('active');
+      for (let i = 1; i <= 3; i++) {
+        const dot = document.getElementById('dot-' + i);
+        dot.classList.remove('active', 'done');
+        if (i === n) dot.classList.add('active');
+        else if (i < n) dot.classList.add('done');
+      }
+      for (let i = 1; i <= 2; i++) {
+        const line = document.getElementById('line-' + i);
+        line.classList.toggle('done', i < n);
+      }
+      currentStep = n;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Step 1: knife selection
+    document.querySelectorAll('.knife-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.knife-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        document.getElementById('knives-hidden').value = this.dataset.knives;
+      });
+    });
+    document.getElementById('step1-next').addEventListener('click', () => goToStep(2));
+
+    // Step 2: validate and go to 3
+    document.getElementById('step2-next').addEventListener('click', function() {
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      if (!name) { document.getElementById('name').focus(); return; }
+      if (!phone) { document.getElementById('phone').focus(); return; }
+      goToStep(3);
+    });
+
+    // === TRIPLE-CLICK ADMIN ACCESS ===
     (function() {
       const logo = document.querySelector('nav .logo');
       let clicks = 0, timer = null, navTimer = null;
@@ -153,7 +269,6 @@
         clearTimeout(timer);
         clearTimeout(navTimer);
         timer = setTimeout(() => { clicks = 0; }, 600);
-        // Single click: navigate to index after delay (so triple click can cancel)
         navTimer = setTimeout(() => { if (clicks === 1) { clicks = 0; window.location.href = 'index.html'; } }, 400);
         if (clicks >= 3) {
           clicks = 0;
@@ -169,19 +284,18 @@
               window.location.href = 'admin.html';
             }
           });
-          overlay.addEventListener('click', function(ev) {
-            if (ev.target === overlay.firstChild) overlay.remove();
-          });
+          overlay.addEventListener('click', function(ev) { if (ev.target === overlay.firstChild) overlay.remove(); });
         }
       });
     })();
 
+    // === BOOKING SUBMIT ===
     const form = document.querySelector('.booking-form');
     const API_URL = window.location.hostname === 'localhost'
       ? '/api/booking'
       : 'https://knivkillarna.up.railway.app/api/booking';
 
-    form.addEventListener('submit', function (e) {
+    form.addEventListener('submit', function(e) {
       e.preventDefault();
       const btn = form.querySelector('button[type="submit"]');
       btn.textContent = 'Skickar...';
@@ -194,23 +308,17 @@
       // Formspree (email backup)
       fetch(form.action, { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } }).catch(() => {});
 
-      // Railway API (skapar pending-bokning i admin)
-      console.log('[KNIVSLIP v3] Skickar bokning till:', API_URL);
+      // Railway API
       fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(jsonData) })
-        .then(r => {
-          console.log('[KNIVSLIP v3] Svar:', r.status);
-          return r.json();
-        })
+        .then(r => r.json())
         .then(data => {
-          console.log('[KNIVSLIP v3] Data:', JSON.stringify(data));
           if (data.ok) { window.location.href = 'tack.html?id=' + data.booking_id; }
           else { btn.textContent = 'Skicka bokning'; btn.disabled = false; alert('Bokning misslyckades: ' + (data.error || 'Okant fel')); }
         })
         .catch(err => {
-          console.error('[KNIVSLIP v3] FEL:', err);
           btn.textContent = 'Skicka bokning';
           btn.disabled = false;
-          alert('Kunde inte skicka bokning (nätverksfel): ' + err.message);
+          alert('Kunde inte skicka bokning: ' + err.message);
         });
     });
   </script>
