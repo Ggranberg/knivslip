@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Boka slipning — Knivslip</title>
+  <title>Boka slipning — Knivkillarna</title>
   <meta name="description" content="Boka knivslipning i Nacka och Värmdö. Vi hämtar och lämnar inom 2 dagar.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🔪</text></svg>">
   <link rel="stylesheet" href="style.css">
@@ -62,7 +62,7 @@
 
   <header class="booking-header">
     <nav>
-      <a href="index.html" class="logo">KNIVSLIP</a>
+      <a href="index.html" class="logo">KNIVKILLARNA</a>
       <div class="nav-links">
         <a href="index.html">Tillbaka</a>
       </div>
@@ -180,7 +180,7 @@
           <div class="form-group" style="margin-top:0.5rem;">
             <label style="display:flex;gap:0.6rem;align-items:flex-start;cursor:pointer;font-weight:400;font-size:0.85rem;color:var(--gray-700, #555);line-height:1.4;">
               <input type="checkbox" id="gdpr-consent" name="gdpr_consent" required style="margin-top:3px;min-width:18px;min-height:18px;accent-color:var(--accent, #e85d04);">
-              <span>Jag samtycker till att Knivslip AB sparar mina uppgifter (namn, telefon, adress) för att kunna utföra tjänsten. <a href="integritet.html" target="_blank" style="color:var(--accent, #e85d04);">Integritetspolicy</a></span>
+              <span>Jag samtycker till att Knivkillarna AB sparar mina uppgifter (namn, telefon, adress) för att kunna utföra tjänsten. <a href="integritet.html" target="_blank" style="color:var(--accent, #e85d04);">Integritetspolicy</a></span>
             </label>
           </div>
           <button type="submit" class="btn-primary btn-full">Skicka bokning</button>
@@ -280,7 +280,7 @@
         if (clicks >= 3) {
           clicks = 0;
           const overlay = document.createElement('div');
-          overlay.innerHTML = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;"><div style="background:#1a1a1a;padding:2rem;border-radius:12px;text-align:center;max-width:300px;"><div style="color:#e85d04;font-size:1.2rem;font-weight:800;letter-spacing:0.1em;margin-bottom:1rem;">KNIVSLIP</div><input id="pin-input" type="password" maxlength="6" placeholder="Ange PIN" style="width:100%;padding:0.8rem;border:2px solid #404040;border-radius:8px;background:#262626;color:#fff;font-size:1.2rem;text-align:center;letter-spacing:0.3em;font-family:inherit;" autofocus><p id="pin-error" style="color:#dc2626;font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p></div></div>';
+          overlay.innerHTML = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;"><div style="background:#1a1a1a;padding:2rem;border-radius:12px;text-align:center;max-width:300px;"><div style="color:#e85d04;font-size:1.2rem;font-weight:800;letter-spacing:0.1em;margin-bottom:1rem;">KNIVKILLARNA</div><input id="pin-input" type="password" maxlength="6" placeholder="Ange PIN" style="width:100%;padding:0.8rem;border:2px solid #404040;border-radius:8px;background:#262626;color:#fff;font-size:1.2rem;text-align:center;letter-spacing:0.3em;font-family:inherit;" autofocus><p id="pin-error" style="color:#dc2626;font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p></div></div>';
           document.body.appendChild(overlay);
           const input = document.getElementById('pin-input');
           input.focus();
