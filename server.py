@@ -388,7 +388,6 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
             result = handle_booking(data)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
 
@@ -403,7 +402,6 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
                     json.dump(data, f, indent=2, ensure_ascii=False)
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps({'ok': True}).encode())
             except Exception as e:
@@ -417,7 +415,6 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
             result = approve_booking(booking_id)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
 
@@ -425,7 +422,6 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
             optimize_schedule()
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps({'ok': True}).encode())
 
@@ -434,7 +430,6 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
