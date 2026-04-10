@@ -254,6 +254,8 @@ def handle_booking(data):
 
     booking_id = generate_id('BOK', [b['id'] for b in bookings])
 
+    source = data.get('source', 'hemsida')
+
     new_booking = {
         'id': booking_id,
         'name': name,
@@ -266,6 +268,7 @@ def handle_booking(data):
         'preferred_date': preferred_date or None,
         'time_window': time_window or None,
         'message': message,
+        'source': source,
         'created_at': now_str,
         'status': 'pending'
     }
@@ -337,8 +340,8 @@ def approve_booking(booking_id):
         new_customer = {
             'id': customer_id, 'name': name, 'phone': phone, 'email': email,
             'address': address, 'postnummer': postnummer, 'stad': stad,
-            'area_id': area_id, 'source': 'hemsida',
-            'gdpr_consent': {'given': True, 'timestamp': now_str, 'method': 'hemsida', 'notes': 'Samtycke via bokningsformular'},
+            'area_id': area_id, 'source': booking.get('source', 'hemsida'),
+            'gdpr_consent': {'given': True, 'timestamp': now_str, 'method': booking.get('source', 'hemsida'), 'notes': 'Samtycke via bokningsformular'},
             'notes': message, 'created_at': now_str, 'updated_at': now_str, 'is_deleted': False
         }
         customers.append(new_customer)
@@ -350,10 +353,10 @@ def approve_booking(booking_id):
     new_order = {
         'id': order_id, 'customer_id': customer_id, 'status': 'booked',
         'status_history': [
-            {'status': 'lead', 'timestamp': now_str, 'by': 'hemsida'},
-            {'status': 'booked', 'timestamp': now_str, 'by': 'hemsida'}
+            {'status': 'lead', 'timestamp': now_str, 'by': booking.get('source', 'hemsida')},
+            {'status': 'booked', 'timestamp': now_str, 'by': booking.get('source', 'hemsida')}
         ],
-        'source': 'hemsida', 'estimated_knife_count': knife_count, 'actual_knife_count': None,
+        'source': booking.get('source', 'hemsida'), 'estimated_knife_count': knife_count, 'actual_knife_count': None,
         'pickup': {'date': pickup_date, 'time_window': time_window or None, 'assigned_to': None, 'completed_at': None},
         'delivery': {'date': None, 'time_window': None, 'assigned_to': None, 'completed_at': None},
         'quality_check': {'passed': None, 'checked_by': None, 'timestamp': None, 'notes': None},
@@ -371,6 +374,53 @@ def approve_booking(booking_id):
     print(f'[GODKAND] Order: {order_id} for {name}, {knife_count} knivar')
 
     return {'ok': True, 'customer_id': customer_id, 'order_id': order_id}
+
+
+def create_order_for_customer(data):
+    """Create a new order for an existing customer (from admin panel)."""
+    customer_id = data.get('customer_id', '').strip()
+    knives_str = data.get('knives', '3-5')
+    preferred_date = data.get('preferred_date', '').strip()
+    time_window = data.get('time_window', '').strip()
+    notes = data.get('notes', '').strip()
+
+    if not customer_id:
+        return {'ok': False, 'error': 'customer_id saknas'}
+
+    customers_data = load_json('customers.json')
+    customers = customers_data.get('customers', [])
+    customer = next((c for c in customers if c['id'] == customer_id and not c.get('is_deleted')), None)
+    if not customer:
+        return {'ok': False, 'error': 'Kund hittades inte'}
+
+    knife_map = {'1-2': 2, '3-5': 4, '6+': 7}
+    knife_count = knife_map.get(knives_str, 4)
+
+    orders_data = load_json('orders.json')
+    orders = orders_data.get('orders', [])
+    now_str = datetime.now().isoformat()
+
+    pickup_date = preferred_date or (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+    order_id = generate_id('ORD', [o['id'] for o in orders])
+    new_order = {
+        'id': order_id, 'customer_id': customer_id, 'status': 'booked',
+        'status_history': [
+            {'status': 'booked', 'timestamp': now_str, 'by': 'admin'}
+        ],
+        'source': 'admin', 'estimated_knife_count': knife_count, 'actual_knife_count': None,
+        'pickup': {'date': pickup_date, 'time_window': time_window or None, 'assigned_to': None, 'completed_at': None},
+        'delivery': {'date': None, 'time_window': None, 'assigned_to': None, 'completed_at': None},
+        'quality_check': {'passed': None, 'checked_by': None, 'timestamp': None, 'notes': None},
+        'has_incident': False, 'incident_notes': None, 'invoice_id': None,
+        'notes': notes, 'created_at': now_str, 'updated_at': now_str
+    }
+    orders.append(new_order)
+    save_json('orders.json', {'orders': orders})
+
+    optimize_schedule()
+    print(f'[NY ORDER] {order_id} for {customer["name"]} ({customer_id}), {knife_count} knivar')
+
+    return {'ok': True, 'order_id': order_id}
 
 
 class KnivslipHandler(SimpleHTTPRequestHandler):
@@ -437,6 +487,13 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
                 self.send_error(400, 'booking_id saknas')
                 return
             result = approve_booking(booking_id)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode())
+
+        elif path == '/api/create-order':
+            result = create_order_for_customer(data)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()

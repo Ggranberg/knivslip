@@ -741,7 +741,9 @@
               <span style="font-size:2rem;font-weight:800;color:${count > 0 ? 'var(--accent)' : 'var(--gray-400)'};">${count}</span>
               <span style="font-size:1rem;color:var(--gray-500);margin-left:0.5rem;">nya bokningar vantar</span>
             </div>
+            <button onclick="showManualBookingForm()" class="log-submit" style="padding:0.6rem 1.2rem;font-size:0.9rem;">+ Ny bokning (telefon)</button>
           </div>
+          <div id="manual-booking-form"></div>
           <div id="booking-list"></div>
         </div>
       `);
@@ -774,6 +776,130 @@
       `).join('');
     }
 
+    // === MANUAL BOOKING (PHONE) ===
+    function showManualBookingForm() {
+      const el = document.getElementById('manual-booking-form');
+      if (el.innerHTML) { el.innerHTML = ''; return; }
+      el.innerHTML = `
+        <div class="card" style="padding:1.25rem;margin-bottom:1rem;border-left:4px solid var(--blue);">
+          <div style="font-weight:700;margin-bottom:1rem;font-size:1.05rem;">Lagg till bokning manuellt</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+            <div><label style="font-size:0.8rem;color:var(--gray-500);">Namn *</label><input id="mb-name" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+            <div><label style="font-size:0.8rem;color:var(--gray-500);">Telefon *</label><input id="mb-phone" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+            <div><label style="font-size:0.8rem;color:var(--gray-500);">Adress *</label><input id="mb-address" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+            <div><label style="font-size:0.8rem;color:var(--gray-500);">Antal knivar</label><select id="mb-knives" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"><option value="1-2">1-2 (170 kr/st)</option><option value="3-5" selected>3-5 (140 kr/st)</option><option value="6+">6+ (120 kr/st)</option></select></div>
+            <div><label style="font-size:0.8rem;color:var(--gray-500);">Kalla</label><select id="mb-source" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"><option value="telefon" selected>Telefon</option><option value="facebook">Facebook</option><option value="dorr">Dorrknackning</option><option value="referral">Referral</option></select></div>
+            <div><label style="font-size:0.8rem;color:var(--gray-500);">Anteckning</label><input id="mb-message" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;" placeholder="Valfritt"></div>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+            <button onclick="submitManualBooking()" class="log-submit" style="padding:0.5rem 1.5rem;">Skapa bokning</button>
+            <button onclick="document.getElementById('manual-booking-form').innerHTML=''" style="padding:0.5rem 1rem;background:var(--gray-200);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">Avbryt</button>
+          </div>
+        </div>`;
+    }
+
+    async function submitManualBooking() {
+      const name = document.getElementById('mb-name').value.trim();
+      const phone = document.getElementById('mb-phone').value.trim();
+      const address = document.getElementById('mb-address').value.trim();
+      const knives = document.getElementById('mb-knives').value;
+      const source = document.getElementById('mb-source').value;
+      const message = document.getElementById('mb-message').value.trim();
+      if (!name || !phone || !address) { alert('Namn, telefon och adress kravs'); return; }
+      try {
+        const res = await fetch('/api/booking', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, phone, address, knives, source, message }) });
+        const r = await res.json();
+        if (r.ok) {
+          document.getElementById('manual-booking-form').innerHTML = '';
+          await loadPendingBookings();
+          renderView('bookings');
+        } else { alert(r.error || 'Fel'); }
+      } catch(e) { alert('Kunde inte skapa bokning: ' + e.message); }
+    }
+
+    // === NEW ORDER FOR EXISTING CUSTOMER ===
+    function showNewOrderForm(customerId) {
+      const c = DATA.customers.find(c => c.id === customerId);
+      if (!c) return;
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:450px;">
+          <div class="modal-header">
+            <h2>Ny order for ${c.name}</h2>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div style="margin-bottom:0.75rem;font-size:0.9rem;color:var(--gray-500);">${c.address || 'Ingen adress'} | ${c.phone || 'Ingen telefon'}</div>
+            <div class="profile-field"><label>Antal knivar</label><select id="no-knives" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"><option value="1-2">1-2 (170 kr/st)</option><option value="3-5" selected>3-5 (140 kr/st)</option><option value="6+">6+ (120 kr/st)</option></select></div>
+            <div class="profile-field" style="margin-top:0.75rem;"><label>Hamtdatum</label><input id="no-date" type="date" value="${new Date(Date.now()+86400000).toISOString().split('T')[0]}" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+            <div class="profile-field" style="margin-top:0.75rem;"><label>Anteckning</label><input id="no-notes" placeholder="Valfritt" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-save" onclick="submitNewOrder('${c.id}')">Skapa order</button>
+            <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    }
+
+    async function submitNewOrder(customerId) {
+      const knives = document.getElementById('no-knives').value;
+      const preferred_date = document.getElementById('no-date').value;
+      const notes = document.getElementById('no-notes').value.trim();
+      try {
+        const res = await fetch('/api/create-order', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ customer_id: customerId, knives, preferred_date, notes }) });
+        const r = await res.json();
+        if (r.ok) {
+          document.querySelectorAll('.modal-overlay').forEach(o => o.remove());
+          await loadAllData();
+          openCustomer(customerId);
+        } else { alert(r.error || 'Fel'); }
+      } catch(e) { alert('Kunde inte skapa order: ' + e.message); }
+    }
+
+    // === CUSTOMER COMMENTS ===
+    function addCustomerComment(customerId) {
+      const input = document.getElementById('cp-new-comment');
+      const text = input.value.trim();
+      if (!text) return;
+      const c = DATA.customers.find(c => c.id === customerId);
+      if (!c) return;
+      if (!c.comments) c.comments = [];
+      c.comments.push({ text, created_at: now(), created_by: CURRENT_USER.name });
+      c.updated_at = now();
+      input.value = '';
+      renderCommentsList(customerId);
+      saveJSON('customers.json', { customers: DATA.customers });
+    }
+
+    function deleteCustomerComment(customerId, idx) {
+      const c = DATA.customers.find(c => c.id === customerId);
+      if (!c || !c.comments) return;
+      c.comments.splice(idx, 1);
+      c.updated_at = now();
+      renderCommentsList(customerId);
+      saveJSON('customers.json', { customers: DATA.customers });
+    }
+
+    function renderCommentsList(customerId) {
+      const c = DATA.customers.find(c => c.id === customerId);
+      const el = document.getElementById('cp-comments-list');
+      if (!el || !c) return;
+      const comments = (c.comments || []).slice().reverse();
+      el.innerHTML = comments.length ? comments.map((cm, i) => {
+        const realIdx = (c.comments.length - 1) - i;
+        return `<div style="padding:0.6rem;background:var(--gray-100);border-radius:var(--radius);margin-bottom:0.4rem;font-size:0.85rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="color:var(--gray-500);font-size:0.75rem;">${cm.created_by} — ${new Date(cm.created_at).toLocaleString('sv-SE')}</span>
+            <button onclick="deleteCustomerComment('${customerId}',${realIdx})" style="background:none;border:none;color:var(--gray-400);cursor:pointer;font-size:0.8rem;">&times;</button>
+          </div>
+          <div style="margin-top:0.25rem;">${cm.text}</div>
+        </div>`;
+      }).join('') : '<div style="color:var(--gray-400);font-style:italic;font-size:0.85rem;">Inga kommentarer annu</div>';
+    }
+
     // === CUSTOMER PROFILE ===
     function openCustomer(customerId) {
       const c = DATA.customers.find(c => c.id === customerId);
@@ -801,6 +927,7 @@
                 <select id="cp-source">
                   <option value="dorr" ${c.source==='dorr'?'selected':''}>Dorrknackning</option>
                   <option value="facebook" ${c.source==='facebook'?'selected':''}>Facebook</option>
+                  <option value="telefon" ${c.source==='telefon'?'selected':''}>Telefon</option>
                   <option value="referral" ${c.source==='referral'?'selected':''}>Referral</option>
                   <option value="hemsida" ${c.source==='hemsida'?'selected':''}>Hemsida</option>
                   <option value="annat" ${c.source==='annat'?'selected':''}>Annat</option>
@@ -837,6 +964,15 @@
             </div>
 
             <div class="profile-section">
+              <h3>Kommentarer</h3>
+              <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+                <input id="cp-new-comment" placeholder="Lagg till kommentar..." style="flex:1;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.85rem;">
+                <button onclick="addCustomerComment('${c.id}')" class="log-submit" style="padding:0.5rem 0.75rem;font-size:0.85rem;">Lagg till</button>
+              </div>
+              <div id="cp-comments-list"></div>
+            </div>
+
+            <div class="profile-section">
               <h3>GDPR</h3>
               <div style="font-size:0.85rem;color:var(--gray-500);">
                 Samtycke: ${c.gdpr_consent?.given ? 'Ja' : 'Nej'} |
@@ -847,6 +983,7 @@
           </div>
           <div class="modal-actions">
             <button class="btn-save" onclick="saveCustomerProfile('${c.id}')">Spara andringar</button>
+            <button onclick="showNewOrderForm('${c.id}')" style="padding:0.6rem 1.25rem;border-radius:var(--radius);font-size:0.9rem;font-weight:600;cursor:pointer;font-family:inherit;background:var(--accent);color:var(--white);border:none;">+ Ny order</button>
             <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
             <button onclick="exportCustomerData('${c.id}')" style="padding:0.6rem 1.25rem;border-radius:var(--radius);font-size:0.9rem;font-weight:600;cursor:pointer;font-family:inherit;background:none;border:1px solid var(--blue);color:var(--blue);">GDPR-utdrag</button>
             <div style="flex:1;"></div>
@@ -856,6 +993,7 @@
       `;
       document.body.appendChild(overlay);
       overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+      renderCommentsList(customerId);
     }
 
     async function saveCustomerProfile(id) {
@@ -1260,7 +1398,7 @@
         <div class="section">
           <div class="table-controls">
             <input type="text" class="search-input" id="cs" placeholder="Sok pa namn, telefon, adress...">
-            <select class="filter-select" id="sf"><option value="">Alla kallor</option><option value="dorr">Dorr</option><option value="facebook">Facebook</option><option value="referral">Referral</option></select>
+            <select class="filter-select" id="sf"><option value="">Alla kallor</option><option value="dorr">Dorr</option><option value="facebook">Facebook</option><option value="telefon">Telefon</option><option value="referral">Referral</option><option value="hemsida">Hemsida</option></select>
           </div>
           <div class="card"><table><thead><tr><th>Namn</th><th>Telefon</th><th>Adress</th><th>Kalla</th><th>Ordrar</th><th>Senaste</th></tr></thead><tbody id="ctable"></tbody></table></div>
         </div>
