@@ -32,8 +32,16 @@
           <p>Du får tillbaka vassa knivar!</p>
         </div>
       </div>
+      <p id="booking-ref" style="font-size:0.8rem;color:#999;margin-top:1rem;"></p>
       <a href="index.html" class="btn-primary">Tillbaka till startsidan</a>
     </div>
   </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id) {
+      document.getElementById('booking-ref').textContent = 'Ref: ' + id;
+    }
+  </script>
 </body>
 </html>
