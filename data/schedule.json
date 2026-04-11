@@ -1,3 +1,27 @@
 {
-  "schedule": []
+  "schedule": [
+    {
+      "date": "2026-04-11",
+      "assigned_to": "gustav",
+      "stops": [
+        {
+          "order_id": "ORD-20260410-001",
+          "customer_id": "CUS-20260317-001",
+          "type": "pickup",
+          "customer_name": "Paramjeet Singh",
+          "address": "Eddavagen 4, None Nacka",
+          "area_id": null,
+          "time_window": null,
+          "estimated_time": "",
+          "sequence": 1,
+          "completed": false,
+          "notes": "HAMTNING 7 knivar"
+        }
+      ],
+      "estimated_total_time_min": 35,
+      "estimated_start": "16:00",
+      "estimated_end": "16:35",
+      "notes": "Auto-optimerad rutt: 1 stopp"
+    }
+  ]
 }

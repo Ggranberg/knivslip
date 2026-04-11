@@ -831,7 +831,11 @@
           </div>
           <div class="modal-body">
             <div style="margin-bottom:0.75rem;font-size:0.9rem;color:var(--gray-500);">${c.address || 'Ingen adress'} | ${c.phone || 'Ingen telefon'}</div>
-            <div class="profile-field"><label>Antal knivar</label><select id="no-knives" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"><option value="1-2">1-2 (170 kr/st)</option><option value="3-5" selected>3-5 (140 kr/st)</option><option value="6+">6+ (120 kr/st)</option></select></div>
+            <div class="profile-row">
+              <div class="profile-field"><label>Antal knivar</label><input id="no-knives" type="number" min="1" max="100" value="5" placeholder="T.ex. 9" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+              <div class="profile-field"><label>Pris per kniv (kr, valfritt)</label><input id="no-price" type="number" min="0" step="10" placeholder="Auto" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+            </div>
+            <div style="font-size:0.8rem;color:var(--gray-400);margin-top:0.25rem;">Standardpris: 1-2 st = 170 kr, 3-5 st = 140 kr, 6+ st = 120 kr</div>
             <div class="profile-field" style="margin-top:0.75rem;"><label>Hamtdatum</label><input id="no-date" type="date" value="${new Date(Date.now()+86400000).toISOString().split('T')[0]}" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
             <div class="profile-field" style="margin-top:0.75rem;"><label>Anteckning</label><input id="no-notes" placeholder="Valfritt" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
           </div>
@@ -845,18 +849,178 @@
     }
 
     async function submitNewOrder(customerId) {
-      const knives = document.getElementById('no-knives').value;
+      const knifeCount = parseInt(document.getElementById('no-knives').value) || 0;
+      if (knifeCount < 1) { alert('Ange antal knivar'); return; }
+      const pricePerKnife = parseInt(document.getElementById('no-price').value) || null;
+      const knives = knifeCount >= 6 ? '6+' : knifeCount >= 3 ? '3-5' : '1-2';
       const preferred_date = document.getElementById('no-date').value;
       const notes = document.getElementById('no-notes').value.trim();
       try {
-        const res = await fetch('/api/create-order', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ customer_id: customerId, knives, preferred_date, notes }) });
+        const res = await fetch('/api/create-order', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ customer_id: customerId, knives, actual_knife_count: knifeCount, price_per_knife: pricePerKnife, preferred_date, notes }) });
         const r = await res.json();
         if (r.ok) {
           document.querySelectorAll('.modal-overlay').forEach(o => o.remove());
           await loadAllData();
-          openCustomer(customerId);
+          // Open the new order directly so user can manage it
+          const newOrder = DATA.orders.filter(o => o.customer_id === customerId).sort((a,b) => b.created_at.localeCompare(a.created_at))[0];
+          if (newOrder) openOrder(newOrder.id);
+          else openCustomer(customerId);
         } else { alert(r.error || 'Fel'); }
       } catch(e) { alert('Kunde inte skapa order: ' + e.message); }
+    }
+
+    // === ORDER EDIT MODAL ===
+    function openOrder(orderId) {
+      const o = DATA.orders.find(x => x.id === orderId);
+      if (!o) return;
+      const c = DATA.customers.find(x => x.id === o.customer_id);
+      const customerName = c ? c.name : 'Okand';
+
+      const allStatuses = ['lead','booked','picked_up','registered','sharpening','quality_check','ready','out_for_delivery','delivered','completed'];
+      const statusLabels = { lead:'Lead', booked:'Bokad', picked_up:'Hamtad', registered:'Registrerad', sharpening:'Slipning', quality_check:'Kvalitetskontroll', ready:'Redo', out_for_delivery:'Pa vag', delivered:'Levererad', completed:'Klar' };
+
+      const statusOptions = allStatuses.map(s =>
+        `<option value="${s}" ${o.status===s?'selected':''}>${statusLabels[s]}</option>`
+      ).join('');
+
+      const currentKnives = o.actual_knife_count || o.estimated_knife_count || '';
+      const currentPrice = o.price_per_knife || '';
+      const currentTotal = o.custom_total_price || '';
+
+      // Calculate default price based on knife count
+      function defaultPriceForCount(n) {
+        if (!n || n <= 0) return '';
+        if (n <= 2) return 170;
+        if (n <= 5) return 140;
+        return 120;
+      }
+      const suggestedPrice = defaultPriceForCount(currentKnives);
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:520px;">
+          <div class="modal-header">
+            <h2>Order ${o.id}</h2>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div style="display:flex;gap:1.5rem;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--gray-200);">
+              <div><span style="color:var(--gray-500);font-size:0.8rem;">Kund</span><div style="font-weight:600;font-size:1.05rem;cursor:pointer;color:var(--accent);" onclick="document.querySelector('.modal-overlay').remove();openCustomer('${o.customer_id}')">${customerName}</div></div>
+              <div><span style="color:var(--gray-500);font-size:0.8rem;">Skapad</span><div style="font-weight:600;">${formatDate(o.created_at)}</div></div>
+              <div><span style="color:var(--gray-500);font-size:0.8rem;">Kalla</span><div><span class="source-tag ${o.source||'admin'}">${o.source||'admin'}</span></div></div>
+            </div>
+
+            <div class="profile-field" style="margin-bottom:1rem;">
+              <label>Status</label>
+              <select id="oe-status" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
+                ${statusOptions}
+              </select>
+            </div>
+
+            <div class="profile-row" style="margin-bottom:1rem;">
+              <div class="profile-field">
+                <label>Antal knivar (faktiskt)</label>
+                <input id="oe-knives" type="number" min="1" max="100" value="${currentKnives}" placeholder="T.ex. 7" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
+              </div>
+              <div class="profile-field">
+                <label>Uppskattat</label>
+                <div style="padding:0.6rem;color:var(--gray-500);font-size:0.95rem;">${o.estimated_knife_count || '?'} (${({'1-2':'170 kr/st','3-5':'140 kr/st','6+':'120 kr/st'})[o.estimated_knife_count >= 6 ? '6+' : o.estimated_knife_count >= 3 ? '3-5' : '1-2'] || '?'})</div>
+              </div>
+            </div>
+
+            <div class="profile-row" style="margin-bottom:1rem;">
+              <div class="profile-field">
+                <label>Pris per kniv (kr)</label>
+                <input id="oe-price" type="number" min="0" step="10" value="${currentPrice}" placeholder="${suggestedPrice || 'Auto'}" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
+              </div>
+              <div class="profile-field">
+                <label>Totalpris (kr, inkl moms)</label>
+                <input id="oe-total" type="number" min="0" step="10" value="${currentTotal}" placeholder="Auto" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;" readonly>
+              </div>
+            </div>
+
+            <div class="profile-field" style="margin-bottom:1rem;">
+              <label>Anteckningar</label>
+              <textarea id="oe-notes" rows="2" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.9rem;">${o.notes || ''}</textarea>
+            </div>
+
+            <div style="background:var(--gray-100);border-radius:var(--radius);padding:0.75rem;max-height:160px;overflow-y:auto;">
+              <div style="font-size:0.8rem;font-weight:600;color:var(--gray-500);margin-bottom:0.4rem;">Statushistorik</div>
+              ${(o.status_history || []).slice().reverse().map(h =>
+                `<div style="font-size:0.8rem;padding:0.2rem 0;color:var(--gray-600);"><strong>${statusLabels[h.status]||h.status}</strong> — ${new Date(h.timestamp).toLocaleString('sv-SE')}${h.by ? ' ('+h.by+')' : ''}</div>`
+              ).join('') || '<div style="font-size:0.8rem;color:var(--gray-400);">Ingen historik</div>'}
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-save" onclick="saveOrderEdit('${o.id}')">Spara</button>
+            <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+      // Auto-calc total when knives or price changes
+      const knivesInput = document.getElementById('oe-knives');
+      const priceInput = document.getElementById('oe-price');
+      const totalInput = document.getElementById('oe-total');
+
+      function recalcTotal() {
+        const n = parseInt(knivesInput.value) || 0;
+        let ppk = parseInt(priceInput.value);
+        if (!ppk && n > 0) ppk = defaultPriceForCount(n);
+        totalInput.value = n && ppk ? n * ppk : '';
+      }
+      knivesInput.addEventListener('input', () => {
+        // Update price placeholder when knife count changes
+        const n = parseInt(knivesInput.value) || 0;
+        priceInput.placeholder = defaultPriceForCount(n) || 'Auto';
+        recalcTotal();
+      });
+      priceInput.addEventListener('input', recalcTotal);
+      recalcTotal();
+    }
+
+    async function saveOrderEdit(orderId) {
+      const o = DATA.orders.find(x => x.id === orderId);
+      if (!o) return;
+
+      const newStatus = document.getElementById('oe-status').value;
+      const newKnives = parseInt(document.getElementById('oe-knives').value) || null;
+      const newPrice = parseInt(document.getElementById('oe-price').value) || null;
+      const newNotes = document.getElementById('oe-notes').value.trim();
+
+      // Update status + add to history if changed
+      if (newStatus !== o.status) {
+        o.status = newStatus;
+        if (!o.status_history) o.status_history = [];
+        o.status_history.push({
+          status: newStatus,
+          timestamp: now(),
+          by: CURRENT_USER.name.split(' ')[0].toLowerCase()
+        });
+      }
+
+      // Update knife count
+      if (newKnives) {
+        o.actual_knife_count = newKnives;
+      }
+
+      // Update price
+      if (newPrice) {
+        o.price_per_knife = newPrice;
+        o.custom_total_price = newKnives ? newKnives * newPrice : null;
+      }
+
+      o.notes = newNotes;
+      o.updated_at = now();
+
+      await saveJSON('orders.json', { orders: DATA.orders });
+      document.querySelector('.modal-overlay')?.remove();
+
+      // Re-render current view
+      const activeNav = document.querySelector('.sidebar-nav a.active');
+      if (activeNav) renderView(activeNav.dataset.view);
     }
 
     // === CUSTOMER COMMENTS ===
@@ -1368,7 +1532,7 @@
         const cards = orders.map(o => {
           const last = o.status_history?.[o.status_history.length-1]?.timestamp;
           const days = last ? daysBetween(last, now()) : 0;
-          return `<div class="pipeline-card"><div class="pc-name"><a class="clickable-name" onclick="openCustomer('${o.customer_id}')">${getCustomerName(o.customer_id)}</a></div><div class="pc-meta">${o.estimated_knife_count||'?'} knivar <span class="pc-badge ${days>1?'warn':'ok'}">${days}d</span></div></div>`;
+          return `<div class="pipeline-card" style="cursor:pointer;" onclick="openOrder('${o.id}')"><div class="pc-name">${getCustomerName(o.customer_id)}</div><div class="pc-meta">${o.actual_knife_count || o.estimated_knife_count||'?'} knivar <span class="pc-badge ${days>1?'warn':'ok'}">${days}d</span></div></div>`;
         }).join('');
         return `<div class="pipeline-col"><div class="pipeline-col-header">${labels[status]} <span class="count">${orders.length}</span></div>${cards||'<div class="pipeline-empty">Inga</div>'}</div>`;
       }).join('');

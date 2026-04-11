@@ -395,6 +395,18 @@ def create_order_for_customer(data):
 
     knife_map = {'1-2': 2, '3-5': 4, '6+': 7}
     knife_count = knife_map.get(knives_str, 4)
+    actual_knife_count = data.get('actual_knife_count')
+    if actual_knife_count is not None:
+        try:
+            actual_knife_count = int(actual_knife_count)
+        except (ValueError, TypeError):
+            actual_knife_count = None
+    price_per_knife = data.get('price_per_knife')
+    if price_per_knife is not None:
+        try:
+            price_per_knife = int(price_per_knife)
+        except (ValueError, TypeError):
+            price_per_knife = None
 
     orders_data = load_json('orders.json')
     orders = orders_data.get('orders', [])
@@ -402,12 +414,20 @@ def create_order_for_customer(data):
 
     pickup_date = preferred_date or (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
     order_id = generate_id('ORD', [o['id'] for o in orders])
+
+    # Calculate custom total if both actual count and price given
+    custom_total = None
+    if actual_knife_count and price_per_knife:
+        custom_total = actual_knife_count * price_per_knife
+
     new_order = {
         'id': order_id, 'customer_id': customer_id, 'status': 'booked',
         'status_history': [
             {'status': 'booked', 'timestamp': now_str, 'by': 'admin'}
         ],
-        'source': 'admin', 'estimated_knife_count': knife_count, 'actual_knife_count': None,
+        'source': 'admin', 'estimated_knife_count': knife_count,
+        'actual_knife_count': actual_knife_count or (actual_knife_count if actual_knife_count == 0 else None),
+        'price_per_knife': price_per_knife, 'custom_total_price': custom_total,
         'pickup': {'date': pickup_date, 'time_window': time_window or None, 'assigned_to': None, 'completed_at': None},
         'delivery': {'date': None, 'time_window': None, 'assigned_to': None, 'completed_at': None},
         'quality_check': {'passed': None, 'checked_by': None, 'timestamp': None, 'notes': None},
