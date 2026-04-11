@@ -1887,7 +1887,7 @@
 
       const grid = document.getElementById('team-grid');
       USERS.forEach(u => {
-        const payLabel = u.pay_type === 'hourly' ? u.pay_rate + ' kr/h' : u.pay_type === 'per_knife' ? u.pay_rate + ' kr/kniv' : u.pay_type === 'monthly' ? u.pay_rate + ' kr/man' : 'Ej satt';
+        const payLabel = u.pay_type === 'hourly' ? u.pay_rate + ' kr/h' : u.pay_type === 'per_knife' ? u.pay_rate + ' kr/kniv' : u.pay_type === 'per_km' ? u.pay_rate + ' kr/km' : u.pay_type === 'monthly' ? u.pay_rate + ' kr/mån' : 'Ej satt';
         grid.insertAdjacentHTML('beforeend', `
           <div class="team-card">
             <div class="tc-name">${u.name} ${!u.active ? '<span style="color:var(--red);">(inaktiv)</span>' : ''}</div>
@@ -1906,9 +1906,10 @@
               <label style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;display:block;margin-bottom:0.25rem;">Lön: ${payLabel}</label>
               <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
                 <select id="paytype-${u.id}" style="padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:0.85rem;font-family:inherit;">
-                  <option value="" ${!u.pay_type?'selected':''}>Valj...</option>
+                  <option value="" ${!u.pay_type?'selected':''}>Välj...</option>
                   <option value="hourly" ${u.pay_type==='hourly'?'selected':''}>Timlön (kr/h)</option>
                   <option value="per_knife" ${u.pay_type==='per_knife'?'selected':''}>Per kniv (kr/kniv)</option>
+                  <option value="per_km" ${u.pay_type==='per_km'?'selected':''}>Per km (kr/km)</option>
                   <option value="monthly" ${u.pay_type==='monthly'?'selected':''}>Månadslön (kr/mån)</option>
                 </select>
                 <input type="number" id="payrate-${u.id}" value="${u.pay_rate||''}" placeholder="Belopp" style="width:80px;padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:0.85rem;font-family:inherit;">
@@ -1932,7 +1933,7 @@
       const paidUsers = USERS.filter(u => u.active && u.pay_type);
       if (paidUsers.length) {
         const summary = paidUsers.map(u => {
-          const label = u.pay_type === 'hourly' ? u.pay_rate + ' kr/h' : u.pay_type === 'per_knife' ? u.pay_rate + ' kr/kniv' : u.pay_rate + ' kr/man';
+          const label = u.pay_type === 'hourly' ? u.pay_rate + ' kr/h' : u.pay_type === 'per_knife' ? u.pay_rate + ' kr/kniv' : u.pay_type === 'per_km' ? u.pay_rate + ' kr/km' : u.pay_rate + ' kr/mån';
           return `<div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--gray-100);"><span>${u.name} (${u.role})</span><strong>${label}</strong></div>`;
         }).join('');
         grid.insertAdjacentHTML('beforeend', `<div class="team-card" style="border-left:3px solid var(--accent);"><div style="font-weight:700;margin-bottom:0.75rem;">Loneoversikt</div>${summary}</div>`);
@@ -1946,7 +1947,7 @@
           <input type="text" id="new-pin" placeholder="PIN (4-6 siffror)" maxlength="6">
           <select id="new-role"><option value="slipare">Slipare</option><option value="forare">Förare</option><option value="admin">Admin</option></select>
           <div style="margin-top:0.5rem;">
-            <select id="new-paytype"><option value="">Lön (valfritt)</option><option value="hourly">Timlön</option><option value="per_knife">Per kniv</option><option value="monthly">Månadslön</option></select>
+            <select id="new-paytype"><option value="">Lön (valfritt)</option><option value="hourly">Timlön</option><option value="per_knife">Per kniv</option><option value="per_km">Per km</option><option value="monthly">Månadslön</option></select>
             <input type="number" id="new-payrate" placeholder="Belopp" style="margin-top:0.5rem;">
           </div>
           <button class="log-submit" onclick="addUser()" style="margin-top:0.5rem;">Lagg till</button>
@@ -2023,10 +2024,14 @@
         let payCalc = '';
         if (u.pay_type === 'per_knife') {
           const earned = totalKnives * (u.pay_rate || 0);
-          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beraknad lon</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalKnives} knivar x ${u.pay_rate} kr</div></div>`;
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beräknad lön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalKnives} knivar x ${u.pay_rate} kr</div></div>`;
         } else if (u.pay_type === 'hourly') {
           const earned = Math.round(totalHours * (u.pay_rate || 0));
-          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beraknad lon</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalHours.toFixed(1)}h x ${u.pay_rate} kr/h</div></div>`;
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beräknad lön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalHours.toFixed(1)}h x ${u.pay_rate} kr/h</div></div>`;
+        } else if (u.pay_type === 'per_km') {
+          const totalKm = userLogs.reduce((s, l) => s + (l.km_driven || 0), 0);
+          const earned = Math.round(totalKm * (u.pay_rate || 0));
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beräknad lön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalKm} km x ${u.pay_rate} kr</div></div>`;
         } else if (u.pay_type === 'monthly') {
           payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Månadslön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${u.pay_rate} kr</div></div>`;
         }
@@ -2460,7 +2465,7 @@
       const clockedIn = todayLog && todayLog.clock_in && !todayLog.clock_out;
 
       const hour = new Date().getHours();
-      const greeting = hour < 12 ? 'God morgon' : hour < 17 ? 'God eftermiddag' : 'God kvall';
+      const greeting = hour < 12 ? 'God morgon' : hour < 17 ? 'God eftermiddag' : 'God kväll';
 
       main.insertAdjacentHTML('beforeend', `
         <div style="margin-bottom:1.5rem;" class="slide-in">
@@ -2479,14 +2484,45 @@
       const todaySched = DATA.schedule.filter(s => s.date === today());
       const stops = todaySched.flatMap(s => s.stops);
       const done = stops.filter(s => s.completed).length;
+      const kmToday = todayLog?.km_driven || 0;
+      const user = USERS.find(u => u.id === CURRENT_USER.id);
+
+      // Lön-beräkning
+      let payBox = `<div class="stat-box"><div class="sb-value">${stops.length}</div><div class="sb-label">Totalt idag</div></div>`;
+      if (user?.pay_type === 'per_km' && kmToday > 0) {
+        payBox = `<div class="stat-box"><div class="sb-value" style="color:var(--green);">${Math.round(kmToday * (user.pay_rate||0))} kr</div><div class="sb-label">Lön idag</div></div>`;
+      }
 
       main.insertAdjacentHTML('beforeend', `
         <div class="stats-row">
           <div class="stat-box"><div class="sb-value" style="color:var(--green);">${done}</div><div class="sb-label">Stopp klara</div></div>
           <div class="stat-box"><div class="sb-value" style="color:var(--accent);">${stops.length - done}</div><div class="sb-label">Stopp kvar</div></div>
-          <div class="stat-box"><div class="sb-value">${stops.length}</div><div class="sb-label">Totalt idag</div></div>
+          ${payBox}
         </div>
       `);
+
+      // Km-loggning
+      main.insertAdjacentHTML('beforeend', `
+        <div style="margin-top:1.5rem;padding:1rem;background:var(--white);border-radius:var(--radius);border:1px solid var(--gray-200);">
+          <div style="display:flex;gap:0.75rem;align-items:flex-end;">
+            <div style="flex:1;">
+              <label style="font-size:0.85rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Km körd idag</label>
+              <input type="number" id="km-input" min="0" step="0.1" value="${kmToday || ''}" placeholder="0" style="width:100%;padding:0.6rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:1.1rem;font-family:inherit;">
+            </div>
+            <button onclick="saveKm()" style="padding:0.6rem 1.2rem;min-height:42px;background:var(--accent);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-weight:600;">Spara</button>
+          </div>
+          ${user?.pay_type === 'per_km' && user.pay_rate ? `<div style="font-size:0.8rem;color:var(--gray-400);margin-top:0.5rem;">${user.pay_rate} kr/km</div>` : ''}
+        </div>
+      `);
+    }
+
+    function saveKm() {
+      const km = parseFloat(document.getElementById('km-input').value) || 0;
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '', km_driven: 0 }; TIMELOG.push(entry); }
+      entry.km_driven = km;
+      saveTimelog();
+      renderView('forare-home');
     }
 
     function renderForareRoute(main) {
