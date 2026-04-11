@@ -2525,40 +2525,151 @@
       renderView('forare-home');
     }
 
+    // Motorväg-inställning (sparas i sessionStorage)
+    function getAvoidHighways() { return sessionStorage.getItem('avoid_highways') !== 'false'; }
+    function setAvoidHighways(val) { sessionStorage.setItem('avoid_highways', val); renderView('forare-route'); }
+
+    function getMapsUrl(destination, avoidHighways) {
+      const base = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+      // Google Maps stöder inte avoid=highways i URL direkt, men vi kan använda dirflg parameter
+      // Alternativt: öppna med waypoints via landsväg
+      return avoidHighways ? base + '&dirflg=d' : base;
+    }
+
+    // Uppskattad km per stopp (baserat på areas.json distances)
+    function estimateRouteKm(stops) {
+      // Grov uppskattning: homebase Nacka → områden
+      const areaKm = {
+        'AREA-NACKA-C': 3,
+        'AREA-NACKA-SALTSJOBADEN': 8,
+        'AREA-NACKA-BOO': 6,
+        'AREA-VARMDO-C': 14,
+        'AREA-VARMDO-HALSO': 22,
+        'AREA-VARMDO-INGARSO': 18
+      };
+      const withinAreaKm = 2; // km mellan stopp inom samma område
+
+      if (!stops.length) return 0;
+
+      let totalKm = 0;
+      let prevArea = 'AREA-NACKA-C'; // homebase
+
+      stops.forEach(s => {
+        const area = s.area_id || 'AREA-NACKA-C';
+        if (area !== prevArea) {
+          // Resa till nytt område
+          totalKm += Math.abs((areaKm[area]||8) - (areaKm[prevArea]||3));
+          prevArea = area;
+        } else {
+          totalKm += withinAreaKm;
+        }
+      });
+
+      // Tillbaka till homebase
+      totalKm += areaKm[prevArea] || 8;
+      // Första resan ut
+      totalKm += areaKm[stops[0]?.area_id || 'AREA-NACKA-C'] || 3;
+
+      return Math.round(totalKm);
+    }
+
     function renderForareRoute(main) {
       const todaySched = DATA.schedule.filter(s => s.date === today());
       const stops = todaySched.flatMap(s => s.stops.map(st => ({...st, assigned_to: s.assigned_to})));
+      const avoidHw = getAvoidHighways();
+      const estimatedKm = estimateRouteKm(stops);
+      const user = USERS.find(u => u.id === CURRENT_USER.id);
+      const todayLog = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
 
-      main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:1rem;">Dagens rutt</h2></div>');
+      // Rutt-header med km och motorväg-toggle
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+            <h2>Dagens rutt</h2>
+            <div style="display:flex;gap:0.75rem;align-items:center;">
+              ${estimatedKm > 0 ? `<span style="font-size:0.85rem;color:var(--gray-500);">~${estimatedKm} km</span>` : ''}
+              ${user?.pay_type === 'per_km' && user.pay_rate && estimatedKm ? `<span style="font-size:0.85rem;font-weight:600;color:var(--green);">~${estimatedKm * user.pay_rate} kr</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+            <button onclick="setAvoidHighways(true)" style="flex:1;padding:0.5rem;border:2px solid ${avoidHw ? 'var(--accent)' : 'var(--gray-300)'};background:${avoidHw ? 'var(--accent-light)' : 'var(--white)'};color:${avoidHw ? 'var(--accent)' : 'var(--gray-500)'};border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:${avoidHw ? '700' : '400'};">
+              &#128739; Undvik motorväg
+            </button>
+            <button onclick="setAvoidHighways(false)" style="flex:1;padding:0.5rem;border:2px solid ${!avoidHw ? 'var(--accent)' : 'var(--gray-300)'};background:${!avoidHw ? 'var(--accent-light)' : 'var(--white)'};color:${!avoidHw ? 'var(--accent)' : 'var(--gray-500)'};border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:${!avoidHw ? '700' : '400'};">
+              &#128663; Snabbaste väg
+            </button>
+          </div>
+        </div>
+      `);
       const section = main.querySelector('.section:last-child');
 
       if (!stops.length) {
-        section.insertAdjacentHTML('beforeend', '<div class="schedule-empty">Inga stopp planerade idag</div>');
+        section.insertAdjacentHTML('beforeend', '<div style="text-align:center;padding:2rem;color:var(--gray-400);"><div style="font-size:2rem;margin-bottom:0.5rem;">&#128664;</div>Inga stopp planerade idag</div>');
         return;
       }
 
+      // Stopp-kort
       stops.forEach((s, i) => {
-        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(s.address)}`;
+        const mapsUrl = getMapsUrl(s.address, avoidHw);
+        const knives = s.estimated_knives || s.knives || '';
         section.insertAdjacentHTML('beforeend', `
-          <div class="card slide-in" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${s.completed ? 'var(--green)' : 'var(--accent)'};${s.completed ? 'opacity:0.6;' : ''}animation-delay:${i*0.1}s;">
-            <div style="display:flex;align-items:center;gap:1rem;">
-              <div style="text-align:center;min-width:35px;">
-                <div style="font-size:1.5rem;font-weight:800;color:${s.completed ? 'var(--green)' : 'var(--accent)'};">${s.completed ? '&#10003;' : i+1}</div>
+          <div class="card slide-in" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${s.completed ? 'var(--green)' : 'var(--accent)'};${s.completed ? 'opacity:0.5;' : ''}animation-delay:${i*0.05}s;">
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <div style="text-align:center;min-width:32px;">
+                <div style="font-size:1.4rem;font-weight:800;color:${s.completed ? 'var(--green)' : 'var(--accent)'};">${s.completed ? '&#10003;' : i+1}</div>
               </div>
-              <span class="stop-type ${s.type}">${s.type==='pickup'?'Hamt':'Lev'}</span>
-              <div style="flex:1;">
+              <span class="stop-type ${s.type}" style="font-size:0.7rem;padding:0.2rem 0.5rem;">${s.type==='pickup'?'Hämt':'Lev'}</span>
+              <div style="flex:1;min-width:0;">
                 <div style="font-weight:600;font-size:1rem;">${s.customer_name}</div>
-                <div style="font-size:0.85rem;color:var(--gray-500);">${s.address}</div>
-                <div style="font-size:0.8rem;color:var(--gray-400);margin-top:0.2rem;">${s.time_window || 'Flexibel'} ${s.notes ? '| ' + s.notes : ''}</div>
+                <div style="font-size:0.85rem;color:var(--gray-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.address}</div>
+                ${s.time_window ? `<div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.15rem;">${s.time_window}</div>` : ''}
+                ${s.notes ? `<div style="font-size:0.75rem;color:var(--gray-400);font-style:italic;">${s.notes}</div>` : ''}
               </div>
-              <div style="display:flex;flex-direction:column;gap:0.4rem;">
-                <a href="${mapsUrl}" target="_blank" class="map-btn google" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Navigera</a>
-                <button class="stop-done-btn ${s.completed?'completed':''}" onclick="markStop(${i})" ${s.completed?'disabled':''}>${s.completed?'Klar':'Klar'}</button>
+              <div style="display:flex;flex-direction:column;gap:0.4rem;flex-shrink:0;">
+                <a href="${mapsUrl}" target="_blank" style="padding:0.45rem 0.7rem;font-size:0.8rem;background:var(--blue);color:var(--white);border-radius:var(--radius);text-decoration:none;text-align:center;font-weight:600;">&#128506; Kör</a>
+                <button class="stop-done-btn ${s.completed?'completed':''}" onclick="markStop(${i})" ${s.completed?'disabled':''} style="padding:0.45rem 0.7rem;font-size:0.8rem;background:${s.completed ? 'var(--green)' : 'var(--gray-200)'};color:${s.completed ? 'var(--white)' : 'var(--gray-600)'};border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-weight:600;">${s.completed?'&#10003; Klar':'Klar'}</button>
               </div>
             </div>
           </div>
         `);
       });
+
+      // Km-sammanfattning + auto-log
+      const done = stops.filter(s => s.completed).length;
+      if (done === stops.length && stops.length > 0) {
+        // Alla stopp klara — visa sammanfattning och auto-logga km
+        const loggedKm = todayLog?.km_driven || 0;
+        section.insertAdjacentHTML('beforeend', `
+          <div style="margin-top:1rem;padding:1.25rem;background:var(--green-light);border-radius:var(--radius);border:1px solid var(--green);text-align:center;">
+            <div style="font-size:1.2rem;font-weight:700;color:var(--green);margin-bottom:0.5rem;">&#10024; Alla stopp klara!</div>
+            <div style="font-size:0.9rem;color:var(--gray-600);margin-bottom:0.75rem;">Uppskattad rutt: ~${estimatedKm} km</div>
+            <div style="display:flex;gap:0.75rem;align-items:flex-end;max-width:300px;margin:0 auto;">
+              <div style="flex:1;">
+                <label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Faktisk km</label>
+                <input type="number" id="route-km" min="0" step="0.1" value="${loggedKm || estimatedKm}" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:1rem;font-family:inherit;text-align:center;">
+              </div>
+              <button onclick="saveRouteKm()" style="padding:0.5rem 1rem;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-weight:600;">Spara</button>
+            </div>
+            ${user?.pay_type === 'per_km' && user.pay_rate ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.5rem;">= <strong style="color:var(--green);">${Math.round((loggedKm || estimatedKm) * user.pay_rate)} kr</strong> (${user.pay_rate} kr/km)</div>` : ''}
+          </div>
+        `);
+      } else if (stops.length > 0) {
+        // Visa progress
+        section.insertAdjacentHTML('beforeend', `
+          <div style="margin-top:0.75rem;text-align:center;font-size:0.85rem;color:var(--gray-400);">
+            ${done}/${stops.length} stopp klara — ~${estimatedKm} km total rutt
+          </div>
+        `);
+      }
+    }
+
+    function saveRouteKm() {
+      const km = parseFloat(document.getElementById('route-km').value) || 0;
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '', km_driven: 0 }; TIMELOG.push(entry); }
+      entry.km_driven = km;
+      saveTimelog();
+      renderView('forare-route');
     }
 
     function markStop(index) {
