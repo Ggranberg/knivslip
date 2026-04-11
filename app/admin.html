@@ -225,8 +225,14 @@
     /* Success animation */
     @keyframes successPop { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
     @keyframes slideIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes cardDone {
+      0% { transform:scale(1); opacity:1; background:var(--white); }
+      30% { transform:scale(1.02); background:var(--green-light); border-color:var(--green); }
+      100% { transform:scale(0.95) translateX(60px); opacity:0; }
+    }
     .success-pop { animation: successPop 0.4s ease-out; }
     .slide-in { animation: slideIn 0.3s ease-out; }
+    .card-done { animation: cardDone 0.5s ease-out forwards; pointer-events:none; }
 
     /* SLIPARE LOG */
     .log-form { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
@@ -1354,9 +1360,10 @@
           { view: 'more', icon: '&#8943;', label: 'Mer' },
         ];
       } else if (role === 'slipare') {
-        items = [
-          { view: 'slipare-home', icon: '&#9632;', label: 'Min dag' },
-        ];
+        // Bara en vy — göm bottom-nav helt, ge mer skärmutrymme
+        mobileNav.style.display = 'none';
+        document.querySelector('.main-content')?.style.setProperty('padding-bottom', '1rem');
+        return;
       } else if (role === 'forare') {
         items = [
           { view: 'forare-home', icon: '&#9632;', label: 'Min dag' },
@@ -2317,6 +2324,12 @@
     }
 
     function markSharpened(orderId, kniveCount) {
+      // Animera kortet innan vi uppdaterar data
+      const card = event?.target?.closest?.('.card');
+      if (card && CURRENT_USER.role === 'slipare') {
+        card.classList.add('card-done');
+      }
+
       // Log knives for current user
       let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
       if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '', sharpened_orders: [] }; TIMELOG.push(entry); }
@@ -2334,9 +2347,12 @@
       saveTimelog();
       saveOrders();
 
-      // Re-render current view
-      const role = CURRENT_USER.role;
-      renderView(role === 'admin' ? 'admin-log' : 'slipare-home');
+      // Vänta på animationen innan vi renderar om
+      const delay = (card && CURRENT_USER.role === 'slipare') ? 500 : 0;
+      setTimeout(() => {
+        const role = CURRENT_USER.role;
+        renderView(role === 'admin' ? 'admin-log' : 'slipare-home');
+      }, delay);
     }
 
     // renderSlipareLog borttagen — allt finns nu i renderSlipareHome
