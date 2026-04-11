@@ -7,6 +7,34 @@
   <meta name="robots" content="noindex">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🔪</text></svg>">
   <link rel="stylesheet" href="style.css">
+  <style>
+    .thank-you { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .thank-you-content { max-width: 520px; text-align: center; }
+    .thank-you-icon { width: 80px; height: 80px; border-radius: 50%; background: #dcfce7; color: #16a34a; font-size: 2.5rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; animation: popIn 0.5s ease-out; }
+    @keyframes popIn { 0% { transform: scale(0); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+    .thank-you-content h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .thank-you-content > p { color: #737373; margin-bottom: 1.5rem; }
+
+    .booking-summary { background: #f5f5f5; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; text-align: left; }
+    .booking-summary h3 { font-size: 0.85rem; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+    .summary-row { display: flex; justify-content: space-between; padding: 0.35rem 0; font-size: 0.95rem; }
+    .summary-row .label { color: #737373; }
+    .summary-row .value { font-weight: 600; }
+
+    .thank-you-steps { display: flex; flex-direction: column; gap: 0.75rem; margin: 1.5rem 0; text-align: left; }
+    .thank-you-step { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem; background: #fafafa; border-radius: 10px; border-left: 3px solid #e85d04; }
+    .step-num { min-width: 28px; height: 28px; border-radius: 50%; background: #e85d04; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
+    .thank-you-step strong { display: block; margin-bottom: 0.15rem; }
+    .thank-you-step p { color: #737373; font-size: 0.9rem; margin: 0; }
+
+    .contact-box { background: #fef3e6; border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem; }
+    .contact-box a { color: #e85d04; font-weight: 700; text-decoration: none; }
+
+    .btn-primary { display: inline-block; padding: 0.8rem 2rem; background: #e85d04; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; text-decoration: none; cursor: pointer; font-family: inherit; }
+    .btn-primary:hover { background: #d45003; }
+
+    #booking-ref { font-size: 0.8rem; color: #999; margin-top: 1rem; }
+  </style>
 </head>
 <body>
   <header class="booking-header">
@@ -18,22 +46,42 @@
     <div class="thank-you-content">
       <div class="thank-you-icon">&#10003;</div>
       <h1>Tack för din bokning!</h1>
-      <p>Vi har tagit emot din förfrågan och hör av oss inom några timmar för att bekräfta tid.</p>
+      <p>Vi har tagit emot din förfrågan och hör av oss inom några timmar.</p>
+
+      <div class="booking-summary" id="booking-summary" style="display:none;">
+        <h3>Din bokning</h3>
+        <div id="summary-rows"></div>
+      </div>
+
       <div class="thank-you-steps">
         <div class="thank-you-step">
-          <strong>1. Vi ringer dig</strong>
-          <p>Vi bekräftar datum och tid för hämtning.</p>
+          <div class="step-num">1</div>
+          <div>
+            <strong>Vi ringer dig</strong>
+            <p>Inom ett par timmar bekräftar vi datum och tid för hämtning.</p>
+          </div>
         </div>
         <div class="thank-you-step">
-          <strong>2. Vi hämtar</strong>
-          <p>Vi kommer och hämtar knivarna vid avtalad tid.</p>
+          <div class="step-num">2</div>
+          <div>
+            <strong>Vi hämtar knivarna</strong>
+            <p>Vi kommer hem till dig vid avtalad tid. Bara att ha knivarna redo!</p>
+          </div>
         </div>
         <div class="thank-you-step">
-          <strong>3. Klart inom 2 dagar</strong>
-          <p>Du får tillbaka vassa knivar!</p>
+          <div class="step-num">3</div>
+          <div>
+            <strong>Klart inom 2 dagar</strong>
+            <p>Vi lämnar tillbaka vassa knivar direkt till din dörr.</p>
+          </div>
         </div>
       </div>
-      <p id="booking-ref" style="font-size:0.8rem;color:#999;margin-top:1rem;"></p>
+
+      <div class="contact-box">
+        Frågor? Ring oss på <a href="tel:+46736424498">073-642 44 98</a> eller svara i chatten på Facebook.
+      </div>
+
+      <p id="booking-ref"></p>
       <a href="index.html" class="btn-primary">Tillbaka till startsidan</a>
     </div>
   </div>
@@ -41,7 +89,32 @@
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
     if (id) {
-      document.getElementById('booking-ref').textContent = 'Ref: ' + id;
+      document.getElementById('booking-ref').textContent = 'Bokningsreferens: ' + id;
+    }
+
+    // Show booking summary from URL params
+    const name = params.get('name');
+    const knives = params.get('knives');
+    const address = params.get('address');
+    const phone = params.get('phone');
+
+    if (name || knives || address) {
+      const summary = document.getElementById('booking-summary');
+      const rows = document.getElementById('summary-rows');
+      summary.style.display = 'block';
+
+      const data = [];
+      if (name) data.push(['Namn', name]);
+      if (knives) {
+        const priceMap = { '1-2': '170 kr/st', '3-5': '140 kr/st', '6+': '120 kr/st' };
+        data.push(['Antal knivar', knives + ' (' + (priceMap[knives] || '') + ')']);
+      }
+      if (address) data.push(['Adress', address]);
+      if (phone) data.push(['Telefon', phone]);
+
+      rows.innerHTML = data.map(([label, value]) =>
+        '<div class="summary-row"><span class="label">' + label + '</span><span class="value">' + value + '</span></div>'
+      ).join('');
     }
   </script>
 </body>

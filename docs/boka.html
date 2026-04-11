@@ -44,8 +44,8 @@
     .extras-content { padding-top:1rem; display:flex; flex-direction:column; gap:0.75rem; }
 
     @media (max-width: 768px) {
-      .booking-right { display:none !important; }
-      .booking-page { padding-top:0.5rem; gap:0; }
+      .booking-page { grid-template-columns:1fr; padding:1rem 1rem 3rem; gap:1.5rem; }
+      .booking-right { order:2; }
       .booking-header nav { padding:0.8rem 1.25rem; }
       .booking-header .nav-links { display:none !important; }
     }
@@ -73,10 +73,8 @@
   <main class="booking-page">
     <div class="booking-left fade-in">
 
-      <form class="booking-form" action="https://formspree.io/f/xjgpjean" method="POST">
+      <form class="booking-form" id="booking-form">
         <input type="hidden" name="knives" id="knives-hidden" value="3-5">
-        <input type="hidden" name="_subject" value="Ny bokning via hemsidan!">
-        <input type="hidden" name="_next" value="tack.html">
 
         <!-- Progress -->
         <div class="wizard-progress">
@@ -298,7 +296,7 @@
     })();
 
     // === BOOKING SUBMIT ===
-    const form = document.querySelector('.booking-form');
+    const form = document.getElementById('booking-form');
     const API_URL = window.location.hostname === 'localhost'
       ? '/api/booking'
       : 'https://knivkillarna.up.railway.app/api/booking';
@@ -313,22 +311,42 @@
       const jsonData = {};
       formData.forEach((v, k) => jsonData[k] = v);
 
-      // Formspree (email backup)
-      fetch(form.action, { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } }).catch(() => {});
-
-      // Railway API
       fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(jsonData) })
         .then(r => r.json())
         .then(data => {
-          if (data.ok) { window.location.href = 'tack.html?id=' + data.booking_id; }
-          else { btn.textContent = 'Skicka bokning'; btn.disabled = false; alert('Bokning misslyckades: ' + (data.error || 'Okant fel')); }
+          if (data.ok) {
+            const params = new URLSearchParams({
+              id: data.booking_id || '',
+              name: jsonData.name || '',
+              knives: jsonData.knives || '',
+              address: jsonData.address || '',
+              phone: jsonData.phone || ''
+            });
+            window.location.href = 'tack.html?' + params.toString();
+          } else {
+            btn.textContent = 'Skicka bokning';
+            btn.disabled = false;
+            showFormError('Bokningen misslyckades: ' + (data.error || 'Okänt fel. Försök igen eller ring oss.'));
+          }
         })
-        .catch(err => {
+        .catch(() => {
           btn.textContent = 'Skicka bokning';
           btn.disabled = false;
-          alert('Kunde inte skicka bokning: ' + err.message);
+          showFormError('Något gick fel. Försök igen eller ring oss på 073-642 44 98.');
         });
     });
+
+    function showFormError(msg) {
+      let el = document.getElementById('form-error');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'form-error';
+        el.style.cssText = 'background:#fee2e2;color:#dc2626;padding:0.75rem 1rem;border-radius:8px;font-size:0.9rem;margin-top:0.75rem;';
+        form.querySelector('button[type="submit"]').after(el);
+      }
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
   </script>
 
 </body>

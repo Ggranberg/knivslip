@@ -662,7 +662,7 @@
 
     async function approveBooking(bookingId) {
       const btn = event?.target;
-      if (btn) { btn.textContent = 'Godkanner...'; btn.disabled = true; }
+      if (btn) { btn.textContent = 'Godkänner...'; btn.disabled = true; }
       try {
         const res = await fetch('/api/approve', {
           method: 'POST',
@@ -745,7 +745,7 @@
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
             <div>
               <span style="font-size:2rem;font-weight:800;color:${count > 0 ? 'var(--accent)' : 'var(--gray-400)'};">${count}</span>
-              <span style="font-size:1rem;color:var(--gray-500);margin-left:0.5rem;">nya bokningar vantar</span>
+              <span style="font-size:1rem;color:var(--gray-500);margin-left:0.5rem;">nya bokningar väntar</span>
             </div>
             <button onclick="showManualBookingForm()" class="log-submit" style="padding:0.6rem 1.2rem;font-size:0.9rem;">+ Ny bokning (telefon)</button>
           </div>
@@ -770,12 +770,12 @@
             <span>&#127968; ${b.address}${b.postnummer ? ', ' + b.postnummer : ''} ${b.stad || ''}</span>
             <span>&#128298; ${knifeLabel[b.knives] || b.knives || '?'}</span>
           </div>
-          ${b.preferred_date ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;">&#128339; Onskat datum: ${b.preferred_date} ${b.time_window || ''}</div>` : ''}
+          ${b.preferred_date ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;">&#128339; Önskat datum: ${b.preferred_date} ${b.time_window || ''}</div>` : ''}
           ${b.message ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">"${b.message}"</div>` : ''}
           <div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.25rem;">Bokad: ${b.created_at ? new Date(b.created_at).toLocaleString('sv-SE') : '?'}</div>
           <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
-            <button onclick="approveBooking('${b.id}')" class="log-submit" style="padding:0.5rem 1rem;flex:1;min-width:90px;">&#10003; Godkann</button>
-            <button onclick="editBooking('${b.id}')" style="padding:0.5rem 1rem;flex:1;min-width:70px;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Andra</button>
+            <button onclick="approveBooking('${b.id}')" class="log-submit" style="padding:0.5rem 1rem;flex:1;min-width:90px;">&#10003; Godkänn</button>
+            <button onclick="editBooking('${b.id}')" style="padding:0.5rem 1rem;flex:1;min-width:70px;background:var(--gray-600);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ändra</button>
             <button onclick="deleteBooking('${b.id}')" style="padding:0.5rem 1rem;min-width:70px;background:var(--red);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ta bort</button>
           </div>
         </div>
@@ -794,7 +794,7 @@
             <div><label style="font-size:0.8rem;color:var(--gray-500);">Telefon *</label><input id="mb-phone" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
             <div><label style="font-size:0.8rem;color:var(--gray-500);">Adress *</label><input id="mb-address" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
             <div><label style="font-size:0.8rem;color:var(--gray-500);">Antal knivar</label><select id="mb-knives" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"><option value="1-2">1-2 (170 kr/st)</option><option value="3-5" selected>3-5 (140 kr/st)</option><option value="6+">6+ (120 kr/st)</option></select></div>
-            <div><label style="font-size:0.8rem;color:var(--gray-500);">Kalla</label><select id="mb-source" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"><option value="telefon" selected>Telefon</option><option value="facebook">Facebook</option><option value="dorr">Dorrknackning</option><option value="referral">Referral</option></select></div>
+            <div><label style="font-size:0.8rem;color:var(--gray-500);">Källa</label><select id="mb-source" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"><option value="telefon" selected>Telefon</option><option value="facebook">Facebook</option><option value="dorr">Dörrknackning</option><option value="referral">Referral</option></select></div>
             <div><label style="font-size:0.8rem;color:var(--gray-500);">Anteckning</label><input id="mb-message" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;" placeholder="Valfritt"></div>
           </div>
           <div style="display:flex;gap:0.5rem;margin-top:1rem;">
@@ -880,10 +880,10 @@
       const o = DATA.orders.find(x => x.id === orderId);
       if (!o) return;
       const c = DATA.customers.find(x => x.id === o.customer_id);
-      const customerName = c ? c.name : 'Okand';
+      const customerName = c ? c.name : 'Okänd';
 
       const allStatuses = ['lead','booked','picked_up','registered','sharpening','quality_check','ready','out_for_delivery','delivered','completed'];
-      const statusLabels = { lead:'Lead', booked:'Bokad', picked_up:'Hamtad', registered:'Registrerad', sharpening:'Slipning', quality_check:'Kvalitetskontroll', ready:'Redo', out_for_delivery:'Pa vag', delivered:'Levererad', completed:'Klar' };
+      const statusLabels = { lead:'Lead', booked:'Bokad', picked_up:'Hämtad', registered:'Registrerad', sharpening:'Slipning', quality_check:'Kvalitetskontroll', ready:'Redo', out_for_delivery:'På väg', delivered:'Levererad', completed:'Klar' };
 
       const statusOptions = allStatuses.map(s =>
         `<option value="${s}" ${o.status===s?'selected':''}>${statusLabels[s]}</option>`
@@ -914,7 +914,7 @@
             <div style="display:flex;gap:1.5rem;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--gray-200);">
               <div><span style="color:var(--gray-500);font-size:0.8rem;">Kund</span><div style="font-weight:600;font-size:1.05rem;cursor:pointer;color:var(--accent);" onclick="document.querySelector('.modal-overlay').remove();openCustomer('${o.customer_id}')">${customerName}</div></div>
               <div><span style="color:var(--gray-500);font-size:0.8rem;">Skapad</span><div style="font-weight:600;">${formatDate(o.created_at)}</div></div>
-              <div><span style="color:var(--gray-500);font-size:0.8rem;">Kalla</span><div><span class="source-tag ${o.source||'admin'}">${o.source||'admin'}</span></div></div>
+              <div><span style="color:var(--gray-500);font-size:0.8rem;">Källa</span><div><span class="source-tag ${o.source||'admin'}">${o.source||'admin'}</span></div></div>
             </div>
 
             <div class="profile-field" style="margin-bottom:1rem;">
@@ -1067,7 +1067,7 @@
           </div>
           <div style="margin-top:0.25rem;">${cm.text}</div>
         </div>`;
-      }).join('') : '<div style="color:var(--gray-400);font-style:italic;font-size:0.85rem;">Inga kommentarer annu</div>';
+      }).join('') : '<div style="color:var(--gray-400);font-style:italic;font-size:0.85rem;">Inga kommentarer ännu</div>';
     }
 
     // === CUSTOMER PROFILE ===
@@ -1093,9 +1093,9 @@
             <div class="profile-row">
               <div class="profile-field"><label>Email</label><input id="cp-email" value="${c.email || ''}"></div>
               <div class="profile-field">
-                <label>Kalla</label>
+                <label>Källa</label>
                 <select id="cp-source">
-                  <option value="dorr" ${c.source==='dorr'?'selected':''}>Dorrknackning</option>
+                  <option value="dorr" ${c.source==='dorr'?'selected':''}>Dörrknackning</option>
                   <option value="facebook" ${c.source==='facebook'?'selected':''}>Facebook</option>
                   <option value="telefon" ${c.source==='telefon'?'selected':''}>Telefon</option>
                   <option value="referral" ${c.source==='referral'?'selected':''}>Referral</option>
@@ -1152,7 +1152,7 @@
             </div>
           </div>
           <div class="modal-actions">
-            <button class="btn-save" onclick="saveCustomerProfile('${c.id}')">Spara andringar</button>
+            <button class="btn-save" onclick="saveCustomerProfile('${c.id}')">Spara ändringar</button>
             <button onclick="showNewOrderForm('${c.id}')" style="padding:0.6rem 1.25rem;border-radius:var(--radius);font-size:0.9rem;font-weight:600;cursor:pointer;font-family:inherit;background:var(--accent);color:var(--white);border:none;">+ Ny order</button>
             <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
             <button onclick="exportCustomerData('${c.id}')" style="padding:0.6rem 1.25rem;border-radius:var(--radius);font-size:0.9rem;font-weight:600;cursor:pointer;font-family:inherit;background:none;border:1px solid var(--blue);color:var(--blue);">GDPR-utdrag</button>
@@ -1236,7 +1236,7 @@
     async function deleteCustomer(id) {
       const c = DATA.customers.find(c => c.id === id);
       if (!c) return;
-      if (!confirm(`Vill du verkligen ta bort ${c.name}? Kunden anonymiseras (GDPR) men ordrar och fakturor behalls for bokforingen.`)) return;
+      if (!confirm(`Vill du verkligen ta bort ${c.name}? Kunden anonymiseras (GDPR) men ordrar och fakturor behålls för bokföringen.`)) return;
 
       // GDPR-compliant: anonymize, don't delete
       c.name = 'Raderad kund';
@@ -1290,7 +1290,7 @@
 
     function daysBetween(d1, d2) { return Math.floor((new Date(d2) - new Date(d1)) / 86400000); }
     function formatDate(d) { return d ? new Date(d).toLocaleDateString('sv-SE') : '-'; }
-    function getCustomerName(id) { const c = DATA.customers.find(c => c.id === id); return c ? c.name : 'Okand'; }
+    function getCustomerName(id) { const c = DATA.customers.find(c => c.id === id); return c ? c.name : 'Okänd'; }
     function now() { return new Date().toISOString(); }
     function today() { return new Date().toISOString().split('T')[0]; }
     function tomorrow() { return new Date(Date.now() + 86400000).toISOString().split('T')[0]; }
@@ -1309,9 +1309,9 @@
           <a href="#" data-view="schedule"><span class="icon">&#128197;</span> Schema</a>
           <a href="#" data-view="routes"><span class="icon">&#128205;</span> Ruttkarta</a>
           <a href="#" data-view="customers"><span class="icon">&#128101;</span> Kunder</a>
-          <a href="#" data-view="reminders"><span class="icon">&#128276;</span> Paminnelser</a>
+          <a href="#" data-view="reminders"><span class="icon">&#128276;</span> Påminnelser</a>
           <a href="#" data-view="finance"><span class="icon">&#128176;</span> Ekonomi</a>
-          <a href="#" data-view="arbete"><span class="icon">&#128200;</span> Arbete/Lon</a>
+          <a href="#" data-view="arbete"><span class="icon">&#128200;</span> Arbete/Lön</a>
           <a href="#" data-view="admin-log"><span class="icon">&#128221;</span> Logga arbete</a>
           <a href="#" data-view="team"><span class="icon">&#128100;</span> Team</a>`;
       } else if (role === 'slipare') {
@@ -1406,9 +1406,9 @@
       if (CURRENT_USER.role === 'admin') {
         moreItems = [
           { view: 'routes', icon: '&#128205;', label: 'Ruttkarta' },
-          { view: 'reminders', icon: '&#128276;', label: 'Paminnelser' },
+          { view: 'reminders', icon: '&#128276;', label: 'Påminnelser' },
           { view: 'finance', icon: '&#128176;', label: 'Ekonomi' },
-          { view: 'arbete', icon: '&#128200;', label: 'Arbete/Lon' },
+          { view: 'arbete', icon: '&#128200;', label: 'Arbete/Lön' },
           { view: 'admin-log', icon: '&#128221;', label: 'Logga arbete' },
           { view: 'team', icon: '&#128100;', label: 'Team' },
         ];
@@ -1485,7 +1485,7 @@
     }
 
     function getViewTitle(v) {
-      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Paminnelser', finance:'Ekonomi', arbete:'Arbete & Lon', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt' };
+      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Påminnelser', finance:'Ekonomi', arbete:'Arbete & Lön', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt' };
       return t[v] || v;
     }
 
@@ -1498,13 +1498,37 @@
 
       main.insertAdjacentHTML('beforeend', `
         <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">Kunder</div><div class="kpi-value">${cust.length}</div><div class="kpi-sub">${cust.filter(c=>c.source==='dorr').length} dorr, ${cust.filter(c=>c.source==='referral').length} ref, ${cust.filter(c=>c.source==='facebook').length} fb</div></div>
+          <div class="kpi-card"><div class="kpi-label">Kunder</div><div class="kpi-value">${cust.length}</div><div class="kpi-sub">${cust.filter(c=>c.source==='dorr').length} dörr, ${cust.filter(c=>c.source==='referral').length} ref, ${cust.filter(c=>c.source==='facebook').length} fb</div></div>
           <div class="kpi-card accent"><div class="kpi-label">Aktiva ordrar</div><div class="kpi-value">${active.length}</div><div class="kpi-sub">${active.filter(o=>o.status==='booked').length} bokade</div></div>
           <div class="kpi-card green"><div class="kpi-label">Avslutade</div><div class="kpi-value">${completed.length}</div><div class="kpi-sub">totalt</div></div>
           <div class="kpi-card ${unpaid.length?'red':''}"><div class="kpi-label">Obetalda</div><div class="kpi-value">${unpaid.length}</div><div class="kpi-sub">${unpaid.length ? unpaid.reduce((s,i)=>s+(i.total_incl_vat||0),0)+' kr' : 'Inga fakturor'}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Team</div><div class="kpi-value">${USERS.filter(u=>u.active).length}</div><div class="kpi-sub">aktiva anvandare</div></div>
+          <div class="kpi-card"><div class="kpi-label">Team</div><div class="kpi-value">${USERS.filter(u=>u.active).length}</div><div class="kpi-sub">aktiva användare</div></div>
         </div>
       `);
+      // Quality check section
+      const qcOrders = DATA.orders.filter(o => o.status === 'quality_check');
+      if (qcOrders.length) {
+        const qcDiv = document.createElement('div'); qcDiv.className = 'section';
+        qcDiv.innerHTML = `<div class="section-header"><h2>Kvalitetskontroll</h2><span class="badge" style="background:var(--yellow-light);color:var(--yellow);">${qcOrders.length} väntar</span></div>`;
+        qcDiv.insertAdjacentHTML('beforeend', qcOrders.map(o => {
+          const cust = DATA.customers.find(c => c.id === o.customer_id);
+          const knives = o.actual_knife_count || o.estimated_knife_count || '?';
+          const slipare = o.assigned_to ? (USERS.find(u => u.id === o.assigned_to)?.name?.split(' ')[0] || '?') : '?';
+          return `<div class="card" style="padding:1rem;margin-bottom:0.5rem;border-left:4px solid var(--yellow);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
+            <div style="flex:1;min-width:150px;">
+              <div style="font-weight:700;cursor:pointer;color:var(--accent);" onclick="openOrder('${o.id}')">${cust?.name || 'Okänd'}</div>
+              <div style="font-size:0.85rem;color:var(--gray-500);">${knives} knivar — slipad av ${slipare}</div>
+              ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-400);font-style:italic;margin-top:0.2rem;">${o.notes}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:0.5rem;">
+              <button onclick="approveQC('${o.id}')" style="padding:0.5rem 1.2rem;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-weight:600;font-size:0.9rem;">&#10003; Godkänn</button>
+              <button onclick="openOrder('${o.id}')" style="padding:0.5rem 0.8rem;background:var(--gray-200);color:var(--gray-600);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Detaljer</button>
+            </div>
+          </div>`;
+        }).join(''));
+        main.appendChild(qcDiv);
+      }
+
       // Inline pipeline + schedule
       const pipeDiv = document.createElement('div'); pipeDiv.className = 'section';
       pipeDiv.innerHTML = '<div class="section-header"><h2>Pipeline</h2><span class="badge">' + active.length + ' aktiva</span></div>';
@@ -1527,7 +1551,7 @@
 
     function renderPipelineContent(parent) {
       const statuses = ['lead','booked','picked_up','registered','sharpening','quality_check','ready','out_for_delivery','delivered'];
-      const labels = { lead:'Leads', booked:'Bokade', picked_up:'Hamtade', registered:'Registrerade', sharpening:'Slipning', quality_check:'QC', ready:'Redo', out_for_delivery:'Pa vag', delivered:'Levererade' };
+      const labels = { lead:'Leads', booked:'Bokade', picked_up:'Hämtade', registered:'Registrerade', sharpening:'Slipning', quality_check:'QC', ready:'Redo', out_for_delivery:'På väg', delivered:'Levererade' };
       const container = document.createElement('div'); container.className = 'pipeline';
       container.innerHTML = statuses.map(status => {
         const orders = DATA.orders.filter(o => o.status === status);
@@ -1563,10 +1587,10 @@
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
           <div class="table-controls">
-            <input type="text" class="search-input" id="cs" placeholder="Sok pa namn, telefon, adress...">
-            <select class="filter-select" id="sf"><option value="">Alla kallor</option><option value="dorr">Dorr</option><option value="facebook">Facebook</option><option value="telefon">Telefon</option><option value="referral">Referral</option><option value="hemsida">Hemsida</option></select>
+            <input type="text" class="search-input" id="cs" placeholder="Sök på namn, telefon, adress...">
+            <select class="filter-select" id="sf"><option value="">Alla källor</option><option value="dorr">Dörr</option><option value="facebook">Facebook</option><option value="telefon">Telefon</option><option value="referral">Referral</option><option value="hemsida">Hemsida</option></select>
           </div>
-          <div class="card"><table><thead><tr><th>Namn</th><th>Telefon</th><th>Adress</th><th>Kalla</th><th>Ordrar</th><th>Senaste</th></tr></thead><tbody id="ctable"></tbody></table></div>
+          <div class="card"><table><thead><tr><th>Namn</th><th>Telefon</th><th>Adress</th><th>Källa</th><th>Ordrar</th><th>Senaste</th></tr></thead><tbody id="ctable"></tbody></table></div>
         </div>
       `);
       function render() {
@@ -1593,12 +1617,12 @@
       completed.forEach(o => { const d = o.delivery?.completed_at || o.updated_at; if (!lastOrder[o.customer_id] || d > lastOrder[o.customer_id]) lastOrder[o.customer_id] = d; });
       const reminders = Object.entries(lastOrder).filter(([_,d]) => d < threeMonthsAgo).map(([id,d]) => ({c: DATA.customers.find(c=>c.id===id), d})).filter(r => r.c && !r.c.is_deleted);
 
-      main.insertAdjacentHTML('beforeend', `<div class="section"><div class="section-header"><h2>Paminnelser</h2><span class="badge">${reminders.length}</span></div><div class="reminder-list">${reminders.length ? reminders.map(r => `<div class="reminder-card"><div class="rc-name">${r.c.name}</div><div class="rc-date">Senast: ${formatDate(r.d)} (${daysBetween(r.d, now())} dagar)</div><div class="rc-phone">${r.c.phone||'<span class="missing">Telefon saknas</span>'}</div></div>`).join('') : '<div style="color:var(--gray-400);font-style:italic;">Inga paminnelser annu</div>'}</div></div>`);
+      main.insertAdjacentHTML('beforeend', `<div class="section"><div class="section-header"><h2>Påminnelser</h2><span class="badge">${reminders.length}</span></div><div class="reminder-list">${reminders.length ? reminders.map(r => `<div class="reminder-card"><div class="rc-name">${r.c.name}</div><div class="rc-date">Senast: ${formatDate(r.d)} (${daysBetween(r.d, now())} dagar)</div><div class="rc-phone">${r.c.phone||'<span class="missing">Telefon saknas</span>'}</div></div>`).join('') : '<div style="color:var(--gray-400);font-style:italic;">Inga paminnelser annu</div>'}</div></div>`);
     }
 
     function renderFinance(main) {
       if (!DATA.invoices.length && !DATA.transactions.length) {
-        main.insertAdjacentHTML('beforeend', '<div class="card"><div class="finance-placeholder"><div class="fp-icon">&#128200;</div><p>Inga fakturor annu. Kor <code>/ekonomi</code> for att borja.</p></div></div>');
+        main.insertAdjacentHTML('beforeend', '<div class="card"><div class="finance-placeholder"><div class="fp-icon">&#128200;</div><p>Inga fakturor ännu. Kör <code>/ekonomi</code> för att börja.</p></div></div>');
         return;
       }
       const inc = DATA.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+(t.amount_incl_vat||0),0);
@@ -1719,10 +1743,10 @@
       // Filter buttons — type
       const filterHTML = `
         <button class="map-btn toggle ${routeFilter==='all'?'active':''}" onclick="routeFilter='all';renderRouteMapForDate('${date}')">Alla</button>
-        <button class="map-btn toggle ${routeFilter==='pickup'?'active':''}" onclick="routeFilter='pickup';renderRouteMapForDate('${date}')" style="border-left:3px solid var(--blue);">Hamtningar</button>
+        <button class="map-btn toggle ${routeFilter==='pickup'?'active':''}" onclick="routeFilter='pickup';renderRouteMapForDate('${date}')" style="border-left:3px solid var(--blue);">Hämtningar</button>
         <button class="map-btn toggle ${routeFilter==='delivery'?'active':''}" onclick="routeFilter='delivery';renderRouteMapForDate('${date}')" style="border-left:3px solid var(--green);">Leveranser</button>
         <span style="color:var(--gray-300);margin:0 0.25rem;">|</span>
-        <button class="map-btn toggle ${routeDriverFilter==='all'?'active':''}" onclick="routeDriverFilter='all';renderRouteMapForDate('${date}')">Alla forare</button>
+        <button class="map-btn toggle ${routeDriverFilter==='all'?'active':''}" onclick="routeDriverFilter='all';renderRouteMapForDate('${date}')">Alla förare</button>
         ${drivers.map(d => `<button class="map-btn toggle ${routeDriverFilter===d?'active':''}" onclick="routeDriverFilter='${d}';renderRouteMapForDate('${date}')" style="border-left:3px solid ${colors[d]||'#999'};">${d}</button>`).join('')}
       `;
 
@@ -1812,7 +1836,7 @@
               html: `<div style="background:${color};color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${i+1}</div>`,
               iconSize: [28, 28], iconAnchor: [14, 14]
             })
-          }).bindPopup(`<strong>${stop.customer_name}</strong><br>${stop.address}${phone}<br>${stop.type==='pickup'?'Hamtning':'Leverans'} — ${knives} knivar<br><em>${stop.notes||''}</em>`).addTo(routeMap);
+          }).bindPopup(`<strong>${stop.customer_name}</strong><br>${stop.address}${phone}<br>${stop.type==='pickup'?'Hämtning':'Leverans'} — ${knives} knivar<br><em>${stop.notes||''}</em>`).addTo(routeMap);
         });
 
         points.push(homeCoords);
@@ -1879,13 +1903,13 @@
             </div>
 
             <div style="margin-bottom:0.75rem;padding-bottom:0.75rem;border-bottom:1px solid var(--gray-200);">
-              <label style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;display:block;margin-bottom:0.25rem;">Lon: ${payLabel}</label>
+              <label style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;display:block;margin-bottom:0.25rem;">Lön: ${payLabel}</label>
               <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
                 <select id="paytype-${u.id}" style="padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:0.85rem;font-family:inherit;">
                   <option value="" ${!u.pay_type?'selected':''}>Valj...</option>
-                  <option value="hourly" ${u.pay_type==='hourly'?'selected':''}>Timlon (kr/h)</option>
+                  <option value="hourly" ${u.pay_type==='hourly'?'selected':''}>Timlön (kr/h)</option>
                   <option value="per_knife" ${u.pay_type==='per_knife'?'selected':''}>Per kniv (kr/kniv)</option>
-                  <option value="monthly" ${u.pay_type==='monthly'?'selected':''}>Manadslon (kr/man)</option>
+                  <option value="monthly" ${u.pay_type==='monthly'?'selected':''}>Månadslön (kr/mån)</option>
                 </select>
                 <input type="number" id="payrate-${u.id}" value="${u.pay_rate||''}" placeholder="Belopp" style="width:80px;padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:0.85rem;font-family:inherit;">
                 <button onclick="changePay('${u.id}')" style="padding:0.3rem 0.6rem;border:none;border-radius:4px;background:var(--accent);color:white;cursor:pointer;font-size:0.75rem;font-weight:600;">Spara</button>
@@ -1896,7 +1920,7 @@
               <select class="role-select" onchange="changeRole('${u.id}', this.value)">
                 <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
                 <option value="slipare" ${u.role==='slipare'?'selected':''}>Slipare</option>
-                <option value="forare" ${u.role==='forare'?'selected':''}>Forare</option>
+                <option value="forare" ${u.role==='forare'?'selected':''}>Förare</option>
               </select>
               <button onclick="toggleUser('${u.id}')" style="padding:0.4rem 0.8rem;border:1px solid var(--gray-300);border-radius:4px;background:none;cursor:pointer;font-size:0.8rem;">${u.active?'Inaktivera':'Aktivera'}</button>
             </div>
@@ -1920,9 +1944,9 @@
           <h3>+ Lagg till anvandare</h3>
           <input type="text" id="new-name" placeholder="Namn">
           <input type="text" id="new-pin" placeholder="PIN (4-6 siffror)" maxlength="6">
-          <select id="new-role"><option value="slipare">Slipare</option><option value="forare">Forare</option><option value="admin">Admin</option></select>
+          <select id="new-role"><option value="slipare">Slipare</option><option value="forare">Förare</option><option value="admin">Admin</option></select>
           <div style="margin-top:0.5rem;">
-            <select id="new-paytype"><option value="">Lon (valfritt)</option><option value="hourly">Timlon</option><option value="per_knife">Per kniv</option><option value="monthly">Manadslon</option></select>
+            <select id="new-paytype"><option value="">Lön (valfritt)</option><option value="hourly">Timlön</option><option value="per_knife">Per kniv</option><option value="monthly">Månadslön</option></select>
             <input type="number" id="new-payrate" placeholder="Belopp" style="margin-top:0.5rem;">
           </div>
           <button class="log-submit" onclick="addUser()" style="margin-top:0.5rem;">Lagg till</button>
@@ -2004,7 +2028,7 @@
           const earned = Math.round(totalHours * (u.pay_rate || 0));
           payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beraknad lon</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalHours.toFixed(1)}h x ${u.pay_rate} kr/h</div></div>`;
         } else if (u.pay_type === 'monthly') {
-          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Manadslon</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${u.pay_rate} kr</div></div>`;
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Månadslön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${u.pay_rate} kr</div></div>`;
         }
 
         cards.insertAdjacentHTML('beforeend', `
@@ -2026,7 +2050,7 @@
       if (allLogs.length) {
         main.insertAdjacentHTML('beforeend', `
           <div class="section"><h2 style="margin-bottom:1rem;">Detaljerad logg</h2>
-          <div class="card"><table><thead><tr><th>Datum</th><th>Person</th><th>In</th><th>Ut</th><th>Knivar</th><th>Stopp</th><th>Lon</th></tr></thead><tbody id="log-table"></tbody></table></div></div>
+          <div class="card"><table><thead><tr><th>Datum</th><th>Person</th><th>In</th><th>Ut</th><th>Knivar</th><th>Stopp</th><th>Lön</th></tr></thead><tbody id="log-table"></tbody></table></div></div>
         `);
         const tbody = document.getElementById('log-table');
         allLogs.forEach(l => {
@@ -2310,6 +2334,29 @@
       if (!queue.length) container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--gray-400);"><div style="font-size:2rem;margin-bottom:0.5rem;">&#10024;</div><div style="font-size:1rem;">Inga knivar att slipa just nu</div><div style="font-size:0.8rem;margin-top:0.25rem;">Bra jobbat!</div></div>';
     }
 
+    async function approveQC(orderId) {
+      const order = DATA.orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      // Auto-beräkna pris om det saknas
+      const knives = order.actual_knife_count || order.estimated_knife_count || 0;
+      if (!order.price_per_knife && knives > 0) {
+        order.price_per_knife = knives <= 2 ? 170 : knives <= 5 ? 140 : 120;
+        order.custom_total_price = knives * order.price_per_knife;
+      }
+
+      order.status = 'ready';
+      if (!order.status_history) order.status_history = [];
+      order.status_history.push({ status: 'ready', timestamp: now(), by: CURRENT_USER.name.split(' ')[0].toLowerCase() });
+      order.updated_at = now();
+
+      await saveJSON('orders.json', { orders: DATA.orders });
+
+      // Re-render
+      const activeNav = document.querySelector('.sidebar-nav a.active');
+      if (activeNav) renderView(activeNav.dataset.view);
+    }
+
     function claimOrder(orderId) {
       const order = DATA.orders.find(o => o.id === orderId);
       if (!order) return;
@@ -2418,12 +2465,12 @@
       main.insertAdjacentHTML('beforeend', `
         <div style="margin-bottom:1.5rem;" class="slide-in">
           <div style="font-size:1.5rem;font-weight:700;">${greeting}, ${CURRENT_USER.name.split(' ')[0]}!</div>
-          <div style="color:var(--gray-500);">${clockedIn ? 'Du ar ute pa vagen. Kor sakert!' : 'Klocka in for att se dagens rutt.'}</div>
+          <div style="color:var(--gray-500);">${clockedIn ? 'Du är ute på vägen. Kör säkert!' : 'Klocka in för att se dagens rutt.'}</div>
         </div>
         <div class="clock-section ${clockedIn ? 'clocked-in' : ''}">
           <div class="clock-status">
             <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
-            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Klar for idag ' + todayLog.clock_out : 'Ej inklockad')}</div>
+            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Klar för idag ' + todayLog.clock_out : 'Ej inklockad')}</div>
           </div>
           <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
         </div>
