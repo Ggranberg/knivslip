@@ -1574,13 +1574,56 @@
 
     function renderScheduleContent(parent) {
       const grid = document.createElement('div'); grid.className = 'schedule-grid';
+      const drivers = USERS.filter(u => u.active && (u.role === 'admin' || u.role === 'forare'));
       [{ date: today(), label: 'Idag' }, { date: tomorrow(), label: 'Imorgon' }].forEach(({ date, label }) => {
         const sched = DATA.schedule.filter(s => s.date === date);
-        const stops = sched.flatMap(s => s.stops.map(st => ({...st, assigned_to: s.assigned_to})));
+        const stops = sched.flatMap(s => s.stops.map((st, si) => ({...st, assigned_to: s.assigned_to, _schedIdx: DATA.schedule.indexOf(s), _stopIdx: si})));
         const total = sched.reduce((s,d) => s + (d.estimated_total_time_min||0), 0);
-        grid.innerHTML += `<div class="schedule-day"><h3>${label} (${date}) <small style="color:var(--gray-400);font-weight:400;">${stops.length} stopp</small></h3>${stops.length ? stops.map(s => `<div class="schedule-stop"><span class="stop-type ${s.type}">${s.type==='pickup'?'Hamt':'Lev'}</span><div class="stop-info"><div class="stop-name">${s.customer_name}</div><div class="stop-address">${s.address}</div></div><div class="stop-time">${s.time_window||''}<br><small>${s.assigned_to||''}</small></div></div>`).join('') : '<div class="schedule-empty">Inget planerat</div>'}</div>`;
+
+        const driverOptions = drivers.map(d => `<option value="${d.name.split(' ')[0].toLowerCase()}">${d.name.split(' ')[0]}</option>`).join('');
+
+        grid.innerHTML += `<div class="schedule-day"><h3>${label} (${date}) <small style="color:var(--gray-400);font-weight:400;">${stops.length} stopp</small></h3>${stops.length ? stops.map(s => {
+          const currentDriver = s.assigned_to || '';
+          return `<div class="schedule-stop">
+            <span class="stop-type ${s.type}">${s.type==='pickup'?'Hämt':'Lev'}</span>
+            <div class="stop-info"><div class="stop-name">${s.customer_name}</div><div class="stop-address">${s.address}</div></div>
+            <div class="stop-time">
+              ${s.time_window||''}
+              <select onchange="reassignStop(${s._schedIdx}, '${currentDriver}', this.value)" style="margin-top:0.25rem;padding:0.2rem 0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-family:inherit;font-size:0.75rem;background:var(--white);cursor:pointer;">
+                ${drivers.map(d => {
+                  const dName = d.name.split(' ')[0].toLowerCase();
+                  return `<option value="${dName}" ${currentDriver === dName ? 'selected' : ''}>${d.name.split(' ')[0]}</option>`;
+                }).join('')}
+              </select>
+            </div>
+          </div>`;
+        }).join('') : '<div class="schedule-empty">Inget planerat</div>'}</div>`;
       });
       parent.appendChild(grid);
+    }
+
+    async function reassignStop(schedIdx, oldDriver, newDriver) {
+      const sched = DATA.schedule[schedIdx];
+      if (!sched) return;
+
+      // Om rutten byter förare — skapa en ny rutt för den nya föraren eller flytta hela
+      if (sched.assigned_to === oldDriver) {
+        // Kolla om det redan finns en rutt för newDriver samma dag
+        const existing = DATA.schedule.find(s => s.date === sched.date && s.assigned_to === newDriver);
+        if (existing && existing !== sched) {
+          // Flytta alla stopp till den befintliga rutten
+          existing.stops.push(...sched.stops);
+          sched.stops = [];
+          // Ta bort tom rutt
+          DATA.schedule = DATA.schedule.filter(s => s.stops.length > 0);
+        } else {
+          // Byt bara assigned_to
+          sched.assigned_to = newDriver;
+        }
+      }
+
+      await saveJSON('schedule.json', { schedule: DATA.schedule });
+      renderView('schedule');
     }
 
     function renderCustomers(main) {
@@ -1890,8 +1933,14 @@
         const payLabel = u.pay_type === 'hourly' ? u.pay_rate + ' kr/h' : u.pay_type === 'per_knife' ? u.pay_rate + ' kr/kniv' : u.pay_type === 'per_km' ? u.pay_rate + ' kr/km' : u.pay_type === 'monthly' ? u.pay_rate + ' kr/mån' : 'Ej satt';
         grid.insertAdjacentHTML('beforeend', `
           <div class="team-card">
-            <div class="tc-name">${u.name} ${!u.active ? '<span style="color:var(--red);">(inaktiv)</span>' : ''}</div>
-            <div class="tc-role" style="margin-bottom:0.5rem;">${u.role}</div>
+            <div style="margin-bottom:0.75rem;padding-bottom:0.75rem;border-bottom:1px solid var(--gray-200);">
+              <label style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;display:block;margin-bottom:0.25rem;">Namn</label>
+              <div style="display:flex;gap:0.5rem;align-items:center;">
+                <input type="text" id="name-${u.id}" value="${u.name}" style="flex:1;padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:1rem;font-family:inherit;font-weight:700;">
+                <button onclick="changeName('${u.id}')" style="padding:0.3rem 0.6rem;border:none;border-radius:4px;background:var(--accent);color:white;cursor:pointer;font-size:0.75rem;font-weight:600;">Spara</button>
+              </div>
+              ${!u.active ? '<div style="color:var(--red);font-size:0.8rem;margin-top:0.25rem;">(inaktiv)</div>' : ''}
+            </div>
 
             <div style="margin-bottom:0.75rem;padding-bottom:0.75rem;border-bottom:1px solid var(--gray-200);">
               <label style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;display:block;margin-bottom:0.25rem;">PIN-kod</label>
@@ -1936,7 +1985,7 @@
           const label = u.pay_type === 'hourly' ? u.pay_rate + ' kr/h' : u.pay_type === 'per_knife' ? u.pay_rate + ' kr/kniv' : u.pay_type === 'per_km' ? u.pay_rate + ' kr/km' : u.pay_rate + ' kr/mån';
           return `<div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--gray-100);"><span>${u.name} (${u.role})</span><strong>${label}</strong></div>`;
         }).join('');
-        grid.insertAdjacentHTML('beforeend', `<div class="team-card" style="border-left:3px solid var(--accent);"><div style="font-weight:700;margin-bottom:0.75rem;">Loneoversikt</div>${summary}</div>`);
+        grid.insertAdjacentHTML('beforeend', `<div class="team-card" style="border-left:3px solid var(--accent);"><div style="font-weight:700;margin-bottom:0.75rem;">Löneöversikt</div>${summary}</div>`);
       }
 
       // Add user form
@@ -1955,14 +2004,27 @@
       `);
     }
 
+    function changeName(id) {
+      const input = document.getElementById('name-' + id);
+      const newName = input.value.trim();
+      if (!newName) return;
+      const user = USERS.find(u => u.id === id);
+      if (user) {
+        user.name = newName;
+        if (user.id === CURRENT_USER.id) CURRENT_USER.name = newName;
+        saveUsers();
+        renderView('team');
+      }
+    }
+
     function changePin(id) {
       const input = document.getElementById('pin-' + id);
       const newPin = input.value.trim();
-      if (newPin.length < 4) { alert('PIN maste vara minst 4 siffror'); return; }
+      if (newPin.length < 4) { alert('PIN måste vara minst 4 siffror'); return; }
       const conflict = USERS.find(u => u.pin === newPin && u.id !== id);
-      if (conflict) { alert('PIN redan anvand av ' + conflict.name); return; }
+      if (conflict) { alert('PIN redan använd av ' + conflict.name); return; }
       const user = USERS.find(u => u.id === id);
-      if (user) { user.pin = newPin; alert('PIN andrad for ' + user.name); }
+      if (user) { user.pin = newPin; alert('PIN ändrad för ' + user.name); }
       if (user.id === CURRENT_USER.id) sessionStorage.setItem('knivslip_pin', newPin);
       saveUsers();
     }
@@ -2575,7 +2637,13 @@
 
     function renderForareRoute(main) {
       const todaySched = DATA.schedule.filter(s => s.date === today());
-      const stops = todaySched.flatMap(s => s.stops.map(st => ({...st, assigned_to: s.assigned_to})));
+      const myName = CURRENT_USER.name.split(' ')[0].toLowerCase();
+      const allStops = todaySched.flatMap(s => s.stops.map(st => ({...st, assigned_to: s.assigned_to})));
+      // Förare ser bara sina egna stopp (matchat på assigned_to)
+      const stops = CURRENT_USER.role === 'admin' ? allStops : allStops.filter(s => {
+        const assignee = (s.assigned_to || '').toLowerCase();
+        return assignee === myName || assignee === CURRENT_USER.id || assignee === CURRENT_USER.name.toLowerCase();
+      });
       const avoidHw = getAvoidHighways();
       const estimatedKm = estimateRouteKm(stops);
       const user = USERS.find(u => u.id === CURRENT_USER.id);
