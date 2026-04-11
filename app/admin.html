@@ -1311,7 +1311,6 @@
       } else if (role === 'slipare') {
         nav.innerHTML = `
           <a href="#" class="active" data-view="slipare-home"><span class="icon">&#9632;</span> Min dag</a>
-          <a href="#" data-view="slipare-log"><span class="icon">&#128221;</span> Logga knivar</a>
           <a href="#" data-view="forare-route"><span class="icon">&#128197;</span> Leveranser</a>`;
       } else if (role === 'forare') {
         nav.innerHTML = `
@@ -1357,9 +1356,6 @@
       } else if (role === 'slipare') {
         items = [
           { view: 'slipare-home', icon: '&#9632;', label: 'Min dag' },
-          { view: 'slipare-log', icon: '&#128221;', label: 'Logga' },
-          { view: 'forare-route', icon: '&#128197;', label: 'Leveranser' },
-          { view: 'more', icon: '&#8943;', label: 'Mer' },
         ];
       } else if (role === 'forare') {
         items = [
@@ -1476,14 +1472,13 @@
         case 'admin-log': main.innerHTML = header; renderAdminLog(main); break;
         case 'team': main.innerHTML = header; renderTeam(main); break;
         case 'slipare-home': main.innerHTML = header; renderSlipareHome(main); break;
-        case 'slipare-log': main.innerHTML = header; renderSlipareLog(main); break;
         case 'forare-home': main.innerHTML = header; renderForareHome(main); break;
         case 'forare-route': main.innerHTML = header; renderForareRoute(main); break;
       }
     }
 
     function getViewTitle(v) {
-      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Paminnelser', finance:'Ekonomi', arbete:'Arbete & Lon', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'slipare-log':'Logga knivar', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt' };
+      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Paminnelser', finance:'Ekonomi', arbete:'Arbete & Lon', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt' };
       return t[v] || v;
     }
 
@@ -2139,55 +2134,83 @@
       const todayLog = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
       const clockedIn = todayLog && todayLog.clock_in && !todayLog.clock_out;
 
-      // Greeting
+      // Hälsning
       const hour = new Date().getHours();
-      const greeting = hour < 12 ? 'God morgon' : hour < 17 ? 'God eftermiddag' : 'God kvall';
+      const greeting = hour < 12 ? 'God morgon' : hour < 17 ? 'God eftermiddag' : 'God kväll';
 
       main.insertAdjacentHTML('beforeend', `
         <div style="margin-bottom:1.5rem;" class="slide-in">
           <div style="font-size:1.5rem;font-weight:700;">${greeting}, ${CURRENT_USER.name.split(' ')[0]}!</div>
-          <div style="color:var(--gray-500);">${clockedIn ? 'Du ar inklockad. Bra jobbat!' : 'Klocka in for att borja din dag.'}</div>
+          <div style="color:var(--gray-500);">${clockedIn ? 'Du är inklockad. Bra jobbat!' : 'Klocka in för att börja din dag.'}</div>
         </div>
         <div class="clock-section ${clockedIn ? 'clocked-in' : ''}">
           <div class="clock-status">
             <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
-            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Klar for idag ' + todayLog.clock_out : 'Ej inklockad')}</div>
+            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Klar för idag ' + todayLog.clock_out : 'Ej inklockad')}</div>
           </div>
           <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
         </div>
       `);
 
-      // Today's stats
+      // Dagens statistik
       const knivesToday = todayLog?.knives_sharpened || 0;
-      const stopsToday = todayLog?.stops_completed || 0;
       const ordersToSharp = DATA.orders.filter(o => ['picked_up','registered','sharpening'].includes(o.status));
       const knivesWaiting = ordersToSharp.reduce((s,o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
 
-      // Pay calculation
+      // Lön-beräkning
       const user = USERS.find(u => u.id === CURRENT_USER.id);
-      let payToday = '';
-      if (user?.pay_type === 'per_knife') payToday = `<div class="stat-box"><div class="sb-value" style="color:var(--green);">${knivesToday * (user.pay_rate||0)} kr</div><div class="sb-label">Lon idag</div></div>`;
-      else if (user?.pay_type === 'hourly' && todayLog?.clock_in) {
+      let payBox = `<div class="stat-box"><div class="sb-value">${knivesWaiting}</div><div class="sb-label">Väntar</div></div>`;
+      if (user?.pay_type === 'per_knife') {
+        payBox = `<div class="stat-box"><div class="sb-value" style="color:var(--green);">${knivesToday * (user.pay_rate||0)} kr</div><div class="sb-label">Lön idag</div></div>`;
+      } else if (user?.pay_type === 'hourly' && todayLog?.clock_in) {
         const [h1,m1] = todayLog.clock_in.split(':').map(Number);
         const nowH = new Date().getHours(), nowM = new Date().getMinutes();
         const hrs = todayLog.clock_out ? (() => { const [h2,m2] = todayLog.clock_out.split(':').map(Number); return ((h2*60+m2)-(h1*60+m1))/60; })() : ((nowH*60+nowM)-(h1*60+m1))/60;
-        payToday = `<div class="stat-box"><div class="sb-value" style="color:var(--green);">${Math.round(hrs * (user.pay_rate||0))} kr</div><div class="sb-label">Lon idag (${hrs.toFixed(1)}h)</div></div>`;
+        payBox = `<div class="stat-box"><div class="sb-value" style="color:var(--green);">${Math.round(hrs * (user.pay_rate||0))} kr</div><div class="sb-label">Lön idag (${hrs.toFixed(1)}h)</div></div>`;
       }
 
       main.insertAdjacentHTML('beforeend', `
         <div class="stats-row">
-          <div class="stat-box"><div class="sb-value" style="color:var(--accent);">${knivesToday}</div><div class="sb-label">Knivar idag</div></div>
-          <div class="stat-box"><div class="sb-value" style="color:var(--blue);">${stopsToday}</div><div class="sb-label">Stopp idag</div></div>
-          ${payToday || `<div class="stat-box"><div class="sb-value">${knivesWaiting}</div><div class="sb-label">Knivar vantar</div></div>`}
+          <div class="stat-box"><div class="sb-value" style="color:var(--accent);">${knivesToday}</div><div class="sb-label">Slipade idag</div></div>
+          ${payBox}
+          <div class="stat-box"><div class="sb-value" style="color:${knivesWaiting > 0 ? 'var(--blue)' : 'var(--gray-400)'};">${knivesWaiting}</div><div class="sb-label">Väntar i kö</div></div>
         </div>
       `);
 
-      // Orders waiting — sorted by priority (oldest pickup first = most urgent)
+      // Slipningskö
       const ordersQueue = getSharpQueue();
-      if (ordersQueue.length) {
-        main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:0.5rem;">Slipningsko</h2><p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:1rem;">Sorterad efter prioritet — aldsta hamtning forst (2-dagars loftet)</p><div id="sharp-queue"></div></div>');
-        renderSharpQueue('sharp-queue');
-      }
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section" style="margin-top:1.5rem;">
+          <h2 style="margin-bottom:0.25rem;">Slipningskö</h2>
+          <p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:1rem;">Äldst först — röd = försenad, gul = bråttom</p>
+          <div id="sharp-queue"></div>
+        </div>
+      `);
+      renderSharpQueue('sharp-queue');
+
+      // Expanderbar "logga extra knivar"
+      main.insertAdjacentHTML('beforeend', `
+        <div style="margin-top:1.5rem;">
+          <button onclick="document.getElementById('extra-knives-form').style.display = document.getElementById('extra-knives-form').style.display === 'none' ? 'block' : 'none'" style="background:none;border:1px solid var(--gray-300);border-radius:var(--radius);padding:0.6rem 1rem;font-size:0.85rem;color:var(--gray-500);cursor:pointer;font-family:inherit;width:100%;text-align:left;">
+            + Logga extra knivar (utan order)
+          </button>
+          <div id="extra-knives-form" style="display:none;margin-top:0.75rem;padding:1rem;background:var(--white);border-radius:var(--radius);border:1px solid var(--gray-200);">
+            <div style="display:flex;gap:0.75rem;align-items:flex-end;">
+              <div style="flex:1;"><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Antal knivar</label><input type="number" id="log-count" min="1" value="1" style="width:100%;padding:0.6rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:1rem;font-family:inherit;"></div>
+              <button class="log-submit" onclick="logKnives()" style="padding:0.6rem 1.2rem;min-height:42px;">Spara</button>
+            </div>
+          </div>
+        </div>
+      `);
+
+      // Dagens sammanfattning
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section" style="margin-top:1.5rem;">
+          <h2 style="margin-bottom:0.75rem;">Dagens sammanfattning</h2>
+          <div id="today-log"></div>
+        </div>
+      `);
+      renderTodayLog();
     }
 
     function getSharpQueue() {
@@ -2205,6 +2228,7 @@
       const container = document.getElementById(containerId);
       if (!container) return;
       const queue = getSharpQueue();
+      const isSlipare = CURRENT_USER.role === 'slipare';
 
       container.innerHTML = queue.map((o, i) => {
         const cust = DATA.customers.find(c => c.id === o.customer_id);
@@ -2214,19 +2238,57 @@
         const urgent = daysAgo >= 1;
         const deadline = daysAgo >= 2;
 
+        const borderColor = deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--green)';
+        const statusSv = deadline ? 'Försenad!' : urgent ? 'Bråttom' : 'Ny';
+        const statusColor = deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--green)';
+
+        const isMine = o.assigned_to === CURRENT_USER.id;
+        const isOther = o.assigned_to && !isMine;
+        const otherName = isOther ? (USERS.find(u=>u.id===o.assigned_to)?.name?.split(' ')[0] || '?') : '';
+
+        // Slipare: enkel stor knapp-layout
+        if (isSlipare) {
+          let actionBtn = '';
+          if (isOther) {
+            actionBtn = `<div style="padding:0.75rem;text-align:center;color:var(--gray-400);font-size:0.85rem;font-style:italic;">${otherName} slipar denna</div>`;
+          } else if (isMine) {
+            actionBtn = `<button onclick="markSharpened('${o.id}', ${knives === '?' ? 0 : knives})" style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;transition:all 0.15s;">&#10003; Klar!</button>`;
+          } else {
+            actionBtn = `<button onclick="claimOrder('${o.id}')" style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;transition:all 0.15s;">Ta order</button>`;
+          }
+
+          return `
+            <div class="card" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${borderColor};${isOther ? 'opacity:0.5;' : ''}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                <div>
+                  <div style="font-weight:700;font-size:1.05rem;">${cust?.name || 'Okänd kund'}</div>
+                  <div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.15rem;">Hämtad ${daysAgo === 0 ? 'idag' : daysAgo === 1 ? 'igår' : daysAgo + ' dagar sedan'}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:1.5rem;font-weight:800;color:var(--accent);">${knives}</div>
+                  <div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">knivar</div>
+                </div>
+              </div>
+              ${deadline || urgent ? `<div style="font-size:0.8rem;font-weight:600;color:${statusColor};margin-bottom:0.6rem;">${statusSv}</div>` : ''}
+              ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.6rem;font-style:italic;">${o.notes}</div>` : ''}
+              ${isMine ? `<div style="font-size:0.75rem;color:var(--blue);font-weight:600;margin-bottom:0.5rem;">Du slipar denna</div>` : ''}
+              ${actionBtn}
+            </div>`;
+        }
+
+        // Admin/förare: original compact layout
         return `
-          <div class="card" style="padding:1rem;margin-bottom:0.5rem;border-left:4px solid ${deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--green)'};">
+          <div class="card" style="padding:1rem;margin-bottom:0.5rem;border-left:4px solid ${borderColor};">
             <div style="display:flex;gap:0.75rem;align-items:flex-start;">
               <div style="text-align:center;min-width:35px;">
                 <div style="font-size:1.3rem;font-weight:800;color:${deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--accent)'};">#${i+1}</div>
                 <div style="font-size:0.65rem;color:var(--gray-500);">PRIO</div>
               </div>
               <div style="flex:1;">
-                <div style="font-weight:700;font-size:1rem;">${cust?.name || 'Okand'}</div>
+                <div style="font-weight:700;font-size:1rem;">${cust?.name || 'Okänd'}</div>
                 <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.3rem;font-size:0.85rem;">
                   <span>&#128298; ${knives} knivar</span>
-                  <span style="color:${deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--gray-500)'};">&#128339; Hamtad ${daysAgo === 0 ? 'idag' : daysAgo + 'd sedan'}${deadline ? ' — FORSENAD!' : urgent ? ' — bradskande' : ''}</span>
-                  <span class="pc-badge ${o.status==='sharpening'?'warn':'ok'}">${o.status}</span>
+                  <span style="color:${statusColor};">&#128339; Hämtad ${daysAgo === 0 ? 'idag' : daysAgo + 'd sedan'}${deadline ? ' — FÖRSENAD!' : urgent ? ' — bråttom' : ''}</span>
                 </div>
                 ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">${o.notes}</div>` : ''}
               </div>
@@ -2238,7 +2300,7 @@
           </div>`;
       }).join('');
 
-      if (!queue.length) container.innerHTML = '<div style="color:var(--gray-400);font-style:italic;">Inga knivar att slipa just nu</div>';
+      if (!queue.length) container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--gray-400);"><div style="font-size:2rem;margin-bottom:0.5rem;">&#10024;</div><div style="font-size:1rem;">Inga knivar att slipa just nu</div><div style="font-size:0.8rem;margin-top:0.25rem;">Bra jobbat!</div></div>';
     }
 
     function claimOrder(orderId) {
@@ -2277,34 +2339,7 @@
       renderView(role === 'admin' ? 'admin-log' : 'slipare-home');
     }
 
-    function renderSlipareLog(main) {
-      // Sharpening queue
-      const queue = getSharpQueue();
-      main.insertAdjacentHTML('beforeend', `<div class="section"><h2 style="margin-bottom:0.5rem;">Slipningsko — klicka nar du slipat klart</h2><p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:1rem;">Ror = aldsta hamtning forst. Rod = forsenad. Gul = bradskande.</p><div id="slip-queue"></div></div>`);
-      renderSharpQueue('slip-queue');
-
-      // Manual log
-      main.insertAdjacentHTML('beforeend', `
-        <div class="log-form" style="margin-top:1.5rem;">
-          <h3>Logga extra knivar (utan order)</h3>
-          <div class="log-row">
-            <div class="log-field"><label>Antal knivar</label><input type="number" id="log-count" min="1" value="1"></div>
-            <div class="log-field"><label>Anteckningar</label><input type="text" id="log-notes" placeholder="Valfritt"></div>
-            <button class="log-submit" onclick="logKnives()">Spara</button>
-          </div>
-        </div>
-        <div class="log-form">
-          <h3>Logga leveranser / stopp</h3>
-          <div class="log-row">
-            <div class="log-field"><label>Antal stopp</label><input type="number" id="log-stops" min="1" value="1"></div>
-            <div class="log-field"><label>Anteckningar</label><input type="text" id="log-stop-notes" placeholder="Valfritt"></div>
-            <button class="log-submit" onclick="logStops()">Spara stopp</button>
-          </div>
-        </div>
-        <div class="section"><h2 style="margin-bottom:1rem;">Dagens logg</h2><div id="today-log"></div></div>
-      `);
-      renderTodayLog();
-    }
+    // renderSlipareLog borttagen — allt finns nu i renderSlipareHome
 
     function logKnives() {
       const count = parseInt(document.getElementById('log-count').value) || 0;
@@ -2333,10 +2368,14 @@
       const el = document.getElementById('today-log');
       if (!el) return;
       const entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
-      if (!entry) { el.innerHTML = '<div style="color:var(--gray-400);font-style:italic;">Inget loggat annu</div>'; return; }
+      if (!entry || (!entry.knives_sharpened && !entry.sharpened_orders?.length)) {
+        el.innerHTML = '<div style="color:var(--gray-400);font-style:italic;text-align:center;padding:1rem;">Inget loggat ännu</div>';
+        return;
+      }
       const user = USERS.find(u => u.id === CURRENT_USER.id);
+      const isSlipare = CURRENT_USER.role === 'slipare';
       let payInfo = '';
-      if (user?.pay_type === 'per_knife') payInfo = `<div style="margin-top:0.5rem;color:var(--green);font-weight:700;">Lon: ${(entry.knives_sharpened||0) * (user.pay_rate||0)} kr (${entry.knives_sharpened} x ${user.pay_rate} kr)</div>`;
+      if (user?.pay_type === 'per_knife') payInfo = `<div style="margin-top:0.5rem;color:var(--green);font-weight:700;">Lön: ${(entry.knives_sharpened||0) * (user.pay_rate||0)} kr (${entry.knives_sharpened} x ${user.pay_rate} kr)</div>`;
 
       let ordersLog = '';
       if (entry.sharpened_orders?.length) {
@@ -2348,7 +2387,8 @@
           }).join('') + '</div>';
       }
 
-      el.innerHTML = `<div class="card" style="padding:1rem;"><strong>${entry.knives_sharpened||0}</strong> knivar slipade &nbsp;|&nbsp; <strong>${entry.stops_completed||0}</strong> stopp/leveranser${payInfo}${ordersLog}</div>`;
+      const stopsInfo = !isSlipare && entry.stops_completed ? ` &nbsp;|&nbsp; <strong>${entry.stops_completed}</strong> stopp` : '';
+      el.innerHTML = `<div class="card" style="padding:1rem;"><strong>${entry.knives_sharpened||0}</strong> knivar slipade${stopsInfo}${payInfo}${ordersLog}</div>`;
     }
 
     // === FÖRARE VIEWS ===
