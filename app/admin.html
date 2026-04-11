@@ -1589,7 +1589,7 @@
             <div class="stop-info"><div class="stop-name">${s.customer_name}</div><div class="stop-address">${s.address}</div></div>
             <div class="stop-time">
               ${s.time_window||''}
-              <select onchange="reassignStop(${s._schedIdx}, '${currentDriver}', this.value)" style="margin-top:0.25rem;padding:0.2rem 0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-family:inherit;font-size:0.75rem;background:var(--white);cursor:pointer;">
+              <select onchange="scheduleReassign('${date}', '${currentDriver}', '${s.order_id}', this.value)" style="margin-top:0.25rem;padding:0.2rem 0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-family:inherit;font-size:0.75rem;background:var(--white);cursor:pointer;">
                 ${drivers.map(d => {
                   const dName = d.name.split(' ')[0].toLowerCase();
                   return `<option value="${dName}" ${currentDriver === dName ? 'selected' : ''}>${d.name.split(' ')[0]}</option>`;
@@ -1602,25 +1602,27 @@
       parent.appendChild(grid);
     }
 
-    async function reassignStop(schedIdx, oldDriver, newDriver) {
-      const sched = DATA.schedule[schedIdx];
-      if (!sched) return;
+    async function scheduleReassign(date, fromDriver, orderId, toDriver) {
+      if (fromDriver === toDriver) return;
+      // Hitta källrutten
+      const fromSched = DATA.schedule.find(s => s.date === date && s.assigned_to === fromDriver);
+      if (!fromSched) return;
+      const stopIdx = fromSched.stops.findIndex(s => s.order_id === orderId);
+      if (stopIdx === -1) return;
 
-      // Om rutten byter förare — skapa en ny rutt för den nya föraren eller flytta hela
-      if (sched.assigned_to === oldDriver) {
-        // Kolla om det redan finns en rutt för newDriver samma dag
-        const existing = DATA.schedule.find(s => s.date === sched.date && s.assigned_to === newDriver);
-        if (existing && existing !== sched) {
-          // Flytta alla stopp till den befintliga rutten
-          existing.stops.push(...sched.stops);
-          sched.stops = [];
-          // Ta bort tom rutt
-          DATA.schedule = DATA.schedule.filter(s => s.stops.length > 0);
-        } else {
-          // Byt bara assigned_to
-          sched.assigned_to = newDriver;
-        }
+      // Flytta stoppet
+      const stop = fromSched.stops.splice(stopIdx, 1)[0];
+
+      // Hitta eller skapa målrutt
+      let toSched = DATA.schedule.find(s => s.date === date && s.assigned_to === toDriver);
+      if (!toSched) {
+        toSched = { date, assigned_to: toDriver, stops: [], estimated_total_time_min: 0, estimated_start: '', estimated_end: '', notes: '' };
+        DATA.schedule.push(toSched);
       }
+      toSched.stops.push(stop);
+
+      // Ta bort tomma rutter
+      DATA.schedule = DATA.schedule.filter(s => s.stops.length > 0);
 
       await saveJSON('schedule.json', { schedule: DATA.schedule });
       renderView('schedule');
@@ -2112,28 +2114,50 @@
         `);
       });
 
-      // Detailed log table
+      // Detailed log table — editable
       const allLogs = TIMELOG.slice().sort((a,b) => b.date.localeCompare(a.date));
       if (allLogs.length) {
         main.insertAdjacentHTML('beforeend', `
           <div class="section"><h2 style="margin-bottom:1rem;">Detaljerad logg</h2>
-          <div class="card"><table><thead><tr><th>Datum</th><th>Person</th><th>In</th><th>Ut</th><th>Knivar</th><th>Stopp</th><th>Lön</th></tr></thead><tbody id="log-table"></tbody></table></div></div>
+          <p style="font-size:0.8rem;color:var(--gray-400);margin-bottom:0.75rem;">Klicka på knivar/km för att redigera</p>
+          <div class="card"><table><thead><tr><th>Datum</th><th>Person</th><th>In</th><th>Ut</th><th>Knivar</th><th>Km</th><th>Stopp</th><th>Lön</th></tr></thead><tbody id="log-table"></tbody></table></div></div>
         `);
         const tbody = document.getElementById('log-table');
-        allLogs.forEach(l => {
+        allLogs.forEach((l, idx) => {
           const u = USERS.find(u => u.id === l.user_id);
-          const name = u ? u.name : l.user_id;
+          const name = u ? u.name.split(' ')[0] : l.user_id;
           let pay = '-';
           if (u?.pay_type === 'per_knife') pay = ((l.knives_sharpened||0) * (u.pay_rate||0)) + ' kr';
+          else if (u?.pay_type === 'per_km') pay = (Math.round((l.km_driven||0) * (u.pay_rate||0))) + ' kr';
           else if (u?.pay_type === 'hourly' && l.clock_in && l.clock_out) {
             const [h1,m1] = l.clock_in.split(':').map(Number);
             const [h2,m2] = l.clock_out.split(':').map(Number);
             const hrs = ((h2*60+m2)-(h1*60+m1))/60;
             pay = Math.round(hrs * (u.pay_rate||0)) + ' kr';
           }
-          tbody.insertAdjacentHTML('beforeend', `<tr><td>${l.date}</td><td>${name}</td><td>${l.clock_in||'-'}</td><td>${l.clock_out||'-'}</td><td>${l.knives_sharpened||0}</td><td>${l.stops_completed||0}</td><td><strong>${pay}</strong></td></tr>`);
+          const logIdx = TIMELOG.indexOf(l);
+          tbody.insertAdjacentHTML('beforeend', `<tr>
+            <td>${l.date}</td>
+            <td>${name}</td>
+            <td>${l.clock_in||'-'}</td>
+            <td>${l.clock_out||'-'}</td>
+            <td><input type="number" value="${l.knives_sharpened||0}" min="0" style="width:50px;padding:0.2rem;border:1px solid var(--gray-200);border-radius:4px;font-size:0.85rem;text-align:center;font-family:inherit;" onchange="editLog(${logIdx},'knives',this.value)"></td>
+            <td><input type="number" value="${l.km_driven||0}" min="0" step="0.1" style="width:55px;padding:0.2rem;border:1px solid var(--gray-200);border-radius:4px;font-size:0.85rem;text-align:center;font-family:inherit;" onchange="editLog(${logIdx},'km',this.value)"></td>
+            <td>${l.stops_completed||0}</td>
+            <td><strong>${pay}</strong></td>
+          </tr>`);
         });
       }
+    }
+
+    async function editLog(logIdx, field, value) {
+      const entry = TIMELOG[logIdx];
+      if (!entry) return;
+      if (field === 'knives') entry.knives_sharpened = parseInt(value) || 0;
+      if (field === 'km') entry.km_driven = parseFloat(value) || 0;
+      await saveTimelog();
+      // Uppdatera lönekolumnen utan full re-render
+      renderView('arbete');
     }
 
     // === ADMIN LOGGA ARBETE ===
@@ -2784,7 +2808,12 @@
     function clockOut() {
       const time = new Date().toLocaleTimeString('sv-SE', {hour:'2-digit', minute:'2-digit'});
       const entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
-      if (entry) entry.clock_out = time;
+      if (!entry || !entry.clock_in) return;
+      // Validera att utklockning är efter inklockning
+      const [inH, inM] = entry.clock_in.split(':').map(Number);
+      const [outH, outM] = time.split(':').map(Number);
+      if ((outH * 60 + outM) <= (inH * 60 + inM)) return;
+      entry.clock_out = time;
       saveTimelog();
       const btn = document.querySelector('.clock-btn');
       if (btn) btn.classList.add('success-pop');
