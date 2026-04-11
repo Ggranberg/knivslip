@@ -1,0 +1,44 @@
+{
+  "users": [
+    {
+      "id": "USR-001",
+      "name": "Gustav Granberg",
+      "pin": "9680",
+      "role": "admin",
+      "active": true,
+      "pay_type": null,
+      "pay_rate": null,
+      "created_at": "2026-04-06T00:00:00"
+    },
+    {
+      "id": "USR-002",
+      "name": "Philip Zetterlund",
+      "pin": "6769",
+      "role": "admin",
+      "active": true,
+      "pay_type": null,
+      "pay_rate": null,
+      "created_at": "2026-04-06T00:00:00"
+    },
+    {
+      "id": "USR-003",
+      "name": "Adam Zetterlund",
+      "pin": "1111",
+      "role": "slipare",
+      "active": true,
+      "pay_type": "per_knife",
+      "pay_rate": 30,
+      "created_at": "2026-04-06T00:00:00"
+    },
+    {
+      "id": "USR-004",
+      "name": "Viktor Granberg",
+      "pin": "6767",
+      "role": "forare",
+      "active": true,
+      "pay_type": "per_km",
+      "pay_rate": 5,
+      "created_at": "2026-04-11T00:00:00"
+    }
+  ]
+}
