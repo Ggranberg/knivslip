@@ -19,6 +19,12 @@
       "notes": "Nacka kommun, blandad bebyggelse"
     },
     {
+      "id": "AREA-NACKA-ALTA",
+      "name": "Älta",
+      "postnummer_prefix": ["138"],
+      "notes": "Nacka kommun, villaområde nära Boo"
+    },
+    {
       "id": "AREA-VARMDO-C",
       "name": "Gustavsberg",
       "postnummer_prefix": ["134"],
@@ -40,6 +46,10 @@
   "distances_minutes": [
     {"from": "AREA-NACKA-C", "to": "AREA-NACKA-SALTSJOBADEN", "minutes": 15},
     {"from": "AREA-NACKA-C", "to": "AREA-NACKA-BOO", "minutes": 10},
+    {"from": "AREA-NACKA-C", "to": "AREA-NACKA-ALTA", "minutes": 12},
+    {"from": "AREA-NACKA-ALTA", "to": "AREA-NACKA-BOO", "minutes": 8},
+    {"from": "AREA-NACKA-ALTA", "to": "AREA-NACKA-SALTSJOBADEN", "minutes": 15},
+    {"from": "AREA-NACKA-ALTA", "to": "AREA-VARMDO-C", "minutes": 18},
     {"from": "AREA-NACKA-C", "to": "AREA-VARMDO-C", "minutes": 20},
     {"from": "AREA-NACKA-BOO", "to": "AREA-VARMDO-C", "minutes": 15},
     {"from": "AREA-NACKA-BOO", "to": "AREA-NACKA-SALTSJOBADEN", "minutes": 15},
