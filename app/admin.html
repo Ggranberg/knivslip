@@ -2762,9 +2762,25 @@
 
         let actionBtn = '';
         if (myEntry && !myEntry.done) {
-          actionBtn = `<button onclick="markMyKnivesDone('${o.id}')" style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">&#10003; Mina ${myEntry.knife_count} klara!</button>`;
+          const myDone = myEntry.knives_done || 0;
+          const myTotal = myEntry.knife_count || 0;
+          const remaining = myTotal - myDone;
+          actionBtn = `
+            <div style="margin-bottom:0.5rem;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+                <span style="font-size:0.85rem;font-weight:600;color:var(--gray-600);">Dina knivar: ${myDone} av ${myTotal}</span>
+                <span style="font-size:0.8rem;color:var(--gray-400);">${remaining} kvar</span>
+              </div>
+              <div style="height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;background:var(--green);border-radius:3px;width:${myTotal ? (myDone/myTotal*100) : 0}%;transition:width 0.3s;"></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;">
+              <button onclick="logOneKnife('${o.id}')" style="flex:1;padding:0.75rem;font-size:1rem;font-weight:700;background:var(--accent);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">+1 kniv klar</button>
+              ${remaining <= 1 || myDone > 0 ? `<button onclick="markMyKnivesDone('${o.id}')" style="padding:0.75rem 1rem;font-size:0.9rem;font-weight:700;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">Alla klara!</button>` : ''}
+            </div>`;
         } else if (myEntry && myEntry.done) {
-          actionBtn = `<div style="padding:0.75rem;text-align:center;color:var(--green);font-weight:700;font-size:0.9rem;">&#10003; Du är klar!</div>`;
+          actionBtn = `<div style="padding:0.75rem;text-align:center;color:var(--green);font-weight:700;font-size:0.9rem;">&#10003; Du är klar! (${myEntry.knife_count} knivar)</div>`;
         } else if (knivesLeft > 0) {
           const defaultCount = Math.min(knivesLeft, Math.ceil((typeof knives === 'number' ? knives : 0) / 2));
           actionBtn = `
@@ -2879,6 +2895,39 @@
       renderView('slipare-home');
     }
 
+    function logOneKnife(orderId) {
+      const order = DATA.orders.find(o => o.id === orderId);
+      if (!order || !order.sharpeners) return;
+      const myEntry = order.sharpeners.find(s => s.user_id === CURRENT_USER.id);
+      if (!myEntry || myEntry.done) return;
+
+      if (!myEntry.knives_done) myEntry.knives_done = 0;
+      myEntry.knives_done += 1;
+
+      // Logga i timelog
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '', sharpened_orders: [] }; TIMELOG.push(entry); }
+      entry.knives_sharpened = (entry.knives_sharpened || 0) + 1;
+
+      // Om alla knivar klara → markera done
+      if (myEntry.knives_done >= myEntry.knife_count) {
+        myEntry.done = true;
+        myEntry.done_at = now();
+        if (!entry.sharpened_orders) entry.sharpened_orders = [];
+        entry.sharpened_orders.push({ order_id: orderId, knives: myEntry.knife_count, timestamp: now() });
+
+        // Kolla om ALLA slipare klara
+        if (order.sharpeners.every(s => s.done)) {
+          order.status = 'quality_check';
+          order.status_history.push({ status: 'quality_check', timestamp: now(), by: 'alla slipare' });
+        }
+      }
+
+      saveTimelog();
+      saveOrders();
+      renderView(CURRENT_USER.role === 'slipare' ? 'slipare-home' : 'admin-log');
+    }
+
     function markMyKnivesDone(orderId) {
       const card = event?.target?.closest?.('.card');
       if (card) card.classList.add('card-done');
@@ -2891,10 +2940,14 @@
       myEntry.done = true;
       myEntry.done_at = now();
 
-      // Logga knivar i timelog
+      // Logga resterande knivar (de som inte redan loggats via +1)
+      const alreadyLogged = myEntry.knives_done || 0;
+      const remaining = (myEntry.knife_count || 0) - alreadyLogged;
+      myEntry.knives_done = myEntry.knife_count;
+
       let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
       if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '', sharpened_orders: [] }; TIMELOG.push(entry); }
-      entry.knives_sharpened = (entry.knives_sharpened || 0) + (myEntry.knife_count || 0);
+      if (remaining > 0) entry.knives_sharpened = (entry.knives_sharpened || 0) + remaining;
       if (!entry.sharpened_orders) entry.sharpened_orders = [];
       entry.sharpened_orders.push({ order_id: orderId, knives: myEntry.knife_count, timestamp: now() });
 
