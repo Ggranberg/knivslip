@@ -1872,18 +1872,8 @@
         </div>
       `);
 
-      // Missade intäkter
-      if (unlogged.length) {
-        main.insertAdjacentHTML('beforeend', `
-          <div class="section">
-            <div style="padding:1rem;background:var(--yellow-light);border-radius:var(--radius);border:1px solid var(--yellow);">
-              <div style="font-weight:700;color:var(--yellow);margin-bottom:0.5rem;">&#9888; ${unlogged.length} avslutade ordrar utan intäkt</div>
-              <div style="font-size:0.85rem;color:var(--gray-600);">Dessa ordrar markerades som klara innan transaktionsloggning fanns. Vill du logga dem nu?</div>
-              <button onclick="logMissingIncome()" style="margin-top:0.75rem;padding:0.5rem 1rem;background:var(--yellow);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-weight:600;">Logga alla</button>
-            </div>
-          </div>
-        `);
-      }
+      // Gamla ordrar utan intäkt — visa bara som info, ingen action
+
     }
 
     async function addExpense() {
