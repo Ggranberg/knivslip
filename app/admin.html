@@ -1921,25 +1921,48 @@
     }
 
     // === ROUTE MAP ===
-    // Address coordinates for Nacka area (approximate, add more as needed)
-    const ADDRESS_COORDS = {
-      'klostervagen 6': [59.3107, 18.1268],
-      'sickla alle 7': [59.3055, 18.1235],
-      'varmdovagen 88': [59.3100, 18.1420],
-      'saltsjobadsvagen 42': [59.2850, 18.1600],
-      'ormingeringen 145': [59.3250, 18.2100],
-      'fisksatravagen 19': [59.2900, 18.1500],
+    const HOME_COORDS = [59.3107, 18.1635]; // Klostervägen 6, Nacka
+
+    // Områdescentrum — fallback om exakt adress saknas
+    const AREA_COORDS = {
+      'AREA-NACKA-C': [59.3107, 18.1635],
+      'AREA-NACKA-SALTSJOBADEN': [59.2770, 18.1510],
+      'AREA-NACKA-BOO': [59.3310, 18.2440],
+      'AREA-NACKA-ALTA': [59.2960, 18.1780],
+      'AREA-VARMDO-C': [59.3260, 18.3670],
+      'AREA-VARMDO-HALSO': [59.3800, 18.5200],
+      'AREA-VARMDO-INGARSO': [59.3440, 18.4400],
     };
 
-    function coordsForAddress(addr) {
-      const clean = addr.toLowerCase().replace(/[åä]/g,'a').replace(/ö/g,'o').replace(/é/g,'e').replace(/,.*$/,'').trim();
+    // Kända adresser med exakta koordinater
+    const ADDRESS_COORDS = {
+      'klostervagen 6': HOME_COORDS,
+      'klostervägen 6': HOME_COORDS,
+      'ligustervagen 65': [59.2940, 18.1820],
+      'ligustervägen 65': [59.2940, 18.1820],
+    };
+
+    function coordsForAddress(addr, areaId) {
+      const clean = addr.toLowerCase().replace(/[éè]/g,'e').replace(/,.*$/,'').trim();
+      const cleanNorm = clean.replace(/[åä]/g,'a').replace(/ö/g,'o');
+
+      // Exakt match
       for (const [key, val] of Object.entries(ADDRESS_COORDS)) {
-        if (clean.includes(key) || key.includes(clean.split(' ')[0])) return val;
+        if (cleanNorm.includes(key.replace(/[åä]/g,'a').replace(/ö/g,'o')) || clean.includes(key)) return val;
       }
-      // Fallback: offset from Nacka center based on hash
+
+      // Fallback: områdescentrum med liten offset (så markörer inte överlappar)
+      if (areaId && AREA_COORDS[areaId]) {
+        const base = AREA_COORDS[areaId];
+        let hash = 0;
+        for (let i = 0; i < addr.length; i++) hash = ((hash << 5) - hash) + addr.charCodeAt(i);
+        return [base[0] + (hash % 20 - 10) * 0.001, base[1] + (hash % 30 - 15) * 0.001];
+      }
+
+      // Sista fallback: Nacka centrum med offset
       let hash = 0;
       for (let i = 0; i < addr.length; i++) hash = ((hash << 5) - hash) + addr.charCodeAt(i);
-      return [59.31 + (hash % 50) * 0.0003, 18.14 + (hash % 70) * 0.0004];
+      return [59.310 + (hash % 20 - 10) * 0.002, 18.163 + (hash % 20 - 10) * 0.003];
     }
 
     function buildGoogleMapsURL(stops, homeBase) {
@@ -1979,13 +2002,13 @@
       while (remaining.length) {
         let nearest = 0, minDist = Infinity;
         remaining.forEach((s, i) => {
-          const c = coordsForAddress(s.address);
+          const c = coordsForAddress(s.address, s.area_id);
           const d = Math.sqrt(Math.pow(c[0]-current[0],2) + Math.pow(c[1]-current[1],2));
           if (d < minDist) { minDist = d; nearest = i; }
         });
         const stop = remaining.splice(nearest, 1)[0];
         optimized.push(stop);
-        current = coordsForAddress(stop.address);
+        current = coordsForAddress(stop.address, stop.area_id);
       }
       return optimized;
     }
@@ -2001,7 +2024,7 @@
       }
 
       const colors = { gustav: '#e85d04', philip: '#2563eb', adam: '#16a34a' };
-      const homeCoords = [59.3107, 18.1268];
+      const homeCoords = HOME_COORDS;
       const drivers = [...new Set(schedules.map(s => s.assigned_to))];
 
       // Filter by driver
@@ -2113,7 +2136,7 @@
         const points = [homeCoords];
 
         filtered.forEach((stop, i) => {
-          const coords = coordsForAddress(stop.address);
+          const coords = coordsForAddress(stop.address, stop.area_id);
           points.push(coords);
           const cust = DATA.customers.find(c => c.id === stop.customer_id);
           const order = DATA.orders.find(o => o.id === stop.order_id);
@@ -2133,7 +2156,7 @@
         if (filtered.length) L.polyline(points, { color, weight: 3, opacity: 0.7, dashArray: '8 4' }).addTo(routeMap);
       });
 
-      const allPts = [homeCoords, ...schedules.flatMap(s => filterStops(s.stops).map(st => coordsForAddress(st.address)))];
+      const allPts = [homeCoords, ...schedules.flatMap(s => filterStops(s.stops).map(st => coordsForAddress(st.address, st.area_id)))];
       if (allPts.length > 1) routeMap.fitBounds(allPts, { padding: [30, 30] });
     }
 
@@ -2154,7 +2177,7 @@
       toSched.stops.push(stop);
 
       // Re-optimize both routes
-      const homeCoords = [59.3107, 18.1268];
+      const homeCoords = HOME_COORDS;
       fromSched.stops = optimizeRoute(fromSched.stops, homeCoords);
       toSched.stops = optimizeRoute(toSched.stops, homeCoords);
 
