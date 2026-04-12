@@ -2439,23 +2439,52 @@
         const statusSv = deadline ? 'Försenad!' : urgent ? 'Bråttom' : 'Ny';
         const statusColor = deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--green)';
 
-        const isMine = o.assigned_to === CURRENT_USER.id;
-        const isOther = o.assigned_to && !isMine;
-        const otherName = isOther ? (USERS.find(u=>u.id===o.assigned_to)?.name?.split(' ')[0] || '?') : '';
+        // Slipare-lista (stödjer flera slipare per order)
+        const sharpeners = o.sharpeners || [];
+        const isMine = sharpeners.some(s => s.user_id === CURRENT_USER.id) || o.assigned_to === CURRENT_USER.id;
+        const myEntry = sharpeners.find(s => s.user_id === CURRENT_USER.id);
+        const totalClaimed = sharpeners.reduce((s, e) => s + (e.knife_count || 0), 0);
+        const knivesLeft = (typeof knives === 'number' ? knives : 0) - totalClaimed;
+        const otherSharpeners = sharpeners.filter(s => s.user_id !== CURRENT_USER.id);
 
         // Slipare: enkel stor knapp-layout
         if (isSlipare) {
+          // Visa vilka som slipar
+          let sharpenerInfo = '';
+          if (sharpeners.length > 0) {
+            sharpenerInfo = sharpeners.map(s => {
+              const u = USERS.find(u => u.id === s.user_id);
+              const name = u?.name?.split(' ')[0] || '?';
+              const done = s.done ? '&#10003; ' : '';
+              return `<span style="font-size:0.75rem;padding:0.2rem 0.5rem;background:${s.done ? 'var(--green-light)' : 'var(--blue-light)'};color:${s.done ? 'var(--green)' : 'var(--blue)'};border-radius:4px;font-weight:600;">${done}${name}: ${s.knife_count} knivar</span>`;
+            }).join(' ');
+            sharpenerInfo = `<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.6rem;">${sharpenerInfo}</div>`;
+          }
+
           let actionBtn = '';
-          if (isOther) {
-            actionBtn = `<div style="padding:0.75rem;text-align:center;color:var(--gray-400);font-size:0.85rem;font-style:italic;">${otherName} slipar denna</div>`;
-          } else if (isMine) {
-            actionBtn = `<button onclick="markSharpened('${o.id}', ${knives === '?' ? 0 : knives})" style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;transition:all 0.15s;">&#10003; Klar!</button>`;
+          if (myEntry && !myEntry.done) {
+            // Jag har tagit knivar men inte klar ännu
+            actionBtn = `<button onclick="markMyKnivesDone('${o.id}')" style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">&#10003; Mina ${myEntry.knife_count} klara!</button>`;
+          } else if (myEntry && myEntry.done) {
+            actionBtn = `<div style="padding:0.75rem;text-align:center;color:var(--green);font-weight:700;font-size:0.9rem;">&#10003; Du är klar!</div>`;
+          } else if (knivesLeft > 0) {
+            // Kan ta knivar
+            const defaultCount = Math.min(knivesLeft, Math.ceil((typeof knives === 'number' ? knives : 0) / 2));
+            actionBtn = `
+              <div style="display:flex;gap:0.5rem;align-items:stretch;">
+                <div style="flex:1;display:flex;align-items:center;gap:0.5rem;background:var(--gray-100);border-radius:var(--radius);padding:0.5rem 0.75rem;">
+                  <label style="font-size:0.8rem;color:var(--gray-500);white-space:nowrap;">Jag tar</label>
+                  <input type="number" id="claim-${o.id}" min="1" max="${knivesLeft}" value="${defaultCount}" style="width:50px;padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:1.1rem;text-align:center;font-family:inherit;">
+                  <span style="font-size:0.8rem;color:var(--gray-500);">av ${knivesLeft}</span>
+                </div>
+                <button onclick="claimKnives('${o.id}')" style="padding:0.75rem 1.2rem;font-size:1rem;font-weight:700;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">Ta</button>
+              </div>`;
           } else {
-            actionBtn = `<button onclick="claimOrder('${o.id}')" style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;transition:all 0.15s;">Ta order</button>`;
+            actionBtn = `<div style="padding:0.5rem;text-align:center;color:var(--gray-400);font-size:0.85rem;">Alla knivar fördelade</div>`;
           }
 
           return `
-            <div class="card" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${borderColor};${isOther ? 'opacity:0.5;' : ''}">
+            <div class="card" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${borderColor};">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
                 <div>
                   <div style="font-weight:700;font-size:1.05rem;">${cust?.name || 'Okänd kund'}</div>
@@ -2468,7 +2497,7 @@
               </div>
               ${deadline || urgent ? `<div style="font-size:0.8rem;font-weight:600;color:${statusColor};margin-bottom:0.6rem;">${statusSv}</div>` : ''}
               ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.6rem;font-style:italic;">${o.notes}</div>` : ''}
-              ${isMine ? `<div style="font-size:0.75rem;color:var(--blue);font-weight:600;margin-bottom:0.5rem;">Du slipar denna</div>` : ''}
+              ${sharpenerInfo}
               ${actionBtn}
             </div>`;
         }
@@ -2524,6 +2553,7 @@
     }
 
     function claimOrder(orderId) {
+      // Legacy — stödjer fortfarande enkel claim för admin
       const order = DATA.orders.find(o => o.id === orderId);
       if (!order) return;
       order.assigned_to = CURRENT_USER.id;
@@ -2536,21 +2566,80 @@
       renderView(role === 'admin' ? 'admin-log' : 'slipare-home');
     }
 
+    function claimKnives(orderId) {
+      const order = DATA.orders.find(o => o.id === orderId);
+      if (!order) return;
+      const input = document.getElementById('claim-' + orderId);
+      const count = parseInt(input?.value) || 0;
+      if (count <= 0) return;
+
+      if (!order.sharpeners) order.sharpeners = [];
+
+      // Kolla att sliparen inte redan finns
+      if (order.sharpeners.some(s => s.user_id === CURRENT_USER.id)) return;
+
+      order.sharpeners.push({
+        user_id: CURRENT_USER.id,
+        name: CURRENT_USER.name.split(' ')[0],
+        knife_count: count,
+        done: false,
+        claimed_at: now()
+      });
+
+      if (order.status === 'picked_up' || order.status === 'registered') {
+        order.status = 'sharpening';
+        order.status_history.push({ status: 'sharpening', timestamp: now(), by: CURRENT_USER.name.toLowerCase().split(' ')[0] });
+      }
+
+      saveOrders();
+      renderView('slipare-home');
+    }
+
+    function markMyKnivesDone(orderId) {
+      const card = event?.target?.closest?.('.card');
+      if (card) card.classList.add('card-done');
+
+      const order = DATA.orders.find(o => o.id === orderId);
+      if (!order || !order.sharpeners) return;
+
+      const myEntry = order.sharpeners.find(s => s.user_id === CURRENT_USER.id);
+      if (!myEntry) return;
+      myEntry.done = true;
+      myEntry.done_at = now();
+
+      // Logga knivar i timelog
+      let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
+      if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '', sharpened_orders: [] }; TIMELOG.push(entry); }
+      entry.knives_sharpened = (entry.knives_sharpened || 0) + (myEntry.knife_count || 0);
+      if (!entry.sharpened_orders) entry.sharpened_orders = [];
+      entry.sharpened_orders.push({ order_id: orderId, knives: myEntry.knife_count, timestamp: now() });
+
+      // Kolla om ALLA slipare är klara → quality_check
+      const allDone = order.sharpeners.every(s => s.done);
+      if (allDone) {
+        order.status = 'quality_check';
+        order.status_history.push({ status: 'quality_check', timestamp: now(), by: 'alla slipare' });
+      }
+
+      saveTimelog();
+      saveOrders();
+
+      setTimeout(() => renderView('slipare-home'), 500);
+    }
+
     function markSharpened(orderId, kniveCount) {
-      // Animera kortet innan vi uppdaterar data
+      // Legacy för admin — markerar hela ordern som klar
       const card = event?.target?.closest?.('.card');
       if (card && CURRENT_USER.role === 'slipare') {
         card.classList.add('card-done');
       }
 
-      // Log knives for current user
       let entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
       if (!entry) { entry = { user_id: CURRENT_USER.id, date: today(), clock_in: null, clock_out: null, knives_sharpened: 0, stops_completed: 0, notes: '', sharpened_orders: [] }; TIMELOG.push(entry); }
       entry.knives_sharpened = (entry.knives_sharpened || 0) + (kniveCount || 0);
       if (!entry.sharpened_orders) entry.sharpened_orders = [];
       entry.sharpened_orders.push({ order_id: orderId, knives: kniveCount, timestamp: now() });
 
-      // Update order status to quality_check
       const order = DATA.orders.find(o => o.id === orderId);
       if (order) {
         order.status = 'quality_check';
@@ -2560,7 +2649,6 @@
       saveTimelog();
       saveOrders();
 
-      // Vänta på animationen innan vi renderar om
       const delay = (card && CURRENT_USER.role === 'slipare') ? 500 : 0;
       setTimeout(() => {
         const role = CURRENT_USER.role;
