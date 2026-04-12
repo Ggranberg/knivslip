@@ -1071,6 +1071,29 @@
       o.notes = newNotes;
       o.updated_at = now();
 
+      // Auto-logga intäkt vid completed
+      if (newStatus === 'completed' && o.status === 'completed') {
+        const totalPrice = o.custom_total_price || ((o.actual_knife_count || o.estimated_knife_count || 0) * (o.price_per_knife || 140));
+        if (totalPrice > 0) {
+          const cust = DATA.customers.find(c => c.id === o.customer_id);
+          const txnId = 'TXN-' + today().replace(/-/g,'') + '-' + (DATA.transactions.length + 1).toString().padStart(3,'0');
+          DATA.transactions.push({
+            id: txnId,
+            type: 'income',
+            order_id: o.id,
+            customer_name: cust?.name || 'Okänd',
+            description: `Knivslipning ${o.actual_knife_count || o.estimated_knife_count || '?'} knivar`,
+            amount_incl_vat: totalPrice,
+            amount_excl_vat: Math.round(totalPrice / 1.25),
+            vat: Math.round(totalPrice - totalPrice / 1.25),
+            date: today(),
+            created_by: CURRENT_USER.name.split(' ')[0],
+            created_at: now()
+          });
+          await saveJSON('transactions.json', { transactions: DATA.transactions });
+        }
+      }
+
       await saveJSON('orders.json', { orders: DATA.orders });
       document.querySelector('.modal-overlay')?.remove();
 
@@ -1741,13 +1764,170 @@
     }
 
     function renderFinance(main) {
-      if (!DATA.invoices.length && !DATA.transactions.length) {
-        main.insertAdjacentHTML('beforeend', '<div class="card"><div class="finance-placeholder"><div class="fp-icon">&#128200;</div><p>Inga fakturor ännu. Kör <code>/ekonomi</code> för att börja.</p></div></div>');
-        return;
+      const income = DATA.transactions.filter(t => t.type === 'income');
+      const expenses = DATA.transactions.filter(t => t.type === 'expense');
+      const totalInc = income.reduce((s, t) => s + (t.amount_incl_vat || 0), 0);
+      const totalExp = expenses.reduce((s, t) => s + (t.amount_incl_vat || 0), 0);
+      const totalVat = income.reduce((s, t) => s + (t.vat || 0), 0);
+      const profit = totalInc - totalExp;
+
+      // Beräkna lönekostnader från timelog
+      const payroll = USERS.filter(u => u.pay_type).map(u => {
+        const logs = TIMELOG.filter(e => e.user_id === u.id);
+        let total = 0;
+        if (u.pay_type === 'per_knife') total = logs.reduce((s, l) => s + (l.knives_sharpened || 0), 0) * (u.pay_rate || 0);
+        else if (u.pay_type === 'per_km') total = logs.reduce((s, l) => s + (l.km_driven || 0), 0) * (u.pay_rate || 0);
+        else if (u.pay_type === 'hourly') {
+          logs.forEach(l => { if (l.clock_in && l.clock_out) { const [h1,m1]=l.clock_in.split(':').map(Number); const [h2,m2]=l.clock_out.split(':').map(Number); total += ((h2*60+m2)-(h1*60+m1))/60 * (u.pay_rate||0); }});
+        }
+        return { name: u.name.split(' ')[0], role: u.role, total: Math.round(total), type: u.pay_type };
+      }).filter(p => p.total > 0);
+      const totalPayroll = payroll.reduce((s, p) => s + p.total, 0);
+
+      // Completade ordrar utan transaktion (missade intäkter)
+      const completedOrders = DATA.orders.filter(o => o.status === 'completed');
+      const loggedOrderIds = new Set(income.map(t => t.order_id));
+      const unlogged = completedOrders.filter(o => !loggedOrderIds.has(o.id));
+
+      // KPI-rutor
+      main.insertAdjacentHTML('beforeend', `
+        <div class="kpi-grid" style="margin-bottom:1.5rem;">
+          <div class="kpi-card green"><div class="kpi-label">Intäkter</div><div class="kpi-value">${totalInc.toLocaleString('sv')} kr</div><div class="kpi-sub">inkl. moms</div></div>
+          <div class="kpi-card ${totalExp ? 'red' : ''}"><div class="kpi-label">Kostnader</div><div class="kpi-value">${totalExp.toLocaleString('sv')} kr</div><div class="kpi-sub">${expenses.length} poster</div></div>
+          <div class="kpi-card"><div class="kpi-label">Löner</div><div class="kpi-value">${totalPayroll.toLocaleString('sv')} kr</div><div class="kpi-sub">${payroll.length} personer</div></div>
+          <div class="kpi-card accent"><div class="kpi-label">Resultat</div><div class="kpi-value">${(totalInc - totalExp - totalPayroll).toLocaleString('sv')} kr</div><div class="kpi-sub">före moms (${totalVat} kr moms)</div></div>
+        </div>
+      `);
+
+      // Lägg till kostnad
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <h2 style="margin-bottom:1rem;">Lägg till kostnad</h2>
+          <div style="padding:1rem;background:var(--white);border-radius:var(--radius);border:1px solid var(--gray-200);">
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;">
+              <div style="flex:2;min-width:150px;">
+                <label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Beskrivning</label>
+                <select id="exp-desc" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
+                  <option value="Bensin">Bensin</option>
+                  <option value="Slipsten">Slipsten</option>
+                  <option value="Förpackningsmaterial">Förpackningsmaterial</option>
+                  <option value="Telefon">Telefon</option>
+                  <option value="Övrigt">Övrigt</option>
+                </select>
+              </div>
+              <div style="flex:1;min-width:100px;">
+                <label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Belopp (kr)</label>
+                <input type="number" id="exp-amount" min="1" placeholder="0" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:0.95rem;font-family:inherit;">
+              </div>
+              <div style="flex:1;min-width:100px;">
+                <label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Datum</label>
+                <input type="date" id="exp-date" value="${today()}" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:0.95rem;font-family:inherit;">
+              </div>
+              <button onclick="addExpense()" style="padding:0.5rem 1.2rem;background:var(--accent);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-weight:600;min-height:40px;">Spara</button>
+            </div>
+            <div id="exp-custom" style="display:none;margin-top:0.5rem;">
+              <input type="text" id="exp-custom-text" placeholder="Beskriv kostnaden" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;">
+            </div>
+          </div>
+        </div>
+      `);
+      document.getElementById('exp-desc').addEventListener('change', function() {
+        document.getElementById('exp-custom').style.display = this.value === 'Övrigt' ? 'block' : 'none';
+      });
+
+      // Löneöversikt
+      if (payroll.length) {
+        main.insertAdjacentHTML('beforeend', `
+          <div class="section">
+            <h2 style="margin-bottom:1rem;">Löner</h2>
+            <div class="card" style="padding:1rem;">
+              ${payroll.map(p => `
+                <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--gray-100);">
+                  <span>${p.name} <span style="color:var(--gray-400);font-size:0.8rem;">(${p.role})</span></span>
+                  <strong>${p.total.toLocaleString('sv')} kr</strong>
+                </div>
+              `).join('')}
+              <div style="display:flex;justify-content:space-between;padding:0.75rem 0 0;font-weight:700;">
+                <span>Totalt löner</span>
+                <span style="color:var(--red);">${totalPayroll.toLocaleString('sv')} kr</span>
+              </div>
+            </div>
+          </div>
+        `);
       }
-      const inc = DATA.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+(t.amount_incl_vat||0),0);
-      const exp = DATA.transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+(t.amount_incl_vat||0),0);
-      main.insertAdjacentHTML('beforeend', `<div class="card" style="padding:1.5rem;display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;text-align:center;"><div><div style="font-size:0.8rem;color:var(--gray-500);text-transform:uppercase;">Intakter</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${inc} kr</div></div><div><div style="font-size:0.8rem;color:var(--gray-500);text-transform:uppercase;">Kostnader</div><div style="font-size:1.5rem;font-weight:800;color:var(--red);">${exp} kr</div></div><div><div style="font-size:0.8rem;color:var(--gray-500);text-transform:uppercase;">Betalda</div><div style="font-size:1.5rem;font-weight:800;">${DATA.invoices.filter(i=>i.payment?.paid).length}</div></div><div><div style="font-size:0.8rem;color:var(--gray-500);text-transform:uppercase;">Obetalda</div><div style="font-size:1.5rem;font-weight:800;color:var(--red);">${DATA.invoices.filter(i=>!i.payment?.paid).length}</div></div></div>`);
+
+      // Transaktionshistorik
+      const allTxn = DATA.transactions.slice().sort((a, b) => (b.date || b.created_at || '').localeCompare(a.date || a.created_at || ''));
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <h2 style="margin-bottom:1rem;">Transaktioner</h2>
+          ${allTxn.length ? `<div class="card"><table><thead><tr><th>Datum</th><th>Typ</th><th>Beskrivning</th><th>Belopp</th></tr></thead><tbody>
+            ${allTxn.map(t => `<tr>
+              <td>${t.date || ''}</td>
+              <td><span style="font-size:0.8rem;padding:0.15rem 0.5rem;border-radius:4px;background:${t.type==='income'?'var(--green-light)':'var(--red-light)'};color:${t.type==='income'?'var(--green)':'var(--red)'};font-weight:600;">${t.type==='income'?'Intäkt':'Kostnad'}</span></td>
+              <td>${t.description || t.customer_name || ''}</td>
+              <td style="font-weight:700;color:${t.type==='income'?'var(--green)':'var(--red)'};">${t.type==='income'?'+':'-'}${(t.amount_incl_vat||0).toLocaleString('sv')} kr</td>
+            </tr>`).join('')}
+          </tbody></table></div>` : '<div style="color:var(--gray-400);font-style:italic;">Inga transaktioner ännu</div>'}
+        </div>
+      `);
+
+      // Missade intäkter
+      if (unlogged.length) {
+        main.insertAdjacentHTML('beforeend', `
+          <div class="section">
+            <div style="padding:1rem;background:var(--yellow-light);border-radius:var(--radius);border:1px solid var(--yellow);">
+              <div style="font-weight:700;color:var(--yellow);margin-bottom:0.5rem;">&#9888; ${unlogged.length} avslutade ordrar utan intäkt</div>
+              <div style="font-size:0.85rem;color:var(--gray-600);">Dessa ordrar markerades som klara innan transaktionsloggning fanns. Vill du logga dem nu?</div>
+              <button onclick="logMissingIncome()" style="margin-top:0.75rem;padding:0.5rem 1rem;background:var(--yellow);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-weight:600;">Logga alla</button>
+            </div>
+          </div>
+        `);
+      }
+    }
+
+    async function addExpense() {
+      let desc = document.getElementById('exp-desc').value;
+      if (desc === 'Övrigt') desc = document.getElementById('exp-custom-text').value.trim() || 'Övrigt';
+      const amount = parseInt(document.getElementById('exp-amount').value) || 0;
+      const date = document.getElementById('exp-date').value || today();
+      if (!amount) return;
+
+      const txnId = 'TXN-' + date.replace(/-/g,'') + '-' + (DATA.transactions.length + 1).toString().padStart(3,'0');
+      DATA.transactions.push({
+        id: txnId, type: 'expense', description: desc,
+        amount_incl_vat: amount, amount_excl_vat: Math.round(amount / 1.25),
+        vat: Math.round(amount - amount / 1.25),
+        date: date, created_by: CURRENT_USER.name.split(' ')[0], created_at: now()
+      });
+      await saveJSON('transactions.json', { transactions: DATA.transactions });
+      renderView('finance');
+    }
+
+    async function logMissingIncome() {
+      const loggedOrderIds = new Set(DATA.transactions.filter(t => t.type === 'income').map(t => t.order_id));
+      const unlogged = DATA.orders.filter(o => o.status === 'completed' && !loggedOrderIds.has(o.id));
+
+      for (const o of unlogged) {
+        const knives = o.actual_knife_count || o.estimated_knife_count || 0;
+        const pricePerKnife = o.price_per_knife || (knives <= 2 ? 170 : knives <= 5 ? 140 : 120);
+        const totalPrice = o.custom_total_price || (knives * pricePerKnife);
+        if (totalPrice <= 0) continue;
+
+        const cust = DATA.customers.find(c => c.id === o.customer_id);
+        const txnId = 'TXN-' + (o.updated_at || o.created_at || now()).split('T')[0].replace(/-/g,'') + '-' + (DATA.transactions.length + 1).toString().padStart(3,'0');
+        DATA.transactions.push({
+          id: txnId, type: 'income', order_id: o.id,
+          customer_name: cust?.name || 'Okänd',
+          description: `Knivslipning ${knives} knivar`,
+          amount_incl_vat: totalPrice, amount_excl_vat: Math.round(totalPrice / 1.25),
+          vat: Math.round(totalPrice - totalPrice / 1.25),
+          date: (o.updated_at || o.created_at || now()).split('T')[0],
+          created_by: 'auto', created_at: now()
+        });
+      }
+      await saveJSON('transactions.json', { transactions: DATA.transactions });
+      renderView('finance');
     }
 
     // === ROUTE MAP ===
