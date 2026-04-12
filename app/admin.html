@@ -2768,7 +2768,9 @@
           actionBtn = `
             <div style="margin-bottom:0.5rem;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
-                <span style="font-size:0.85rem;font-weight:600;color:var(--gray-600);">Dina knivar: ${myDone} av ${myTotal}</span>
+                <span style="font-size:0.85rem;font-weight:600;color:var(--gray-600);">Dina knivar: ${myDone} av
+                  <input type="number" id="edit-claim-${o.id}" value="${myTotal}" min="1" max="${(typeof knives === 'number' ? knives : 99)}" style="width:40px;padding:0.1rem;border:1px solid var(--gray-300);border-radius:4px;font-size:0.85rem;text-align:center;font-family:inherit;font-weight:600;" onchange="updateMyClaim('${o.id}', this.value)">
+                </span>
                 <span style="font-size:0.8rem;color:var(--gray-400);">${remaining} kvar</span>
               </div>
               <div style="height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden;">
@@ -2893,6 +2895,18 @@
 
       saveOrders();
       renderView('slipare-home');
+    }
+
+    function updateMyClaim(orderId, newCount) {
+      const order = DATA.orders.find(o => o.id === orderId);
+      if (!order || !order.sharpeners) return;
+      const myEntry = order.sharpeners.find(s => s.user_id === CURRENT_USER.id);
+      if (!myEntry || myEntry.done) return;
+      const val = parseInt(newCount) || 1;
+      if (val < (myEntry.knives_done || 0)) return; // Kan inte sänka under redan loggade
+      myEntry.knife_count = val;
+      saveOrders();
+      renderView(CURRENT_USER.role === 'slipare' ? 'slipare-home' : 'admin-log');
     }
 
     function logOneKnife(orderId) {
