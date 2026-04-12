@@ -979,7 +979,7 @@
                 <input id="oe-price" type="number" min="0" step="10" value="${currentPrice}" placeholder="${suggestedPrice || 'Auto'}" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
               </div>
               <div class="profile-field">
-                <label>Totalpris (kr, inkl moms)</label>
+                <label>Totalpris (kr)</label>
                 <input id="oe-total" type="number" min="0" step="10" value="${currentTotal}" placeholder="Auto" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;" readonly>
               </div>
             </div>
@@ -1792,10 +1792,10 @@
       // KPI-rutor
       main.insertAdjacentHTML('beforeend', `
         <div class="kpi-grid" style="margin-bottom:1.5rem;">
-          <div class="kpi-card green"><div class="kpi-label">Intäkter</div><div class="kpi-value">${totalInc.toLocaleString('sv')} kr</div><div class="kpi-sub">inkl. moms</div></div>
+          <div class="kpi-card green"><div class="kpi-label">Intäkter</div><div class="kpi-value">${totalInc.toLocaleString('sv')} kr</div><div class="kpi-sub">${income.length} ordrar</div></div>
           <div class="kpi-card ${totalExp ? 'red' : ''}"><div class="kpi-label">Kostnader</div><div class="kpi-value">${totalExp.toLocaleString('sv')} kr</div><div class="kpi-sub">${expenses.length} poster</div></div>
           <div class="kpi-card"><div class="kpi-label">Löner</div><div class="kpi-value">${totalPayroll.toLocaleString('sv')} kr</div><div class="kpi-sub">${payroll.length} personer</div></div>
-          <div class="kpi-card accent"><div class="kpi-label">Resultat</div><div class="kpi-value">${(totalInc - totalExp - totalPayroll).toLocaleString('sv')} kr</div><div class="kpi-sub">före moms (${totalVat} kr moms)</div></div>
+          <div class="kpi-card accent"><div class="kpi-label">Resultat</div><div class="kpi-value">${(totalInc - totalExp - totalPayroll).toLocaleString('sv')} kr</div><div class="kpi-sub">intäkter - kostnader - löner</div></div>
         </div>
       `);
 
