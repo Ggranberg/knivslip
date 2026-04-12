@@ -937,6 +937,44 @@
 
             <div class="profile-row" style="margin-bottom:1rem;">
               <div class="profile-field">
+                <label>Hämtningsdatum</label>
+                <input id="oe-pickup-date" type="date" value="${o.pickup?.date || ''}" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
+              </div>
+              <div class="profile-field">
+                <label>Leveransdatum</label>
+                <input id="oe-delivery-date" type="date" value="${o.delivery?.date || ''}" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
+              </div>
+            </div>
+
+            <div class="profile-row" style="margin-bottom:1rem;">
+              <div class="profile-field">
+                <label>Hämtningstid</label>
+                <select id="oe-pickup-time" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
+                  <option value="" ${!o.pickup?.time_window?'selected':''}>Flexibel</option>
+                  <option value="10:00-12:00" ${o.pickup?.time_window==='10:00-12:00'?'selected':''}>10:00–12:00</option>
+                  <option value="12:00-14:00" ${o.pickup?.time_window==='12:00-14:00'?'selected':''}>12:00–14:00</option>
+                  <option value="14:00-16:00" ${o.pickup?.time_window==='14:00-16:00'?'selected':''}>14:00–16:00</option>
+                  <option value="16:00-17:00" ${o.pickup?.time_window==='16:00-17:00'?'selected':''}>16:00–17:00</option>
+                  <option value="17:00-18:00" ${o.pickup?.time_window==='17:00-18:00'?'selected':''}>17:00–18:00</option>
+                  <option value="18:00-19:00" ${o.pickup?.time_window==='18:00-19:00'?'selected':''}>18:00–19:00</option>
+                  <option value="19:00-20:00" ${o.pickup?.time_window==='19:00-20:00'?'selected':''}>19:00–20:00</option>
+                </select>
+              </div>
+              <div class="profile-field">
+                <label>Tilldelad förare</label>
+                <select id="oe-driver" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
+                  <option value="">Ej tilldelad</option>
+                  ${USERS.filter(u => u.active && (u.role === 'admin' || u.role === 'forare')).map(u => {
+                    const dName = u.name.split(' ')[0].toLowerCase();
+                    const selected = (o.pickup?.assigned_to === dName || o.pickup?.assigned_to === u.id) ? 'selected' : '';
+                    return `<option value="${dName}" ${selected}>${u.name.split(' ')[0]}</option>`;
+                  }).join('')}
+                </select>
+              </div>
+            </div>
+
+            <div class="profile-row" style="margin-bottom:1rem;">
+              <div class="profile-field">
                 <label>Pris per kniv (kr)</label>
                 <input id="oe-price" type="number" min="0" step="10" value="${currentPrice}" placeholder="${suggestedPrice || 'Auto'}" style="width:100%;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.95rem;">
               </div>
@@ -995,6 +1033,10 @@
       const newKnives = parseInt(document.getElementById('oe-knives').value) || null;
       const newPrice = parseInt(document.getElementById('oe-price').value) || null;
       const newNotes = document.getElementById('oe-notes').value.trim();
+      const newPickupDate = document.getElementById('oe-pickup-date').value;
+      const newDeliveryDate = document.getElementById('oe-delivery-date').value;
+      const newPickupTime = document.getElementById('oe-pickup-time').value;
+      const newDriver = document.getElementById('oe-driver').value;
 
       // Update status + add to history if changed
       if (newStatus !== o.status) {
@@ -1017,6 +1059,14 @@
         o.price_per_knife = newPrice;
         o.custom_total_price = newKnives ? newKnives * newPrice : null;
       }
+
+      // Update pickup/delivery
+      if (!o.pickup) o.pickup = {};
+      if (!o.delivery) o.delivery = {};
+      o.pickup.date = newPickupDate || o.pickup.date;
+      o.pickup.time_window = newPickupTime || null;
+      o.pickup.assigned_to = newDriver || o.pickup.assigned_to;
+      o.delivery.date = newDeliveryDate || o.delivery.date;
 
       o.notes = newNotes;
       o.updated_at = now();
