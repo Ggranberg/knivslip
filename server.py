@@ -361,8 +361,10 @@ def approve_booking(booking_id):
     customers = customers_data.get('customers', [])
     orders = orders_data.get('orders', [])
 
-    # Matcha BARA på telefon om telefon finns och inte är tom
-    existing = next((c for c in customers if phone and c.get('phone') == phone and not c.get('is_deleted')), None)
+    # Matcha på telefon OCH namn — nytt namn = ny kund
+    existing = next((c for c in customers if phone and c.get('phone') == phone
+                     and c.get('name', '').lower().strip() == name.lower().strip()
+                     and not c.get('is_deleted')), None)
     now_str = datetime.now().isoformat()
 
     if existing:
