@@ -2435,9 +2435,14 @@
         const urgent = daysAgo >= 1;
         const deadline = daysAgo >= 2;
 
-        const borderColor = deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--green)';
-        const statusSv = deadline ? 'Försenad!' : urgent ? 'Bråttom' : 'Ny';
-        const statusColor = deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--green)';
+        // Kolla om leverans är planerad idag/imorgon
+        const deliveryDate = o.delivery?.date;
+        const deliveryToday = deliveryDate === today();
+        const deliveryTomorrow = deliveryDate === tomorrow();
+
+        const borderColor = deliveryToday ? 'var(--red)' : deadline ? 'var(--red)' : (urgent || deliveryTomorrow) ? 'var(--yellow)' : 'var(--green)';
+        const statusSv = deliveryToday ? 'Leverans idag!' : deadline ? 'Försenad!' : deliveryTomorrow ? 'Leverans imorgon' : urgent ? 'Bråttom' : 'Ny';
+        const statusColor = deliveryToday ? 'var(--red)' : deadline ? 'var(--red)' : (urgent || deliveryTomorrow) ? 'var(--yellow)' : 'var(--green)';
 
         // Slipare-lista (stödjer flera slipare per order)
         const sharpeners = o.sharpeners || [];
@@ -2495,7 +2500,7 @@
                   <div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">knivar</div>
                 </div>
               </div>
-              ${deadline || urgent ? `<div style="font-size:0.8rem;font-weight:600;color:${statusColor};margin-bottom:0.6rem;">${statusSv}</div>` : ''}
+              ${statusSv !== 'Ny' ? `<div style="font-size:0.8rem;font-weight:600;color:${statusColor};margin-bottom:0.6rem;">${statusSv}</div>` : ''}
               ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.6rem;font-style:italic;">${o.notes}</div>` : ''}
               ${sharpenerInfo}
               ${actionBtn}

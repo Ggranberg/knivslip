@@ -132,8 +132,13 @@ def optimize_schedule():
     today = datetime.now().strftime('%Y-%m-%d')
     tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
     pickups = [o for o in orders if o['status'] == 'booked' and o.get('pickup',{}).get('date') in (today, tomorrow)]
+    # Ordrar med manuellt satt leveransdatum idag/imorgon (oavsett status, ej completed/cancelled)
+    scheduled_deliveries = [o for o in orders
+                           if o.get('delivery',{}).get('date') in (today, tomorrow)
+                           and o['status'] not in ('completed', 'cancelled', 'quality_check', 'ready', 'out_for_delivery')
+                           and o not in deliveries]
 
-    if not deliveries and not pickups:
+    if not deliveries and not pickups and not scheduled_deliveries:
         return
 
     def get_customer(cid):
@@ -171,6 +176,23 @@ def optimize_schedule():
             '_priority': 1,
             '_pickup_date': '',
             '_knives': o.get('estimated_knife_count', 0)
+        })
+
+    # Schemalagda leveranser (manuellt datum satt)
+    for o in scheduled_deliveries:
+        c = get_customer(o['customer_id'])
+        if not c: continue
+        all_stops.append({
+            'order_id': o['id'], 'customer_id': o['customer_id'],
+            'type': 'delivery', 'customer_name': c['name'],
+            'address': f"{c['address']}, {c.get('postnummer') or ''} {c.get('stad') or 'Nacka'}".strip(', ').replace('  ', ' '),
+            'area_id': c.get('area_id') or detect_area(c.get('address',''), areas_data),
+            'time_window': o.get('delivery',{}).get('time_window',''),
+            'estimated_time': '', 'sequence': 0,
+            'completed': False, 'notes': f"LEVERANS {o.get('actual_knife_count') or o.get('estimated_knife_count','?')} knivar (planerad)",
+            '_priority': 0,
+            '_pickup_date': o.get('pickup',{}).get('completed_at') or o.get('created_at',''),
+            '_knives': o.get('actual_knife_count') or o.get('estimated_knife_count', 0)
         })
 
     if not all_stops:
