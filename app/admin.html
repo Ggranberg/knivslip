@@ -2431,33 +2431,40 @@
       });
 
       // Summary per user
-      main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:1rem;">Oversikt per person</h2><div id="arbete-cards" class="team-grid"></div></div>');
+      main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:1rem;">Översikt per person</h2><div id="arbete-cards" class="team-grid"></div></div>');
       const cards = document.getElementById('arbete-cards');
 
       USERS.filter(u => u.active).forEach(u => {
         const logs = userLogs[u.id] || [];
         const totalKnives = logs.reduce((s,l) => s + (l.knives_sharpened || 0), 0);
         const totalStops = logs.reduce((s,l) => s + (l.stops_completed || 0), 0);
+        const totalKm = logs.reduce((s, l) => s + (l.km_driven || 0), 0);
         const totalHours = logs.reduce((s,l) => {
           if (l.clock_in && l.clock_out) {
             const [h1,m1] = l.clock_in.split(':').map(Number);
             const [h2,m2] = l.clock_out.split(':').map(Number);
-            return s + ((h2*60+m2) - (h1*60+m1)) / 60;
+            const mins = (h2*60+m2) - (h1*60+m1);
+            return s + (mins > 0 ? mins / 60 : 0); // Ignorera negativ tid
           }
           return s;
         }, 0);
 
+        // Tredje stat baserat på roll
+        let thirdStat = `<div><div style="font-size:1.3rem;font-weight:800;">${totalHours.toFixed(1)}h</div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Tid</div></div>`;
+        if (u.pay_type === 'per_km') {
+          thirdStat = `<div><div style="font-size:1.3rem;font-weight:800;">${totalKm}</div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Km</div></div>`;
+        }
+
         let payCalc = '';
         if (u.pay_type === 'per_knife') {
           const earned = totalKnives * (u.pay_rate || 0);
-          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beräknad lön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalKnives} knivar x ${u.pay_rate} kr</div></div>`;
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beräknad lön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalKnives} knivar × ${u.pay_rate} kr</div></div>`;
         } else if (u.pay_type === 'hourly') {
           const earned = Math.round(totalHours * (u.pay_rate || 0));
-          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beräknad lön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalHours.toFixed(1)}h x ${u.pay_rate} kr/h</div></div>`;
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beräknad lön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalHours.toFixed(1)}h × ${u.pay_rate} kr/h</div></div>`;
         } else if (u.pay_type === 'per_km') {
-          const totalKm = userLogs.reduce((s, l) => s + (l.km_driven || 0), 0);
           const earned = Math.round(totalKm * (u.pay_rate || 0));
-          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beräknad lön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalKm} km x ${u.pay_rate} kr</div></div>`;
+          payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Beräknad lön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${earned} kr</div><div style="font-size:0.8rem;color:var(--gray-500);">${totalKm} km × ${u.pay_rate} kr</div></div>`;
         } else if (u.pay_type === 'monthly') {
           payCalc = `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--gray-200);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Månadslön</div><div style="font-size:1.5rem;font-weight:800;color:var(--green);">${u.pay_rate} kr</div></div>`;
         }
@@ -2469,7 +2476,7 @@
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;text-align:center;">
               <div><div style="font-size:1.3rem;font-weight:800;color:var(--accent);">${totalKnives}</div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Knivar</div></div>
               <div><div style="font-size:1.3rem;font-weight:800;color:var(--blue);">${totalStops}</div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Stopp</div></div>
-              <div><div style="font-size:1.3rem;font-weight:800;">${totalHours.toFixed(1)}h</div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Tid</div></div>
+              ${thirdStat}
             </div>
             ${payCalc}
           </div>
