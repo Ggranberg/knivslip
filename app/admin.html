@@ -1275,12 +1275,37 @@
     // === SAVE TO SERVER ===
     async function saveJSON(filename, data) {
       try {
-        await fetch('/api/save/' + filename, {
+        const res = await fetch('/api/save/' + filename, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-      } catch(e) { console.error('Kunde inte spara ' + filename, e); }
+        const result = await res.json();
+        if (!result.ok) {
+          console.error('Spara misslyckades: ' + filename, result);
+          showToast('Kunde inte spara — försök igen', 'error');
+        }
+        return result.ok;
+      } catch(e) {
+        console.error('Nätverksfel vid spara ' + filename, e);
+        showToast('Nätverksfel — kontrollera anslutningen', 'error');
+        return false;
+      }
+    }
+
+    function showToast(msg, type) {
+      let toast = document.getElementById('toast-msg');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast-msg';
+        toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:0.75rem 1.5rem;border-radius:8px;font-size:0.9rem;font-weight:600;z-index:9999;transition:opacity 0.3s;font-family:inherit;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.background = type === 'error' ? 'var(--red)' : 'var(--green)';
+      toast.style.color = 'var(--white)';
+      toast.style.opacity = '1';
+      setTimeout(() => { toast.style.opacity = '0'; }, 3000);
     }
 
     async function saveTimelog() { await saveJSON('timelog.json', { entries: TIMELOG }); }
@@ -2616,10 +2641,13 @@
     function setAvoidHighways(val) { sessionStorage.setItem('avoid_highways', val); renderView('forare-route'); }
 
     function getMapsUrl(destination, avoidHighways) {
-      const base = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-      // Google Maps stöder inte avoid=highways i URL direkt, men vi kan använda dirflg parameter
-      // Alternativt: öppna med waypoints via landsväg
-      return avoidHighways ? base + '&dirflg=d' : base;
+      // Rensa "None" från adresser
+      const cleanDest = destination.replace(/\bNone\b/g, '').replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim();
+      if (avoidHighways) {
+        // Google Maps App URL med avoid=highways (fungerar på mobil)
+        return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cleanDest)}&travelmode=driving&avoid=highways`;
+      }
+      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cleanDest)}&travelmode=driving`;
     }
 
     // Uppskattad km per stopp (baserat på areas.json distances)

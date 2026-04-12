@@ -148,7 +148,7 @@ def optimize_schedule():
         all_stops.append({
             'order_id': o['id'], 'customer_id': o['customer_id'],
             'type': 'delivery', 'customer_name': c['name'],
-            'address': f"{c['address']}, {c.get('postnummer','')} {c.get('stad','Nacka')}".strip(', '),
+            'address': f"{c['address']}, {c.get('postnummer') or ''} {c.get('stad') or 'Nacka'}".strip(', ').replace('  ', ' '),
             'area_id': c.get('area_id') or detect_area(c.get('address',''), areas_data),
             'time_window': '', 'estimated_time': '', 'sequence': 0,
             'completed': False, 'notes': f"LEVERANS {o.get('estimated_knife_count','?')} knivar",
@@ -163,7 +163,7 @@ def optimize_schedule():
         all_stops.append({
             'order_id': o['id'], 'customer_id': o['customer_id'],
             'type': 'pickup', 'customer_name': c['name'],
-            'address': f"{c['address']}, {c.get('postnummer','')} {c.get('stad','Nacka')}".strip(', '),
+            'address': f"{c['address']}, {c.get('postnummer') or ''} {c.get('stad') or 'Nacka'}".strip(', ').replace('  ', ' '),
             'area_id': c.get('area_id') or detect_area(c.get('address',''), areas_data),
             'time_window': o.get('pickup',{}).get('time_window',''),
             'estimated_time': '', 'sequence': 0,
@@ -179,31 +179,54 @@ def optimize_schedule():
     # Sort: deliveries first (by pickup date = urgency), then pickups
     all_stops.sort(key=lambda s: (s['_priority'], s.get('_pickup_date','')))
 
-    # Split between 2 drivers by area clustering
-    gustav_stops = []
-    philip_stops = []
+    # Hämta befintligt schema — bevara manuellt tilldelade stopp
+    existing_schedule = load_json('schedule.json').get('schedule', [])
+
+    # Hämta aktiva förare från users.json
+    users_data = load_json('users.json')
+    drivers = [u['name'].split(' ')[0].lower() for u in users_data.get('users', [])
+               if u.get('active') and u.get('role') in ('admin', 'forare')]
+    if not drivers:
+        drivers = ['gustav', 'philip']
+
+    # Filtrera bort stopp som redan finns i schemat (undvik dubbletter)
+    existing_order_ids = set()
+    for s in existing_schedule:
+        for stop in s.get('stops', []):
+            existing_order_ids.add(stop.get('order_id'))
+
+    new_stops = [s for s in all_stops if s.get('order_id') not in existing_order_ids]
+
+    if not new_stops:
+        return
 
     # Group by area
     area_groups = {}
-    for s in all_stops:
+    for s in new_stops:
         area = s.get('area_id') or 'unknown'
         if area not in area_groups:
             area_groups[area] = []
         area_groups[area].append(s)
 
-    # Assign areas to drivers alternately, balancing stop count
+    # Fördela nya stopp bland tillgängliga förare (balanserat)
+    driver_stops = {d: [] for d in drivers}
+    # Räkna befintliga stopp per förare
+    for s in existing_schedule:
+        d = s.get('assigned_to', '')
+        if d in driver_stops:
+            driver_stops[d] = list(driver_stops.get(d, []))  # kopiera
+
     sorted_areas = sorted(area_groups.items(), key=lambda x: -len(x[1]))
     for area_id, stops in sorted_areas:
-        if len(gustav_stops) <= len(philip_stops):
-            gustav_stops.extend(stops)
-        else:
-            philip_stops.extend(stops)
+        # Tilldela till förare med minst stopp
+        min_driver = min(drivers, key=lambda d: len(driver_stops.get(d, [])))
+        driver_stops.setdefault(min_driver, []).extend(stops)
 
-    # If one driver has no stops, don't create empty schedule
-    schedules = []
+    # Bygg nytt schema — bevara befintliga + lägg till nya
     target_date = tomorrow if pickups else today
+    schedules = list(existing_schedule)  # börja med befintliga
 
-    for driver, stops in [('gustav', gustav_stops), ('philip', philip_stops)]:
+    for driver, stops in driver_stops.items():
         if not stops:
             continue
         # Clean internal fields and optimize order
@@ -218,15 +241,24 @@ def optimize_schedule():
 
         total_time = len(optimized) * 20 + 15  # 20 min per stop + 15 min buffer
 
-        schedules.append({
-            'date': target_date,
-            'assigned_to': driver,
-            'stops': optimized,
-            'estimated_total_time_min': total_time,
-            'estimated_start': '16:00',
-            'estimated_end': f"{16 + total_time // 60}:{total_time % 60:02d}",
-            'notes': f"Auto-optimerad rutt: {len(optimized)} stopp"
-        })
+        # Kolla om föraren redan har en rutt för detta datum
+        existing_route = next((s for s in schedules if s['date'] == target_date and s['assigned_to'] == driver), None)
+        if existing_route:
+            # Lägg till nya stopp i befintlig rutt
+            existing_route['stops'].extend(optimized)
+            for i, s in enumerate(existing_route['stops']):
+                s['sequence'] = i + 1
+            existing_route['estimated_total_time_min'] = len(existing_route['stops']) * 20 + 15
+        else:
+            schedules.append({
+                'date': target_date,
+                'assigned_to': driver,
+                'stops': optimized,
+                'estimated_total_time_min': total_time,
+                'estimated_start': '16:00',
+                'estimated_end': f"{16 + total_time // 60}:{total_time % 60:02d}",
+                'notes': f"Auto-optimerad rutt: {len(optimized)} stopp"
+            })
 
     save_json('schedule.json', {'schedule': schedules})
     print(f'[AUTO] Schema optimerat: {sum(len(s["stops"]) for s in schedules)} stopp, {len(schedules)} forare')
@@ -329,7 +361,8 @@ def approve_booking(booking_id):
     customers = customers_data.get('customers', [])
     orders = orders_data.get('orders', [])
 
-    existing = next((c for c in customers if c.get('phone') == phone and not c.get('is_deleted')), None)
+    # Matcha BARA på telefon om telefon finns och inte är tom
+    existing = next((c for c in customers if phone and c.get('phone') == phone and not c.get('is_deleted')), None)
     now_str = datetime.now().isoformat()
 
     if existing:
