@@ -2454,82 +2454,65 @@
         const knivesLeft = (typeof knives === 'number' ? knives : 0) - totalClaimed;
         const otherSharpeners = sharpeners.filter(s => s.user_id !== CURRENT_USER.id);
 
-        // Slipare: enkel stor knapp-layout
-        if (isSlipare) {
-          // Visa vilka som slipar
-          let sharpenerInfo = '';
-          if (sharpeners.length > 0) {
-            sharpenerInfo = sharpeners.map(s => {
-              const u = USERS.find(u => u.id === s.user_id);
-              const name = u?.name?.split(' ')[0] || '?';
-              const done = s.done ? '&#10003; ' : '';
-              return `<span style="font-size:0.75rem;padding:0.2rem 0.5rem;background:${s.done ? 'var(--green-light)' : 'var(--blue-light)'};color:${s.done ? 'var(--green)' : 'var(--blue)'};border-radius:4px;font-weight:600;">${done}${name}: ${s.knife_count} knivar</span>`;
-            }).join(' ');
-            sharpenerInfo = `<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.6rem;">${sharpenerInfo}</div>`;
-          }
+        // Visa vilka som slipar
+        let sharpenerInfo = '';
+        if (sharpeners.length > 0) {
+          sharpenerInfo = sharpeners.map(s => {
+            const u = USERS.find(u => u.id === s.user_id);
+            const name = u?.name?.split(' ')[0] || s.name || '?';
+            const done = s.done ? '&#10003; ' : '';
+            return `<span style="font-size:0.75rem;padding:0.2rem 0.5rem;background:${s.done ? 'var(--green-light)' : 'var(--blue-light)'};color:${s.done ? 'var(--green)' : 'var(--blue)'};border-radius:4px;font-weight:600;">${done}${name}: ${s.knife_count} knivar</span>`;
+          }).join(' ');
+          sharpenerInfo = `<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.6rem;">${sharpenerInfo}</div>`;
+        }
 
-          let actionBtn = '';
-          if (myEntry && !myEntry.done) {
-            // Jag har tagit knivar men inte klar ännu
-            actionBtn = `<button onclick="markMyKnivesDone('${o.id}')" style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">&#10003; Mina ${myEntry.knife_count} klara!</button>`;
-          } else if (myEntry && myEntry.done) {
-            actionBtn = `<div style="padding:0.75rem;text-align:center;color:var(--green);font-weight:700;font-size:0.9rem;">&#10003; Du är klar!</div>`;
-          } else if (knivesLeft > 0) {
-            // Kan ta knivar
-            const defaultCount = Math.min(knivesLeft, Math.ceil((typeof knives === 'number' ? knives : 0) / 2));
-            actionBtn = `
-              <div style="display:flex;gap:0.5rem;align-items:stretch;">
-                <div style="flex:1;display:flex;align-items:center;gap:0.5rem;background:var(--gray-100);border-radius:var(--radius);padding:0.5rem 0.75rem;">
-                  <label style="font-size:0.8rem;color:var(--gray-500);white-space:nowrap;">Jag tar</label>
-                  <input type="number" id="claim-${o.id}" min="1" max="${knivesLeft}" value="${defaultCount}" style="width:50px;padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:1.1rem;text-align:center;font-family:inherit;">
-                  <span style="font-size:0.8rem;color:var(--gray-500);">av ${knivesLeft}</span>
-                </div>
-                <button onclick="claimKnives('${o.id}')" style="padding:0.75rem 1.2rem;font-size:1rem;font-weight:700;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">Ta</button>
-              </div>`;
-          } else {
-            actionBtn = `<div style="padding:0.5rem;text-align:center;color:var(--gray-400);font-size:0.85rem;">Alla knivar fördelade</div>`;
-          }
-
-          return `
-            <div class="card" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${borderColor};">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-                <div>
-                  <div style="font-weight:700;font-size:1.05rem;">${cust?.name || 'Okänd kund'}</div>
-                  <div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.15rem;">Hämtad ${daysAgo === 0 ? 'idag' : daysAgo === 1 ? 'igår' : daysAgo + ' dagar sedan'}</div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-size:1.5rem;font-weight:800;color:var(--accent);">${knives}</div>
-                  <div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">knivar</div>
-                </div>
+        let actionBtn = '';
+        if (myEntry && !myEntry.done) {
+          actionBtn = `<button onclick="markMyKnivesDone('${o.id}')" style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">&#10003; Mina ${myEntry.knife_count} klara!</button>`;
+        } else if (myEntry && myEntry.done) {
+          actionBtn = `<div style="padding:0.75rem;text-align:center;color:var(--green);font-weight:700;font-size:0.9rem;">&#10003; Du är klar!</div>`;
+        } else if (knivesLeft > 0) {
+          const defaultCount = Math.min(knivesLeft, Math.ceil((typeof knives === 'number' ? knives : 0) / 2));
+          actionBtn = `
+            <div style="display:flex;gap:0.5rem;align-items:stretch;">
+              <div style="flex:1;display:flex;align-items:center;gap:0.5rem;background:var(--gray-100);border-radius:var(--radius);padding:0.5rem 0.75rem;">
+                <label style="font-size:0.8rem;color:var(--gray-500);white-space:nowrap;">Jag tar</label>
+                <input type="number" id="claim-${o.id}" min="1" max="${knivesLeft}" value="${defaultCount}" style="width:50px;padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:1.1rem;text-align:center;font-family:inherit;">
+                <span style="font-size:0.8rem;color:var(--gray-500);">av ${knivesLeft}</span>
               </div>
-              ${statusSv !== 'Ny' ? `<div style="font-size:0.8rem;font-weight:600;color:${statusColor};margin-bottom:0.6rem;">${statusSv}</div>` : ''}
-              ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.6rem;font-style:italic;">${o.notes}</div>` : ''}
-              ${sharpenerInfo}
-              ${actionBtn}
+              <button onclick="claimKnives('${o.id}')" style="padding:0.75rem 1.2rem;font-size:1rem;font-weight:700;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">Ta</button>
+            </div>`;
+        } else if (sharpeners.length > 0) {
+          actionBtn = `<div style="padding:0.5rem;text-align:center;color:var(--gray-400);font-size:0.85rem;">Alla knivar fördelade</div>`;
+        } else {
+          const defaultCount = typeof knives === 'number' ? knives : 0;
+          actionBtn = `
+            <div style="display:flex;gap:0.5rem;align-items:stretch;">
+              <div style="flex:1;display:flex;align-items:center;gap:0.5rem;background:var(--gray-100);border-radius:var(--radius);padding:0.5rem 0.75rem;">
+                <label style="font-size:0.8rem;color:var(--gray-500);white-space:nowrap;">Jag tar</label>
+                <input type="number" id="claim-${o.id}" min="1" max="${defaultCount}" value="${defaultCount}" style="width:50px;padding:0.4rem;border:1px solid var(--gray-300);border-radius:4px;font-size:1.1rem;text-align:center;font-family:inherit;">
+                <span style="font-size:0.8rem;color:var(--gray-500);">av ${knives}</span>
+              </div>
+              <button onclick="claimKnives('${o.id}')" style="padding:0.75rem 1.2rem;font-size:1rem;font-weight:700;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;min-height:48px;">Ta</button>
             </div>`;
         }
 
-        // Admin/förare: original compact layout
         return `
-          <div class="card" style="padding:1rem;margin-bottom:0.5rem;border-left:4px solid ${borderColor};">
-            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
-              <div style="text-align:center;min-width:35px;">
-                <div style="font-size:1.3rem;font-weight:800;color:${deadline ? 'var(--red)' : urgent ? 'var(--yellow)' : 'var(--accent)'};">#${i+1}</div>
-                <div style="font-size:0.65rem;color:var(--gray-500);">PRIO</div>
+          <div class="card" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${borderColor};">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+              <div>
+                <div style="font-weight:700;font-size:1.05rem;">${cust?.name || 'Okänd kund'}</div>
+                <div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.15rem;">Hämtad ${daysAgo === 0 ? 'idag' : daysAgo === 1 ? 'igår' : daysAgo + ' dagar sedan'}</div>
               </div>
-              <div style="flex:1;">
-                <div style="font-weight:700;font-size:1rem;">${cust?.name || 'Okänd'}</div>
-                <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.3rem;font-size:0.85rem;">
-                  <span>&#128298; ${knives} knivar</span>
-                  <span style="color:${statusColor};">&#128339; Hämtad ${daysAgo === 0 ? 'idag' : daysAgo + 'd sedan'}${deadline ? ' — FÖRSENAD!' : urgent ? ' — bråttom' : ''}</span>
-                </div>
-                ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.25rem;font-style:italic;">${o.notes}</div>` : ''}
-              </div>
-              <div style="display:flex;flex-direction:column;gap:0.4rem;">
-                ${o.assigned_to ? `<div style="font-size:0.75rem;padding:0.3rem 0.6rem;background:var(--blue-light);color:var(--blue);border-radius:var(--radius);text-align:center;font-weight:600;">${(USERS.find(u=>u.id===o.assigned_to)||{}).name || o.assigned_to}</div>` : `<button onclick="claimOrder('${o.id}')" style="padding:0.4rem 0.8rem;font-size:0.8rem;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">&#9997; Jag tar den</button>`}
-                <button onclick="markSharpened('${o.id}', ${knives === '?' ? 0 : knives})" class="log-submit" style="padding:0.4rem 0.8rem;font-size:0.8rem;">&#10003; Slipat klart</button>
+              <div style="text-align:right;">
+                <div style="font-size:1.5rem;font-weight:800;color:var(--accent);">${knives}</div>
+                <div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">knivar</div>
               </div>
             </div>
+            ${statusSv !== 'Ny' ? `<div style="font-size:0.8rem;font-weight:600;color:${statusColor};margin-bottom:0.6rem;">${statusSv}</div>` : ''}
+            ${o.notes ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.6rem;font-style:italic;">${o.notes}</div>` : ''}
+            ${sharpenerInfo}
+            ${actionBtn}
           </div>`;
       }).join('');
 
