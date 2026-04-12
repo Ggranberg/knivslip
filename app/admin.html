@@ -2592,14 +2592,15 @@
         </div>
       `);
 
-      const todaySched = DATA.schedule.filter(s => s.date === today());
-      const stops = todaySched.flatMap(s => s.stops);
+      const myName = CURRENT_USER.name.split(' ')[0].toLowerCase();
+      const mySched = DATA.schedule.filter(s => (s.date === today() || s.date === tomorrow()) && s.assigned_to === myName);
+      const stops = mySched.flatMap(s => s.stops);
       const done = stops.filter(s => s.completed).length;
       const kmToday = todayLog?.km_driven || 0;
       const user = USERS.find(u => u.id === CURRENT_USER.id);
 
       // Lön-beräkning
-      let payBox = `<div class="stat-box"><div class="sb-value">${stops.length}</div><div class="sb-label">Totalt idag</div></div>`;
+      let payBox = `<div class="stat-box"><div class="sb-value">${stops.length}</div><div class="sb-label">Totalt</div></div>`;
       if (user?.pay_type === 'per_km' && kmToday > 0) {
         payBox = `<div class="stat-box"><div class="sb-value" style="color:var(--green);">${Math.round(kmToday * (user.pay_rate||0))} kr</div><div class="sb-label">Lön idag</div></div>`;
       }
@@ -2689,10 +2690,11 @@
     }
 
     function renderForareRoute(main) {
-      const todaySched = DATA.schedule.filter(s => s.date === today());
+      // Visa idag + imorgon (förare behöver se kommande stopp)
       const myName = CURRENT_USER.name.split(' ')[0].toLowerCase();
-      const allStops = todaySched.flatMap(s => s.stops.map(st => ({...st, assigned_to: s.assigned_to})));
-      // Förare ser bara sina egna stopp (matchat på assigned_to)
+      const relevantSched = DATA.schedule.filter(s => s.date === today() || s.date === tomorrow());
+      const allStops = relevantSched.flatMap(s => s.stops.map(st => ({...st, assigned_to: s.assigned_to, _date: s.date})));
+      // Förare ser bara sina egna stopp
       const stops = CURRENT_USER.role === 'admin' ? allStops : allStops.filter(s => {
         const assignee = (s.assigned_to || '').toLowerCase();
         return assignee === myName || assignee === CURRENT_USER.id || assignee === CURRENT_USER.name.toLowerCase();
