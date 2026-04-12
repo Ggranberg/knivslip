@@ -2265,33 +2265,31 @@
         </div>
       `);
 
-      // Sharpening queue
+      // Slipningskö — samma vy som sliparna ser
       const queue = getSharpQueue();
-      if (queue.length) {
-        main.insertAdjacentHTML('beforeend', '<div class="section"><h2 style="margin-bottom:0.5rem;">Slipningsko</h2><p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:1rem;">Klicka "Slipat klart" nar du ar klar med en kunds knivar</p><div id="admin-sharp-queue"></div></div>');
-        renderSharpQueue('admin-sharp-queue');
-      }
-
-      // Log knives
       main.insertAdjacentHTML('beforeend', `
-        <div class="log-form">
-          <h3>Logga extra knivar (utan order)</h3>
-          <div class="log-row">
-            <div class="log-field"><label>Antal knivar</label><input type="number" id="admin-knife-count" min="1" value="1"></div>
-            <div class="log-field"><label>Anteckningar</label><input type="text" id="admin-knife-notes" placeholder="Valfritt"></div>
-            <button class="log-submit" onclick="adminLogKnives()">Spara knivar</button>
-          </div>
+        <div class="section" style="margin-top:1.5rem;">
+          <h2 style="margin-bottom:0.25rem;">Slipningskö</h2>
+          <p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:1rem;">Äldst först — röd = försenad, gul = bråttom</p>
+          <div id="admin-sharp-queue"></div>
         </div>
       `);
+      renderSharpQueue('admin-sharp-queue');
 
-      // Log stops/deliveries
+      // Logga arbete — kompakt
       main.insertAdjacentHTML('beforeend', `
-        <div class="log-form">
-          <h3>Logga leveranser / stopp</h3>
-          <div class="log-row">
-            <div class="log-field"><label>Antal stopp</label><input type="number" id="admin-stop-count" min="1" value="1"></div>
-            <div class="log-field"><label>Anteckningar</label><input type="text" id="admin-stop-notes" placeholder="Valfritt"></div>
-            <button class="log-submit" onclick="adminLogStops()">Spara stopp</button>
+        <div style="margin-top:1.5rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;padding:1rem;background:var(--white);border-radius:var(--radius);border:1px solid var(--gray-200);">
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+              <div style="flex:1;"><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Extra knivar</label><input type="number" id="admin-knife-count" min="1" value="1" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:1rem;font-family:inherit;"></div>
+              <button class="log-submit" onclick="adminLogKnives()" style="padding:0.5rem 1rem;min-height:40px;">Spara</button>
+            </div>
+          </div>
+          <div style="flex:1;min-width:200px;padding:1rem;background:var(--white);border-radius:var(--radius);border:1px solid var(--gray-200);">
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+              <div style="flex:1;"><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Leveranser/stopp</label><input type="number" id="admin-stop-count" min="1" value="1" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:1rem;font-family:inherit;"></div>
+              <button class="log-submit" onclick="adminLogStops()" style="padding:0.5rem 1rem;min-height:40px;">Spara</button>
+            </div>
           </div>
         </div>
       `);
@@ -2414,7 +2412,11 @@
       return DATA.orders
         .filter(o => ['picked_up','registered','sharpening'].includes(o.status))
         .sort((a, b) => {
-          // Oldest pickup first (most urgent to deliver)
+          // Leverans idag/imorgon = högst prioritet
+          const aDelToday = a.delivery?.date === today() ? 0 : a.delivery?.date === tomorrow() ? 1 : 9;
+          const bDelToday = b.delivery?.date === today() ? 0 : b.delivery?.date === tomorrow() ? 1 : 9;
+          if (aDelToday !== bDelToday) return aDelToday - bDelToday;
+          // Sen äldst pickup först
           const aDate = a.pickup?.completed_at || a.pickup?.date || a.created_at;
           const bDate = b.pickup?.completed_at || b.pickup?.date || b.created_at;
           return aDate.localeCompare(bDate);
