@@ -1675,7 +1675,15 @@
       const drivers = USERS.filter(u => u.active && (u.role === 'admin' || u.role === 'forare'));
       [{ date: today(), label: 'Idag' }, { date: tomorrow(), label: 'Imorgon' }].forEach(({ date, label }) => {
         const sched = DATA.schedule.filter(s => s.date === date);
-        const stops = sched.flatMap(s => s.stops.map((st, si) => ({...st, assigned_to: s.assigned_to, _schedIdx: DATA.schedule.indexOf(s), _stopIdx: si})));
+        const doneStatuses = ['picked_up','registered','sharpening','quality_check','ready','out_for_delivery','delivered','completed','cancelled'];
+        const deliveredStatuses = ['delivered','completed','cancelled'];
+        const stops = sched.flatMap(s => s.stops.map((st, si) => ({...st, assigned_to: s.assigned_to, _schedIdx: DATA.schedule.indexOf(s), _stopIdx: si}))).filter(st => {
+          const order = DATA.orders.find(o => o.id === st.order_id);
+          if (!order) return true;
+          if (st.type === 'pickup' && doneStatuses.includes(order.status)) return false;
+          if (st.type === 'delivery' && deliveredStatuses.includes(order.status)) return false;
+          return true;
+        });
         const total = sched.reduce((s,d) => s + (d.estimated_total_time_min||0), 0);
 
         const driverOptions = drivers.map(d => `<option value="${d.name.split(' ')[0].toLowerCase()}">${d.name.split(' ')[0]}</option>`).join('');
@@ -2130,6 +2138,19 @@
       schedules.forEach(s => {
         s.stops = optimizeRoute(s.stops, homeCoords);
         s.stops.forEach((st, i) => st.sequence = i + 1);
+      });
+
+      // Remove stops whose order is already past that stage
+      const alreadyDoneStatuses = ['picked_up','registered','sharpening','quality_check','ready','out_for_delivery','delivered','completed','cancelled'];
+      const alreadyDeliveredStatuses = ['delivered','completed','cancelled'];
+      schedules.forEach(s => {
+        s.stops = s.stops.filter(st => {
+          const order = DATA.orders.find(o => o.id === st.order_id);
+          if (!order) return true;
+          if (st.type === 'pickup' && alreadyDoneStatuses.includes(order.status)) return false;
+          if (st.type === 'delivery' && alreadyDeliveredStatuses.includes(order.status)) return false;
+          return true;
+        });
       });
 
       // Filter stops
