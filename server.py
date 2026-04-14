@@ -47,21 +47,53 @@ def init_data():
                 json.dump(template, f, indent=2, ensure_ascii=False)
             print(f'[INIT] Skapade {filename}')
 
-HOME_BASE = [59.3107, 18.1268]  # Klostervagen 6, Nacka
+HOME_BASE = [59.3107, 18.1635]  # Klostervagen 6, Nacka
 
 # Address → coordinates (approximate)
 COORD_MAP = {
-    'klostervagen': [59.3107, 18.1268],
+    # Områden
+    'klostervagen': [59.3107, 18.1635],
     'sickla': [59.3055, 18.1235],
-    'varmdovagen': [59.3100, 18.1420],
-    'saltsjobadsvagen': [59.2850, 18.1600],
-    'ormingeringen': [59.3250, 18.2100],
-    'fisksatravagen': [59.2900, 18.1500],
-    'gustavsberg': [59.3270, 18.3950],
-    'nacka': [59.3107, 18.1268],
-    'saltsjobaden': [59.2850, 18.1600],
-    'boo': [59.3250, 18.2100],
+    'nacka': [59.3107, 18.1635],
+    'saltsjobaden': [59.2770, 18.1510],
+    'boo': [59.3310, 18.2440],
     'orminge': [59.3250, 18.2100],
+    'gustavsberg': [59.3270, 18.3950],
+    'alta': [59.2960, 18.1780],
+    # Specifika adresser
+    'platslagarvagen 12': [59.3055, 18.1235],
+    'magnevagen 7': [59.308, 18.135],
+    'charlottelundsvagen 3': [59.312, 18.158],
+    'flugsnapparsvagen 9': [59.309, 18.148],
+    'appelblomsvagen 7': [59.306, 18.142],
+    'vitmossevagen 36': [59.313, 18.152],
+    'telegramvagen 6a': [59.31, 18.13],
+    'kalkarsvadvagen 1': [59.305, 18.155],
+    'barkows vag 14': [59.314, 18.16],
+    'gamla vagen 18': [59.308, 18.165],
+    'jakthornsvagen 24': [59.311, 18.145],
+    'pramvagen 5': [59.306, 18.15],
+    'skottvallsvagen': [59.307, 18.138],
+    'algplatan 4': [59.3095, 18.156],
+    'larkvagen 11': [59.3125, 18.149],
+    'igelbodaplatan': [59.283, 18.155],
+    'karl gerhardsvag': [59.281, 18.152],
+    'ormingeringen': [59.325, 18.21],
+    'grisslinge': [59.32, 18.2],
+    'boplatsringen 33h': [59.323, 18.205],
+    'blabarssslingan 21': [59.324, 18.215],
+    'ligustervagen 65': [59.294, 18.182],
+    'solvagen 20a': [59.296, 18.178],
+    'oxelbacken 3': [59.295, 18.175],
+    'lobeliavagen 3': [59.3045, 18.141],
+    'floxvagen 4': [59.304, 18.145],
+    'mistelvagen 2': [59.3065, 18.153],
+    'lonnvagen 4': [59.3075, 18.146],
+    'ronnbergsvagen 5': [59.3115, 18.154],
+    'evalundsvagen 216': [59.3035, 18.162],
+    'stensovagen 41b': [59.315, 18.168],
+    'stensovagen 14': [59.314, 18.166],
+    'oskarlundsbacken 22': [59.309, 18.159],
 }
 
 def load_json(filename):
@@ -287,7 +319,7 @@ def optimize_schedule():
 
 
 def handle_booking(data):
-    """Save a new booking as pending (not yet approved)."""
+    """Skapar kund + order direkt vid bokning (inget pending-steg)."""
     name = data.get('name', '').strip()
     phone = data.get('phone', '').strip()
     email = data.get('email', '').strip() or None
@@ -300,38 +332,68 @@ def handle_booking(data):
     message = data.get('message', '').strip()
 
     if not name or not phone or not address:
-        return {'ok': False, 'error': 'Namn, telefon och adress kravs'}
+        return {'ok': False, 'error': 'Namn, telefon och adress krävs'}
 
     now_str = datetime.now().isoformat()
-    bookings_data = load_json('bookings.json')
-    bookings = bookings_data.get('bookings', [])
-
-    booking_id = generate_id('BOK', [b['id'] for b in bookings])
-
     source = data.get('source', 'hemsida')
 
-    new_booking = {
-        'id': booking_id,
-        'name': name,
-        'phone': phone,
-        'email': email,
-        'address': address,
-        'postnummer': postnummer,
-        'stad': stad,
-        'knives': knives_str,
-        'preferred_date': preferred_date or None,
-        'time_window': time_window or None,
-        'message': message,
-        'source': source,
-        'created_at': now_str,
-        'status': 'pending'
-    }
-    bookings.append(new_booking)
-    save_json('bookings.json', {'bookings': bookings})
-    print(f'[BOKNING] Ny bokning: {booking_id} — {name}, {knives_str} knivar')
-    send_notification(new_booking)
+    # Skapa kund direkt
+    customers_data = load_json('customers.json')
+    orders_data = load_json('orders.json')
+    areas_data = load_json('areas.json')
+    customers = customers_data.get('customers', [])
+    orders = orders_data.get('orders', [])
 
-    return {'ok': True, 'booking_id': booking_id}
+    knife_map = {'1-2': 2, '3-5': 4, '6+': 7}
+    knife_count = knife_map.get(knives_str, 4)
+
+    # Matcha på telefon OCH namn
+    existing = next((c for c in customers if phone and c.get('phone') == phone
+                     and c.get('name', '').lower().strip() == name.lower().strip()
+                     and not c.get('is_deleted')), None)
+
+    if existing:
+        customer_id = existing['id']
+        print(f'[BOKNING] Befintlig kund: {name} ({customer_id})')
+    else:
+        customer_id = generate_id('CUS', [c['id'] for c in customers])
+        area_id = detect_area(address, areas_data)
+        new_customer = {
+            'id': customer_id, 'name': name, 'phone': phone, 'email': email,
+            'address': address, 'postnummer': postnummer, 'stad': stad,
+            'area_id': area_id, 'source': source,
+            'gdpr_consent': {'given': True, 'timestamp': now_str, 'method': source, 'notes': 'Samtycke via bokningsformulär'},
+            'notes': message, 'created_at': now_str, 'updated_at': now_str, 'is_deleted': False
+        }
+        customers.append(new_customer)
+        save_json('customers.json', {'customers': customers})
+        print(f'[BOKNING] Ny kund: {name} ({customer_id})')
+
+    # Skapa order direkt med status booked
+    pickup_date = preferred_date or (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+    order_id = generate_id('ORD', [o['id'] for o in orders])
+    new_order = {
+        'id': order_id, 'customer_id': customer_id, 'status': 'booked',
+        'status_history': [
+            {'status': 'booked', 'timestamp': now_str, 'by': source}
+        ],
+        'source': source, 'estimated_knife_count': knife_count, 'actual_knife_count': None,
+        'pickup': {'date': pickup_date, 'time_window': time_window or None, 'assigned_to': None, 'completed_at': None},
+        'delivery': {'date': None, 'time_window': None, 'assigned_to': None, 'completed_at': None},
+        'quality_check': {'passed': None, 'checked_by': None, 'timestamp': None, 'notes': None},
+        'has_incident': False, 'incident_notes': None, 'invoice_id': None,
+        'notes': message, 'created_at': now_str, 'updated_at': now_str
+    }
+    orders.append(new_order)
+    save_json('orders.json', {'orders': orders})
+
+    optimize_schedule()
+    print(f'[BOKNING] Order: {order_id} för {name}, {knife_count} knivar')
+
+    # Skicka notis
+    send_notification({'id': order_id, 'name': name, 'phone': phone, 'address': address, 'knives': knives_str})
+
+    return {'ok': True, 'booking_id': order_id, 'customer_id': customer_id, 'order_id': order_id}
 
 
 def send_notification(booking):
