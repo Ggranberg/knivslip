@@ -1094,7 +1094,7 @@
         }
       }
 
-      await saveJSON('orders.json', { orders: DATA.orders });
+      await saveOrders();
       document.querySelector('.modal-overlay')?.remove();
 
       // Re-render current view
@@ -1384,7 +1384,17 @@
     async function saveTimelog() { await saveJSON('timelog.json', { entries: TIMELOG }); }
     async function saveUsers() { await saveJSON('users.json', { users: USERS }); }
     async function saveSchedule() { await saveJSON('schedule.json', { schedule: DATA.schedule }); }
-    async function saveOrders() { await saveJSON('orders.json', { orders: DATA.orders }); }
+    async function saveOrders() {
+      await saveJSON('orders.json', { orders: DATA.orders });
+      // Auto-optimera schemat efter varje orderändring
+      try {
+        const res = await fetch('/api/optimize', { method: 'POST' });
+        if (res.ok) {
+          const schedData = await fetchJSON('schedule.json');
+          DATA.schedule = schedData.schedule || [];
+        }
+      } catch(e) { console.warn('Kunde inte optimera schema:', e); }
+    }
 
     function daysBetween(d1, d2) { return Math.floor((new Date(d2) - new Date(d1)) / 86400000); }
     function formatDate(d) { return d ? new Date(d).toLocaleDateString('sv-SE') : '-'; }
@@ -2868,7 +2878,7 @@
       order.status_history.push({ status: 'ready', timestamp: now(), by: CURRENT_USER.name.split(' ')[0].toLowerCase() });
       order.updated_at = now();
 
-      await saveJSON('orders.json', { orders: DATA.orders });
+      await saveOrders();
 
       // Re-render
       const activeNav = document.querySelector('.sidebar-nav a.active');
