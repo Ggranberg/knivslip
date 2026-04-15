@@ -6,6 +6,7 @@
   <title>Knivslip Admin</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
@@ -315,6 +316,11 @@
     @media (max-width: 768px) {
       /* Hide desktop sidebar */
       .sidebar { display: none; }
+
+      /* Stack stats charts on mobile */
+      #main-content > div[style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
 
       /* Show mobile bottom navigation */
       .mobile-nav {
@@ -1419,6 +1425,7 @@
           <a href="#" data-view="customers"><span class="icon">&#128101;</span> Kunder</a>
           <a href="#" data-view="reminders"><span class="icon">&#128276;</span> Påminnelser</a>
           <a href="#" data-view="finance"><span class="icon">&#128176;</span> Ekonomi</a>
+          <a href="#" data-view="stats"><span class="icon">&#128202;</span> Statistik</a>
           <a href="#" data-view="arbete"><span class="icon">&#128200;</span> Arbete/Lön</a>
           <a href="#" data-view="admin-log"><span class="icon">&#128221;</span> Logga arbete</a>
           <a href="#" data-view="team"><span class="icon">&#128100;</span> Team</a>`;
@@ -1516,6 +1523,7 @@
           { view: 'routes', icon: '&#128205;', label: 'Ruttkarta' },
           { view: 'reminders', icon: '&#128276;', label: 'Påminnelser' },
           { view: 'finance', icon: '&#128176;', label: 'Ekonomi' },
+          { view: 'stats', icon: '&#128202;', label: 'Statistik' },
           { view: 'arbete', icon: '&#128200;', label: 'Arbete/Lön' },
           { view: 'admin-log', icon: '&#128221;', label: 'Logga arbete' },
           { view: 'team', icon: '&#128100;', label: 'Team' },
@@ -1583,6 +1591,7 @@
         case 'customers': main.innerHTML = header; renderCustomers(main); break;
         case 'reminders': main.innerHTML = header; renderReminders(main); break;
         case 'finance': main.innerHTML = header; renderFinance(main); break;
+        case 'stats': main.innerHTML = header; renderStats(main); break;
         case 'arbete': main.innerHTML = header; renderArbete(main); break;
         case 'admin-log': main.innerHTML = header; renderAdminLog(main); break;
         case 'team': main.innerHTML = header; renderTeam(main); break;
@@ -1779,6 +1788,160 @@
       const reminders = Object.entries(lastOrder).filter(([_,d]) => d < threeMonthsAgo).map(([id,d]) => ({c: DATA.customers.find(c=>c.id===id), d})).filter(r => r.c && !r.c.is_deleted);
 
       main.insertAdjacentHTML('beforeend', `<div class="section"><div class="section-header"><h2>Påminnelser</h2><span class="badge">${reminders.length}</span></div><div class="reminder-list">${reminders.length ? reminders.map(r => `<div class="reminder-card"><div class="rc-name">${r.c.name}</div><div class="rc-date">Senast: ${formatDate(r.d)} (${daysBetween(r.d, now())} dagar)</div><div class="rc-phone">${r.c.phone||'<span class="missing">Telefon saknas</span>'}</div></div>`).join('') : '<div style="color:var(--gray-400);font-style:italic;">Inga paminnelser annu</div>'}</div></div>`);
+    }
+
+    function renderStats(main) {
+      const orders = DATA.orders || [];
+      const income = (DATA.transactions || []).filter(t => t.type === 'income');
+      const expenses = (DATA.transactions || []).filter(t => t.type === 'expense');
+      const customers = DATA.customers || [];
+      const timelog = (typeof TIMELOG !== 'undefined' ? TIMELOG : []) || [];
+
+      // KPI:er
+      const totalKnives = orders.filter(o => o.status === 'completed').reduce((s,o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
+      const totalIncome = income.reduce((s,t) => s + (t.amount_incl_vat || 0), 0);
+      const totalExpense = expenses.reduce((s,t) => s + (t.amount_incl_vat || 0), 0);
+      const profit = totalIncome - totalExpense;
+      const completedOrders = orders.filter(o => o.status === 'completed').length;
+      const avgKnives = completedOrders ? (totalKnives / completedOrders).toFixed(1) : '0';
+      const activeCustomers = customers.filter(c => !c.is_deleted).length;
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="kpi-grid" style="margin-bottom:1.5rem;">
+          <div class="kpi-card green"><div class="kpi-label">Knivar slipade</div><div class="kpi-value">${totalKnives}</div><div class="kpi-sub">${completedOrders} ordrar</div></div>
+          <div class="kpi-card"><div class="kpi-label" style="color:var(--accent)">Intäkter</div><div class="kpi-value" style="color:var(--accent)">${totalIncome.toLocaleString('sv')} kr</div><div class="kpi-sub">inkl moms</div></div>
+          <div class="kpi-card"><div class="kpi-label">Vinst</div><div class="kpi-value" style="color:${profit>=0?'var(--green)':'var(--red)'}">${profit.toLocaleString('sv')} kr</div><div class="kpi-sub">efter utgifter</div></div>
+          <div class="kpi-card"><div class="kpi-label">Snitt knivar/order</div><div class="kpi-value">${avgKnives}</div><div class="kpi-sub">per leverans</div></div>
+          <div class="kpi-card"><div class="kpi-label">Aktiva kunder</div><div class="kpi-value">${activeCustomers}</div><div class="kpi-sub">i databasen</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+          <div style="background:white;padding:1.25rem;border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <h3 style="font-size:1rem;font-weight:600;margin-bottom:1rem;">Knivar slipade per vecka</h3>
+            <canvas id="chart-knives-week" style="max-height:280px;"></canvas>
+          </div>
+          <div style="background:white;padding:1.25rem;border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <h3 style="font-size:1rem;font-weight:600;margin-bottom:1rem;">Intäkter per vecka</h3>
+            <canvas id="chart-income-week" style="max-height:280px;"></canvas>
+          </div>
+          <div style="background:white;padding:1.25rem;border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <h3 style="font-size:1rem;font-weight:600;margin-bottom:1rem;">Kundkällor</h3>
+            <canvas id="chart-sources" style="max-height:280px;"></canvas>
+          </div>
+          <div style="background:white;padding:1.25rem;border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <h3 style="font-size:1rem;font-weight:600;margin-bottom:1rem;">Ordrar per status</h3>
+            <canvas id="chart-status" style="max-height:280px;"></canvas>
+          </div>
+          <div style="background:white;padding:1.25rem;border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,0.05);grid-column:1/-1;">
+            <h3 style="font-size:1rem;font-weight:600;margin-bottom:1rem;">Knivar slipade per person</h3>
+            <canvas id="chart-per-person" style="max-height:260px;"></canvas>
+          </div>
+        </div>
+      `);
+
+      if (typeof Chart === 'undefined') {
+        main.insertAdjacentHTML('beforeend', '<div style="color:var(--red);padding:1rem;">Chart.js kunde inte laddas (offline?).</div>');
+        return;
+      }
+
+      Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      Chart.defaults.color = '#555';
+
+      // Hjälp: veckobuckets (senaste 8 veckor)
+      function weekKey(d) {
+        const dt = new Date(d);
+        const jan1 = new Date(dt.getFullYear(), 0, 1);
+        const days = Math.floor((dt - jan1) / 86400000);
+        const week = Math.ceil((days + jan1.getDay() + 1) / 7);
+        return `${dt.getFullYear()}-v${week}`;
+      }
+      const now = new Date();
+      const weeks = [];
+      for (let i = 7; i >= 0; i--) {
+        const d = new Date(now.getTime() - i*7*86400000);
+        weeks.push(weekKey(d));
+      }
+
+      // 1. Knivar per vecka (från completed orders)
+      const knivesPerWeek = Object.fromEntries(weeks.map(w => [w, 0]));
+      orders.filter(o => o.status === 'completed').forEach(o => {
+        const k = weekKey(o.updated_at || o.created_at);
+        if (k in knivesPerWeek) knivesPerWeek[k] += (o.actual_knife_count || o.estimated_knife_count || 0);
+      });
+      new Chart(document.getElementById('chart-knives-week'), {
+        type: 'line',
+        data: { labels: weeks, datasets: [{
+          label: 'Knivar', data: weeks.map(w => knivesPerWeek[w]),
+          borderColor: '#e85d04', backgroundColor: 'rgba(232,93,4,0.1)', fill: true, tension: 0.3, pointRadius: 4
+        }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+
+      // 2. Intäkter per vecka
+      const incomePerWeek = Object.fromEntries(weeks.map(w => [w, 0]));
+      income.forEach(t => {
+        const k = weekKey(t.date || t.created_at);
+        if (k in incomePerWeek) incomePerWeek[k] += (t.amount_incl_vat || 0);
+      });
+      new Chart(document.getElementById('chart-income-week'), {
+        type: 'bar',
+        data: { labels: weeks, datasets: [{
+          label: 'kr', data: weeks.map(w => incomePerWeek[w]),
+          backgroundColor: '#16a34a'
+        }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+
+      // 3. Kundkällor
+      const sourceLabels = { facebook: 'Facebook', telefon: 'Telefon', hemsida: 'Hemsida', referral: 'Referens', door: 'Dörr', 'dörr': 'Dörr' };
+      const sources = {};
+      customers.filter(c => !c.is_deleted).forEach(c => {
+        const s = sourceLabels[c.source] || c.source || 'Okänd';
+        sources[s] = (sources[s] || 0) + 1;
+      });
+      new Chart(document.getElementById('chart-sources'), {
+        type: 'doughnut',
+        data: { labels: Object.keys(sources), datasets: [{
+          data: Object.values(sources),
+          backgroundColor: ['#e85d04', '#2563eb', '#16a34a', '#ca8a04', '#737373', '#dc2626']
+        }] },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      // 4. Ordrar per status
+      const statusLabels = { booked:'Bokade', picked_up:'Hämtade', registered:'Registrerade', sharpening:'Slipning', quality_check:'QC', ready:'Klara', completed:'Levererade', cancelled:'Avbrutna' };
+      const statuses = {};
+      orders.forEach(o => {
+        const s = statusLabels[o.status] || o.status;
+        statuses[s] = (statuses[s] || 0) + 1;
+      });
+      new Chart(document.getElementById('chart-status'), {
+        type: 'pie',
+        data: { labels: Object.keys(statuses), datasets: [{
+          data: Object.values(statuses),
+          backgroundColor: ['#737373','#ca8a04','#2563eb','#e85d04','#dc2626','#16a34a','#0a0a0a','#999']
+        }] },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      // 5. Knivar per person (från timelog)
+      const perPerson = {};
+      timelog.forEach(l => {
+        if (l.knives_sharpened) {
+          const u = (typeof USERS !== 'undefined' ? USERS : []).find(u => u.id === l.user_id);
+          const name = u ? u.name.split(' ')[0] : l.user_id;
+          perPerson[name] = (perPerson[name] || 0) + l.knives_sharpened;
+        }
+      });
+      const ppLabels = Object.keys(perPerson);
+      new Chart(document.getElementById('chart-per-person'), {
+        type: 'bar',
+        data: { labels: ppLabels, datasets: [{
+          label: 'Knivar', data: Object.values(perPerson),
+          backgroundColor: ppLabels.map((_,i) => ['#e85d04','#2563eb','#16a34a','#ca8a04'][i % 4])
+        }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
     }
 
     function renderFinance(main) {
