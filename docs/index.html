@@ -115,7 +115,7 @@
   }
   </script>
 
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -362,6 +362,25 @@
   </footer>
 
   <script>
+    // If hero video can't autoplay (iOS Low Power Mode, Reduce Motion, data saver),
+    // hide it so the poster image (set as .hero background) shows instead.
+    (function() {
+      const video = document.querySelector('.hero-video');
+      if (!video) return;
+      const hideVideo = () => { video.style.display = 'none'; };
+      const tryPlay = () => {
+        const p = video.play();
+        if (p && typeof p.catch === 'function') p.catch(hideVideo);
+      };
+      tryPlay();
+      // Belt-and-suspenders: if video isn't actually playing 1.5s after load, hide it
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          if (video.paused || video.readyState < 2) hideVideo();
+        }, 1500);
+      });
+    })();
+
     // Sticky nav on scroll
     const heroNav = document.querySelector('.hero nav');
     if (heroNav) {
