@@ -115,7 +115,7 @@
   }
   </script>
 
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -362,23 +362,27 @@
   </footer>
 
   <script>
-    // If hero video can't autoplay (iOS Low Power Mode, Reduce Motion, data saver),
-    // hide it so the poster image (set as .hero background) shows instead.
+    // Hero video: try autoplay, fall back to tap-anywhere-to-play on mobile.
+    // Poster image (sek 10) shows until video starts.
     (function() {
       const video = document.querySelector('.hero-video');
-      if (!video) return;
-      const hideVideo = () => { video.style.display = 'none'; };
+      const hero = document.querySelector('.hero');
+      if (!video || !hero) return;
+
       const tryPlay = () => {
         const p = video.play();
-        if (p && typeof p.catch === 'function') p.catch(hideVideo);
+        if (p && typeof p.catch === 'function') p.catch(() => {});
       };
+
       tryPlay();
-      // Belt-and-suspenders: if video isn't actually playing 1.5s after load, hide it
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          if (video.paused || video.readyState < 2) hideVideo();
-        }, 1500);
+      window.addEventListener('load', tryPlay);
+
+      // Tap-to-play: any tap on hero (that's not a button/link) starts video.
+      // iOS unlocks .play() in response to user interaction.
+      hero.addEventListener('click', (e) => {
+        if (video.paused && !e.target.closest('a, button')) tryPlay();
       });
+      document.addEventListener('touchstart', tryPlay, { once: true, passive: true });
     })();
 
     // Sticky nav on scroll
