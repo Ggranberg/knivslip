@@ -115,16 +115,12 @@
   }
   </script>
 
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
   <!-- HERO -->
   <header class="hero">
-    <video class="hero-video" autoplay muted loop playsinline preload="metadata"
-           poster="videos/hero-poster.jpg" aria-hidden="true">
-      <source src="videos/hero.mp4" type="video/mp4">
-    </video>
     <div class="hero-overlay"></div>
     <nav>
       <a href="index.html" class="logo">KNIVKILLARNA</a>
@@ -362,20 +358,6 @@
   </footer>
 
   <script>
-    // Force hero video play on iOS Safari (autoplay can fail silently)
-    (function() {
-      const video = document.querySelector('.hero-video');
-      if (!video) return;
-      const tryPlay = () => {
-        const p = video.play();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
-      };
-      tryPlay();
-      document.addEventListener('touchstart', tryPlay, { once: true, passive: true });
-      document.addEventListener('click', tryPlay, { once: true });
-      window.addEventListener('load', tryPlay);
-    })();
-
     // Sticky nav on scroll
     const heroNav = document.querySelector('.hero nav');
     if (heroNav) {
