@@ -115,7 +115,7 @@
   }
   </script>
 
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -362,6 +362,20 @@
   </footer>
 
   <script>
+    // Force hero video play on iOS Safari (autoplay can fail silently)
+    (function() {
+      const video = document.querySelector('.hero-video');
+      if (!video) return;
+      const tryPlay = () => {
+        const p = video.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      };
+      tryPlay();
+      document.addEventListener('touchstart', tryPlay, { once: true, passive: true });
+      document.addEventListener('click', tryPlay, { once: true });
+      window.addEventListener('load', tryPlay);
+    })();
+
     // Sticky nav on scroll
     const heroNav = document.querySelector('.hero nav');
     if (heroNav) {

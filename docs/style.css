@@ -179,10 +179,6 @@ nav {
   justify-content: center;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .hero-video { display: none; }
-}
-
 .hero h1 {
   font-size: clamp(2.5rem, 6vw, 4rem);
   margin-bottom: 1.5rem;
