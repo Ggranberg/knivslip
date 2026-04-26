@@ -138,16 +138,51 @@ nav {
 
 /* === HERO === */
 .hero {
+  position: relative;
   background: var(--black);
   color: var(--white);
   padding-bottom: 5rem;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.75) 100%);
 }
 
 .hero-content {
+  position: relative;
   max-width: 800px;
   margin: 0 auto;
   padding: 6rem 2rem 2rem;
   text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-video { display: none; }
+}
+
+@media (max-width: 768px) {
+  .hero-video {
+    display: none;
+  }
+  .hero {
+    background: #0a0a0a url('videos/hero-poster.jpg') center/cover no-repeat;
+  }
 }
 
 .hero h1 {
