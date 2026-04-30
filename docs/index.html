@@ -216,44 +216,55 @@
   </section>
 
   <!-- RECENSIONER -->
-  <section id="recensioner" class="section">
+  <section id="recensioner" class="section section-reviews">
     <h2>Vad kunderna säger</h2>
     <p class="section-sub" id="reviews-summary">Läs vad andra tycker — och dela gärna din egen upplevelse.</p>
 
     <div id="reviews-list" class="reviews-grid"></div>
-    <p id="reviews-empty" class="pricing-note" style="display:none;">Bli först med att lämna en recension nedan.</p>
+
+    <div id="reviews-empty" class="reviews-empty" style="display:none;">
+      <div class="empty-stars" aria-hidden="true">★ ★ ★ ★ ★</div>
+      <p class="empty-title">Bli först ut</p>
+      <p class="empty-sub">Har du slipat med oss? Hjälp andra att hitta hit — det tar en minut.</p>
+    </div>
 
     <details class="review-form-wrapper reveal">
-      <summary class="btn-secondary">Skriv en recension</summary>
-      <form id="review-form" class="booking-form" style="margin-top:1.5rem;">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="rev-name">Namn *</label>
-            <input type="text" id="rev-name" name="name" required maxlength="60" placeholder="Anna S.">
+      <summary class="review-form-toggle">
+        <span class="toggle-icon" aria-hidden="true">✎</span>
+        <span class="toggle-label">Skriv en recension</span>
+      </summary>
+      <div class="review-form-card">
+        <form id="review-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="rev-name">Namn *</label>
+              <input type="text" id="rev-name" name="name" required maxlength="60" placeholder="Anna S.">
+            </div>
+            <div class="form-group">
+              <label for="rev-city">Område <span class="label-optional">(valfritt)</span></label>
+              <input type="text" id="rev-city" name="city" maxlength="60" placeholder="Saltsjöbaden">
+            </div>
+          </div>
+          <div class="form-group form-group-rating">
+            <label>Hur var det? *</label>
+            <div class="star-input" id="rev-stars" role="radiogroup" aria-label="Betyg">
+              <button type="button" class="star-btn" data-v="1" aria-label="1 stjärna">★</button>
+              <button type="button" class="star-btn" data-v="2" aria-label="2 stjärnor">★</button>
+              <button type="button" class="star-btn" data-v="3" aria-label="3 stjärnor">★</button>
+              <button type="button" class="star-btn" data-v="4" aria-label="4 stjärnor">★</button>
+              <button type="button" class="star-btn" data-v="5" aria-label="5 stjärnor">★</button>
+            </div>
+            <span class="rating-label" id="rev-rating-label" aria-live="polite">Klicka för att ge betyg</span>
+            <input type="hidden" id="rev-rating" name="rating" required>
           </div>
           <div class="form-group">
-            <label for="rev-city">Område (valfritt)</label>
-            <input type="text" id="rev-city" name="city" maxlength="60" placeholder="Saltsjöbaden">
+            <label for="rev-text">Din recension *</label>
+            <textarea id="rev-text" name="text" rows="4" required maxlength="1000" placeholder="Hur var slipningen, leveransen, bemötandet?"></textarea>
           </div>
-        </div>
-        <div class="form-group">
-          <label>Betyg *</label>
-          <div class="star-input" id="rev-stars" role="radiogroup" aria-label="Betyg">
-            <button type="button" class="star-btn" data-v="1" aria-label="1 stjärna">★</button>
-            <button type="button" class="star-btn" data-v="2" aria-label="2 stjärnor">★</button>
-            <button type="button" class="star-btn" data-v="3" aria-label="3 stjärnor">★</button>
-            <button type="button" class="star-btn" data-v="4" aria-label="4 stjärnor">★</button>
-            <button type="button" class="star-btn" data-v="5" aria-label="5 stjärnor">★</button>
-          </div>
-          <input type="hidden" id="rev-rating" name="rating" required>
-        </div>
-        <div class="form-group">
-          <label for="rev-text">Din recension *</label>
-          <textarea id="rev-text" name="text" rows="4" required maxlength="1000" placeholder="Hur var slipningen, leveransen, bemötandet?"></textarea>
-        </div>
-        <button type="submit" class="btn-primary btn-full">Skicka recension</button>
-        <p class="form-note">Recensioner publiceras efter en snabb genomläsning. Tack för din feedback!</p>
-      </form>
+          <button type="submit" class="btn-primary btn-full">Skicka recension</button>
+          <p class="form-note">Vi läser igenom innan publicering. Tack för att du delar med dig!</p>
+        </form>
+      </div>
     </details>
   </section>
 
@@ -649,15 +660,39 @@
     // Stjärnval
     const starBtns = document.querySelectorAll('#rev-stars .star-btn');
     const ratingInput = document.getElementById('rev-rating');
+    const ratingLabel = document.getElementById('rev-rating-label');
+    const RATING_LABELS = {
+      0: 'Klicka för att ge betyg',
+      1: '1 stjärna — Inte bra',
+      2: '2 stjärnor — Helt okej',
+      3: '3 stjärnor — Bra',
+      4: '4 stjärnor — Riktigt bra',
+      5: '5 stjärnor — Toppen!'
+    };
     function paintStars(v) {
       starBtns.forEach(b => b.classList.toggle('active', parseInt(b.dataset.v) <= v));
     }
+    function setLabel(v, isHover) {
+      if (!ratingLabel) return;
+      ratingLabel.textContent = RATING_LABELS[v] || RATING_LABELS[0];
+      ratingLabel.classList.toggle('set', v > 0 && !isHover);
+    }
     starBtns.forEach(b => {
-      b.addEventListener('mouseenter', () => paintStars(parseInt(b.dataset.v)));
-      b.addEventListener('mouseleave', () => paintStars(parseInt(ratingInput.value) || 0));
+      b.addEventListener('mouseenter', () => {
+        const v = parseInt(b.dataset.v);
+        paintStars(v);
+        setLabel(v, true);
+      });
+      b.addEventListener('mouseleave', () => {
+        const v = parseInt(ratingInput.value) || 0;
+        paintStars(v);
+        setLabel(v, false);
+      });
       b.addEventListener('click', () => {
-        ratingInput.value = b.dataset.v;
-        paintStars(parseInt(b.dataset.v));
+        const v = parseInt(b.dataset.v);
+        ratingInput.value = v;
+        paintStars(v);
+        setLabel(v, false);
       });
     });
 
