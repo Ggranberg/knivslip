@@ -33,9 +33,9 @@ DATA_TEMPLATES = {
     'pricing.json': {'pricing': {'currency': 'SEK', 'vat_rate': 0.25, 'last_updated': '2026-04-06', 'price_tiers': [{'min_knives': 1, 'max_knives': 2, 'price_incl_vat': 170, 'price_excl_vat': 136, 'description': '1-2 knivar: 170 kr/st'}, {'min_knives': 3, 'max_knives': 5, 'price_incl_vat': 140, 'price_excl_vat': 112, 'description': '3-5 knivar: 140 kr/st'}, {'min_knives': 6, 'max_knives': 999, 'price_incl_vat': 120, 'price_excl_vat': 96, 'description': '6+ knivar: 120 kr/st'}], 'minimum_order': 0, 'pickup_fee': 0}},
     'areas.json': {'areas': [{'id': 'AREA-NACKA-C', 'name': 'Nacka centrum/Sickla', 'postnummer_prefix': ['131']}, {'id': 'AREA-NACKA-SALTSJOBADEN', 'name': 'Saltsjobaden/Fisksatra', 'postnummer_prefix': ['133']}, {'id': 'AREA-NACKA-BOO', 'name': 'Boo/Orminge', 'postnummer_prefix': ['132']}, {'id': 'AREA-VARMDO-C', 'name': 'Gustavsberg', 'postnummer_prefix': ['134']}], 'home_base': 'AREA-NACKA-C'},
     'users.json': {'users': [
-        {'id': 'USR-001', 'name': 'Gustav Granberg', 'pin': '9680', 'role': 'admin', 'active': True, 'pay_type': None, 'pay_rate': None, 'created_at': '2026-04-06T00:00:00'},
-        {'id': 'USR-002', 'name': 'Philip Zetterlund', 'pin': '6769', 'role': 'admin', 'active': True, 'pay_type': None, 'pay_rate': None, 'created_at': '2026-04-06T00:00:00'},
-        {'id': 'USR-003', 'name': 'Adam Zetterlund', 'pin': '1111', 'role': 'slipare', 'active': True, 'pay_type': 'per_knife', 'pay_rate': 30, 'created_at': '2026-04-06T00:00:00'}
+        {'id': 'USR-001', 'name': 'Gustav Granberg', 'pin': '9680', 'role': 'admin', 'roles': ['admin'], 'active': True, 'pay_type': None, 'pay_rate': None, 'pays': [], 'created_at': '2026-04-06T00:00:00'},
+        {'id': 'USR-002', 'name': 'Philip Zetterlund', 'pin': '6769', 'role': 'admin', 'roles': ['admin'], 'active': True, 'pay_type': None, 'pay_rate': None, 'pays': [], 'created_at': '2026-04-06T00:00:00'},
+        {'id': 'USR-003', 'name': 'Adam Zetterlund', 'pin': '1111', 'role': 'slipare', 'roles': ['slipare'], 'active': True, 'pay_type': 'per_knife', 'pay_rate': 30, 'pays': [{'type': 'per_knife', 'rate': 30}], 'created_at': '2026-04-06T00:00:00'}
     ]},
 }
 
@@ -98,11 +98,30 @@ COORD_MAP = {
     'oskarlundsbacken 22': [59.309, 18.159],
 }
 
+def migrate_users(data):
+    """Migrera gamla user-records till nya schema (roles[], pays[])."""
+    changed = False
+    for u in data.get('users', []):
+        if 'roles' not in u:
+            u['roles'] = [u['role']] if u.get('role') else []
+            changed = True
+        if 'pays' not in u:
+            if u.get('pay_type'):
+                u['pays'] = [{'type': u['pay_type'], 'rate': u.get('pay_rate')}]
+            else:
+                u['pays'] = []
+            changed = True
+    return changed
+
 def load_json(filename):
     path = os.path.join(DATA_DIR, filename)
     if os.path.exists(path):
         with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
+        if filename == 'users.json' and migrate_users(data):
+            save_json(filename, data)
+            print('[MIGRATE] users.json: lade till roles[]/pays[]')
+        return data
     return {}
 
 def save_json(filename, data):

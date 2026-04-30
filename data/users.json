@@ -5,9 +5,13 @@
       "name": "Gustav Granberg",
       "pin": "9680",
       "role": "admin",
+      "roles": [
+        "admin"
+      ],
       "active": true,
       "pay_type": null,
       "pay_rate": null,
+      "pays": [],
       "created_at": "2026-04-06T00:00:00"
     },
     {
@@ -15,9 +19,13 @@
       "name": "Philip Zetterlund",
       "pin": "6769",
       "role": "admin",
+      "roles": [
+        "admin"
+      ],
       "active": true,
       "pay_type": null,
       "pay_rate": null,
+      "pays": [],
       "created_at": "2026-04-06T00:00:00"
     },
     {
@@ -25,9 +33,18 @@
       "name": "Adam Zetterlund",
       "pin": "1111",
       "role": "slipare",
+      "roles": [
+        "slipare"
+      ],
       "active": true,
       "pay_type": "per_knife",
       "pay_rate": 30,
+      "pays": [
+        {
+          "type": "per_knife",
+          "rate": 30
+        }
+      ],
       "created_at": "2026-04-06T00:00:00"
     },
     {
@@ -35,9 +52,18 @@
       "name": "Viktor Granberg",
       "pin": "6767",
       "role": "forare",
+      "roles": [
+        "forare"
+      ],
       "active": true,
       "pay_type": "per_km",
       "pay_rate": 5,
+      "pays": [
+        {
+          "type": "per_km",
+          "rate": 5
+        }
+      ],
       "created_at": "2026-04-11T00:00:00"
     }
   ]
