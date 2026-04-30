@@ -115,7 +115,10 @@
   }
   </script>
 
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -216,56 +219,80 @@
   </section>
 
   <!-- RECENSIONER -->
-  <section id="recensioner" class="section section-reviews">
-    <h2>Vad kunderna säger</h2>
-    <p class="section-sub" id="reviews-summary">Läs vad andra tycker — och dela gärna din egen upplevelse.</p>
+  <section id="recensioner" class="section-reviews">
+    <div class="reviews-inner">
+      <header class="reviews-header">
+        <span class="eyebrow">Kundröster</span>
+        <h2 class="reviews-heading">Vad <em>kunderna</em> säger</h2>
+        <p class="reviews-summary" id="reviews-summary"></p>
+      </header>
 
-    <div id="reviews-list" class="reviews-grid"></div>
+      <div id="reviews-list" class="reviews-grid"></div>
 
-    <div id="reviews-empty" class="reviews-empty" style="display:none;">
-      <div class="empty-stars" aria-hidden="true">★ ★ ★ ★ ★</div>
-      <p class="empty-title">Bli först ut</p>
-      <p class="empty-sub">Har du slipat med oss? Hjälp andra att hitta hit — det tar en minut.</p>
-    </div>
-
-    <details class="review-form-wrapper reveal">
-      <summary class="review-form-toggle">
-        <span class="toggle-icon" aria-hidden="true">✎</span>
-        <span class="toggle-label">Skriv en recension</span>
-      </summary>
-      <div class="review-form-card">
-        <form id="review-form">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="rev-name">Namn *</label>
-              <input type="text" id="rev-name" name="name" required maxlength="60" placeholder="Anna S.">
-            </div>
-            <div class="form-group">
-              <label for="rev-city">Område <span class="label-optional">(valfritt)</span></label>
-              <input type="text" id="rev-city" name="city" maxlength="60" placeholder="Saltsjöbaden">
-            </div>
-          </div>
-          <div class="form-group form-group-rating">
-            <label>Hur var det? *</label>
-            <div class="star-input" id="rev-stars" role="radiogroup" aria-label="Betyg">
-              <button type="button" class="star-btn" data-v="1" aria-label="1 stjärna">★</button>
-              <button type="button" class="star-btn" data-v="2" aria-label="2 stjärnor">★</button>
-              <button type="button" class="star-btn" data-v="3" aria-label="3 stjärnor">★</button>
-              <button type="button" class="star-btn" data-v="4" aria-label="4 stjärnor">★</button>
-              <button type="button" class="star-btn" data-v="5" aria-label="5 stjärnor">★</button>
-            </div>
-            <span class="rating-label" id="rev-rating-label" aria-live="polite">Klicka för att ge betyg</span>
-            <input type="hidden" id="rev-rating" name="rating" required>
-          </div>
-          <div class="form-group">
-            <label for="rev-text">Din recension *</label>
-            <textarea id="rev-text" name="text" rows="4" required maxlength="1000" placeholder="Hur var slipningen, leveransen, bemötandet?"></textarea>
-          </div>
-          <button type="submit" class="btn-primary btn-full">Skicka recension</button>
-          <p class="form-note">Vi läser igenom innan publicering. Tack för att du delar med dig!</p>
-        </form>
+      <div id="reviews-empty" class="reviews-empty" style="display:none;">
+        <svg class="empty-mark" viewBox="0 0 80 80" aria-hidden="true">
+          <path d="M10 60 L40 18 L70 60" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
+          <path d="M22 60 L40 35 L58 60" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+        </svg>
+        <p class="empty-quote">"En ny berättelse väntar."</p>
+        <p class="empty-sub">Har du slipat med oss? Dela ett par rader — det hjälper andra att hitta hit.</p>
       </div>
-    </details>
+
+      <div class="reviews-divider" aria-hidden="true">
+        <span class="divider-line"></span>
+        <span class="divider-mark">⌇</span>
+        <span class="divider-line"></span>
+      </div>
+
+      <details class="review-form-wrapper reveal">
+        <summary class="review-form-toggle">
+          <span class="toggle-label">Skriv en recension</span>
+          <span class="toggle-arrow" aria-hidden="true">→</span>
+        </summary>
+        <div class="review-form-card">
+          <form id="review-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="rev-name">Namn</label>
+                <input type="text" id="rev-name" name="name" required maxlength="60" placeholder="Anna S.">
+              </div>
+              <div class="form-group">
+                <label for="rev-city">Område <span class="label-optional">valfritt</span></label>
+                <input type="text" id="rev-city" name="city" maxlength="60" placeholder="Saltsjöbaden">
+              </div>
+            </div>
+            <div class="form-group form-group-rating">
+              <label>Ditt betyg</label>
+              <div class="star-input" id="rev-stars" role="radiogroup" aria-label="Betyg">
+                <button type="button" class="star-btn" data-v="1" aria-label="1 stjärna">
+                  <svg viewBox="0 0 24 24"><path d="M12 2.5l2.95 6.45 7.05.78-5.25 4.85 1.5 6.92L12 17.85l-6.25 3.65 1.5-6.92L2 9.73l7.05-.78z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                </button>
+                <button type="button" class="star-btn" data-v="2" aria-label="2 stjärnor">
+                  <svg viewBox="0 0 24 24"><path d="M12 2.5l2.95 6.45 7.05.78-5.25 4.85 1.5 6.92L12 17.85l-6.25 3.65 1.5-6.92L2 9.73l7.05-.78z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                </button>
+                <button type="button" class="star-btn" data-v="3" aria-label="3 stjärnor">
+                  <svg viewBox="0 0 24 24"><path d="M12 2.5l2.95 6.45 7.05.78-5.25 4.85 1.5 6.92L12 17.85l-6.25 3.65 1.5-6.92L2 9.73l7.05-.78z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                </button>
+                <button type="button" class="star-btn" data-v="4" aria-label="4 stjärnor">
+                  <svg viewBox="0 0 24 24"><path d="M12 2.5l2.95 6.45 7.05.78-5.25 4.85 1.5 6.92L12 17.85l-6.25 3.65 1.5-6.92L2 9.73l7.05-.78z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                </button>
+                <button type="button" class="star-btn" data-v="5" aria-label="5 stjärnor">
+                  <svg viewBox="0 0 24 24"><path d="M12 2.5l2.95 6.45 7.05.78-5.25 4.85 1.5 6.92L12 17.85l-6.25 3.65 1.5-6.92L2 9.73l7.05-.78z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+              <span class="rating-label" id="rev-rating-label" aria-live="polite">Klicka för att ge betyg</span>
+              <input type="hidden" id="rev-rating" name="rating" required>
+            </div>
+            <div class="form-group">
+              <label for="rev-text">Berätta</label>
+              <textarea id="rev-text" name="text" rows="4" required maxlength="1000" placeholder="Hur var slipningen, leveransen, bemötandet?"></textarea>
+            </div>
+            <button type="submit" class="btn-submit-review">Skicka recension</button>
+            <p class="form-note">Vi läser igenom innan publicering.</p>
+          </form>
+        </div>
+      </details>
+    </div>
   </section>
 
   <!-- PRISER -->
@@ -624,8 +651,12 @@
     }
     function starsHtml(n) {
       n = Math.max(0, Math.min(5, parseInt(n) || 0));
-      return '<span class="stars" aria-label="'+n+' av 5 stjärnor">' +
-             '★'.repeat(n) + '<span class="stars-empty">' + '★'.repeat(5-n) + '</span></span>';
+      const STAR = '<svg viewBox="0 0 24 24" class="star-svg"><path d="M12 2.5l2.95 6.45 7.05.78-5.25 4.85 1.5 6.92L12 17.85l-6.25 3.65 1.5-6.92L2 9.73l7.05-.78z"/></svg>';
+      let html = '<span class="stars" aria-label="'+n+' av 5 stjärnor">';
+      for (let i = 0; i < 5; i++) {
+        html += '<span class="star ' + (i < n ? 'on' : 'off') + '">' + STAR + '</span>';
+      }
+      return html + '</span>';
     }
     function renderReviews(data) {
       const list = document.getElementById('reviews-list');
