@@ -16,7 +16,8 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 APP_DIR = os.path.join(BASE_DIR, 'app')
 ALLOWED_FILES = ['users.json', 'timelog.json', 'customers.json', 'orders.json',
                  'knives.json', 'invoices.json', 'transactions.json', 'schedule.json',
-                 'pricing.json', 'areas.json', 'legal.json', 'bookings.json']
+                 'pricing.json', 'areas.json', 'legal.json', 'bookings.json',
+                 'reviews.json']
 
 # Template for empty data files (created on first run if missing)
 DATA_TEMPLATES = {
@@ -28,6 +29,7 @@ DATA_TEMPLATES = {
     'schedule.json': {'schedule': []},
     'timelog.json': {'entries': []},
     'bookings.json': {'bookings': []},
+    'reviews.json': {'reviews': []},
     'pricing.json': {'pricing': {'currency': 'SEK', 'vat_rate': 0.25, 'last_updated': '2026-04-06', 'price_tiers': [{'min_knives': 1, 'max_knives': 2, 'price_incl_vat': 170, 'price_excl_vat': 136, 'description': '1-2 knivar: 170 kr/st'}, {'min_knives': 3, 'max_knives': 5, 'price_incl_vat': 140, 'price_excl_vat': 112, 'description': '3-5 knivar: 140 kr/st'}, {'min_knives': 6, 'max_knives': 999, 'price_incl_vat': 120, 'price_excl_vat': 96, 'description': '6+ knivar: 120 kr/st'}], 'minimum_order': 0, 'pickup_fee': 0}},
     'areas.json': {'areas': [{'id': 'AREA-NACKA-C', 'name': 'Nacka centrum/Sickla', 'postnummer_prefix': ['131']}, {'id': 'AREA-NACKA-SALTSJOBADEN', 'name': 'Saltsjobaden/Fisksatra', 'postnummer_prefix': ['133']}, {'id': 'AREA-NACKA-BOO', 'name': 'Boo/Orminge', 'postnummer_prefix': ['132']}, {'id': 'AREA-VARMDO-C', 'name': 'Gustavsberg', 'postnummer_prefix': ['134']}], 'home_base': 'AREA-NACKA-C'},
     'users.json': {'users': [
@@ -396,6 +398,84 @@ def handle_booking(data):
     return {'ok': True, 'booking_id': order_id, 'customer_id': customer_id, 'order_id': order_id}
 
 
+def handle_review(data):
+    """Tar emot ny recension fran hemsidan. Sparas med approved=false tills godkand."""
+    name = (data.get('name') or '').strip()
+    rating = data.get('rating')
+    text = (data.get('text') or '').strip()
+    city = (data.get('city') or '').strip()
+
+    try:
+        rating = int(rating)
+    except (ValueError, TypeError):
+        return {'ok': False, 'error': 'Betyg saknas'}
+
+    if not name or rating < 1 or rating > 5 or not text:
+        return {'ok': False, 'error': 'Namn, betyg (1-5) och text kravs'}
+
+    if len(text) > 1000:
+        return {'ok': False, 'error': 'Texten ar for lang (max 1000 tecken)'}
+    if len(name) > 60:
+        name = name[:60]
+    if len(city) > 60:
+        city = city[:60]
+
+    reviews_data = load_json('reviews.json')
+    reviews = reviews_data.get('reviews', [])
+    now_str = datetime.now().isoformat()
+    review_id = generate_id('REV', [r['id'] for r in reviews])
+
+    new_review = {
+        'id': review_id,
+        'name': name,
+        'rating': rating,
+        'text': text,
+        'city': city or None,
+        'approved': False,
+        'created_at': now_str
+    }
+    reviews.append(new_review)
+    save_json('reviews.json', {'reviews': reviews})
+    print(f'[RECENSION] Ny recension fran {name} ({rating} stjarnor) — vantar godkannande')
+
+    # ntfy-notis
+    try:
+        title = f'Ny recension: {name} ({rating}/5)'
+        body = f'{text[:200]}{"..." if len(text) > 200 else ""}\n\nGodkann i admin.'
+        req = Request(
+            f'https://ntfy.sh/{NTFY_TOPIC}',
+            data=body.encode('utf-8'),
+            headers={
+                'Title': title,
+                'Tags': 'star,memo',
+                'Priority': '3',
+                'Click': 'https://knivkillarna.up.railway.app/admin',
+            }
+        )
+        urlopen(req, timeout=5)
+    except Exception as e:
+        print(f'[NTFY] Recensionsnotis misslyckades: {e}')
+
+    return {'ok': True, 'review_id': review_id}
+
+
+def get_public_reviews():
+    """Returnerar bara godkanda recensioner, nyaste forst."""
+    reviews_data = load_json('reviews.json')
+    reviews = [r for r in reviews_data.get('reviews', []) if r.get('approved')]
+    reviews.sort(key=lambda r: r.get('created_at', ''), reverse=True)
+    # Returnera bara publika falt
+    public = [{
+        'name': r['name'],
+        'rating': r['rating'],
+        'text': r['text'],
+        'city': r.get('city'),
+        'created_at': r.get('created_at', '')[:10]
+    } for r in reviews]
+    avg = round(sum(r['rating'] for r in reviews) / len(reviews), 1) if reviews else None
+    return {'reviews': public, 'count': len(reviews), 'average': avg}
+
+
 def send_notification(booking):
     """Push-notis via ntfy.sh när ny bokning kommer in."""
     try:
@@ -565,6 +645,14 @@ def create_order_for_customer(data):
 class KnivslipHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
+        # Public reviews API
+        if path == '/api/reviews':
+            result = get_public_reviews()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
+            return
         # Serve admin app
         if path == '/admin' or path == '/admin/':
             path = '/admin/admin.html'
@@ -603,6 +691,13 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
+
+        elif path == '/api/review':
+            result = handle_review(data)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
 
         elif path.startswith('/api/save/'):
             filename = path.split('/api/save/')[-1]

@@ -119,6 +119,19 @@
 </head>
 <body>
 
+  <nav class="site-nav">
+    <a href="index.html" class="logo">KNIVKILLARNA</a>
+    <button class="menu-toggle" aria-label="Meny">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links">
+      <a href="#hur-det-funkar">Hur det funkar</a>
+      <a href="#recensioner">Recensioner</a>
+      <a href="#priser">Priser</a>
+      <a href="boka.html" class="btn-nav">Boka nu</a>
+    </div>
+  </nav>
+
   <!-- HERO -->
   <header class="hero">
     <video class="hero-video" autoplay muted loop playsinline preload="auto"
@@ -126,17 +139,6 @@
       <source src="videos/hero.mp4" type="video/mp4">
     </video>
     <div class="hero-overlay"></div>
-    <nav>
-      <a href="index.html" class="logo">KNIVKILLARNA</a>
-      <button class="menu-toggle" aria-label="Meny">
-        <span></span><span></span><span></span>
-      </button>
-      <div class="nav-links">
-        <a href="#hur-det-funkar">Hur det funkar</a>
-        <a href="#priser">Priser</a>
-        <a href="boka.html" class="btn-nav">Boka nu</a>
-      </div>
-    </nav>
     <div class="hero-content fade-in">
       <h1>Vassa knivar <br>utan att lämna hemmet</h1>
       <p class="hero-sub">Vi hämtar dina knivar, slipar dem professionellt och lämnar tillbaka dem — <strong>inom 2 dagar.</strong></p>
@@ -211,6 +213,48 @@
         <p>Hämtning och leverans ingår alltid. Priset du ser är priset du betalar.</p>
       </div>
     </div>
+  </section>
+
+  <!-- RECENSIONER -->
+  <section id="recensioner" class="section">
+    <h2>Vad kunderna säger</h2>
+    <p class="section-sub" id="reviews-summary">Läs vad andra tycker — och dela gärna din egen upplevelse.</p>
+
+    <div id="reviews-list" class="reviews-grid"></div>
+    <p id="reviews-empty" class="pricing-note" style="display:none;">Bli först med att lämna en recension nedan.</p>
+
+    <details class="review-form-wrapper reveal">
+      <summary class="btn-secondary">Skriv en recension</summary>
+      <form id="review-form" class="booking-form" style="margin-top:1.5rem;">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="rev-name">Namn *</label>
+            <input type="text" id="rev-name" name="name" required maxlength="60" placeholder="Anna S.">
+          </div>
+          <div class="form-group">
+            <label for="rev-city">Område (valfritt)</label>
+            <input type="text" id="rev-city" name="city" maxlength="60" placeholder="Saltsjöbaden">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Betyg *</label>
+          <div class="star-input" id="rev-stars" role="radiogroup" aria-label="Betyg">
+            <button type="button" class="star-btn" data-v="1" aria-label="1 stjärna">★</button>
+            <button type="button" class="star-btn" data-v="2" aria-label="2 stjärnor">★</button>
+            <button type="button" class="star-btn" data-v="3" aria-label="3 stjärnor">★</button>
+            <button type="button" class="star-btn" data-v="4" aria-label="4 stjärnor">★</button>
+            <button type="button" class="star-btn" data-v="5" aria-label="5 stjärnor">★</button>
+          </div>
+          <input type="hidden" id="rev-rating" name="rating" required>
+        </div>
+        <div class="form-group">
+          <label for="rev-text">Din recension *</label>
+          <textarea id="rev-text" name="text" rows="4" required maxlength="1000" placeholder="Hur var slipningen, leveransen, bemötandet?"></textarea>
+        </div>
+        <button type="submit" class="btn-primary btn-full">Skicka recension</button>
+        <p class="form-note">Recensioner publiceras efter en snabb genomläsning. Tack för din feedback!</p>
+      </form>
+    </details>
   </section>
 
   <!-- PRISER -->
@@ -386,7 +430,7 @@
     })();
 
     // Sticky nav on scroll
-    const heroNav = document.querySelector('.hero nav');
+    const heroNav = document.querySelector('.site-nav');
     if (heroNav) {
       window.addEventListener('scroll', () => {
         heroNav.classList.toggle('scrolled', window.scrollY > 60);
@@ -559,6 +603,100 @@
         }
       });
     })();
+
+    // === RECENSIONER ===
+    const REVIEWS_API = 'https://knivkillarna.up.railway.app/api/reviews';
+    const REVIEW_POST = 'https://knivkillarna.up.railway.app/api/review';
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function starsHtml(n) {
+      n = Math.max(0, Math.min(5, parseInt(n) || 0));
+      return '<span class="stars" aria-label="'+n+' av 5 stjärnor">' +
+             '★'.repeat(n) + '<span class="stars-empty">' + '★'.repeat(5-n) + '</span></span>';
+    }
+    function renderReviews(data) {
+      const list = document.getElementById('reviews-list');
+      const empty = document.getElementById('reviews-empty');
+      const summary = document.getElementById('reviews-summary');
+      if (!list) return;
+      const reviews = (data && data.reviews) || [];
+      if (!reviews.length) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      if (data.average && data.count) {
+        summary.innerHTML = starsHtml(Math.round(data.average)) +
+          ' <strong>' + data.average + '/5</strong> &middot; ' + data.count + ' recension' + (data.count === 1 ? '' : 'er');
+      }
+      list.innerHTML = reviews.map(r => `
+        <article class="review-card reveal visible">
+          ${starsHtml(r.rating)}
+          <p class="review-text">${escapeHtml(r.text)}</p>
+          <footer class="review-meta">
+            <strong>${escapeHtml(r.name)}</strong>${r.city ? ' &middot; ' + escapeHtml(r.city) : ''}
+          </footer>
+        </article>
+      `).join('');
+    }
+    fetch(REVIEWS_API).then(r => r.json()).then(renderReviews).catch(() => {
+      document.getElementById('reviews-empty').style.display = 'block';
+    });
+
+    // Stjärnval
+    const starBtns = document.querySelectorAll('#rev-stars .star-btn');
+    const ratingInput = document.getElementById('rev-rating');
+    function paintStars(v) {
+      starBtns.forEach(b => b.classList.toggle('active', parseInt(b.dataset.v) <= v));
+    }
+    starBtns.forEach(b => {
+      b.addEventListener('mouseenter', () => paintStars(parseInt(b.dataset.v)));
+      b.addEventListener('mouseleave', () => paintStars(parseInt(ratingInput.value) || 0));
+      b.addEventListener('click', () => {
+        ratingInput.value = b.dataset.v;
+        paintStars(parseInt(b.dataset.v));
+      });
+    });
+
+    // Skicka recension
+    const reviewForm = document.getElementById('review-form');
+    if (reviewForm) {
+      reviewForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const rating = parseInt(ratingInput.value);
+        if (!rating) { alert('Välj ett betyg (1–5 stjärnor).'); return; }
+        const btn = reviewForm.querySelector('button[type="submit"]');
+        btn.textContent = 'Skickar...';
+        btn.disabled = true;
+        const payload = {
+          name: document.getElementById('rev-name').value.trim(),
+          city: document.getElementById('rev-city').value.trim(),
+          rating: rating,
+          text: document.getElementById('rev-text').value.trim()
+        };
+        fetch(REVIEW_POST, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(r => {
+          if (r.ok) {
+            reviewForm.innerHTML = '<p style="text-align:center;padding:1.5rem;color:var(--accent);font-weight:600;">Tack! Din recension publiceras efter granskning.</p>';
+          } else {
+            throw new Error(r.error || 'Fel');
+          }
+        })
+        .catch(() => {
+          btn.textContent = 'Skicka recension';
+          btn.disabled = false;
+          alert('Något gick fel. Försök igen senare.');
+        });
+      });
+    }
 
     // Form submission with redirect
     const form = document.querySelector('.booking-form');
