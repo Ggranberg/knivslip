@@ -663,9 +663,9 @@
         <article class="review-card reveal visible">
           ${starsHtml(r.rating)}
           <p class="review-text">${escapeHtml(r.text)}</p>
-          <footer class="review-meta">
+          <div class="review-meta">
             <strong>${escapeHtml(r.name)}</strong>${r.city ? ' &middot; ' + escapeHtml(r.city) : ''}
-          </footer>
+          </div>
         </article>
       `).join('');
     }
