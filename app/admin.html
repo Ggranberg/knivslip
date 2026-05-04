@@ -634,6 +634,7 @@
         pricing: pricing.pricing, areas: areas };
       TIMELOG = timelog.entries;
       await loadPendingBookings();
+      await loadReviews();
       // Update booking badges (sidebar + mobile nav)
       const badge = document.getElementById('booking-badge');
       if (badge) {
@@ -664,6 +665,87 @@
         const d = await fetchJSON('bookings.json');
         PENDING_BOOKINGS = (d.bookings || []).filter(b => b.status === 'pending');
       } catch(e) { console.error('Kunde inte ladda bokningar', e); PENDING_BOOKINGS = []; }
+    }
+
+    // === RECENSIONER ===
+    let REVIEWS = [];
+
+    async function loadReviews() {
+      try {
+        const d = await fetchJSON('reviews.json');
+        REVIEWS = d.reviews || [];
+      } catch(e) { console.error('Kunde inte ladda recensioner', e); REVIEWS = []; }
+      const pending = REVIEWS.filter(r => !r.approved).length;
+      const badge = document.getElementById('review-badge');
+      if (badge) {
+        if (pending > 0) { badge.textContent = pending; badge.style.display = 'inline'; }
+        else { badge.style.display = 'none'; }
+      }
+    }
+
+    function renderReviews(main) {
+      const pending = REVIEWS.filter(r => !r.approved);
+      const approved = REVIEWS.filter(r => r.approved);
+
+      const div = document.createElement('div');
+      div.className = 'section';
+
+      const stars = n => '<span style="color:var(--accent);letter-spacing:1px;">' + '★'.repeat(n) + '<span style="color:var(--gray-300);">' + '★'.repeat(5-n) + '</span></span>';
+      const card = (r, isPending) => {
+        const date = (r.created_at || '').slice(0, 10);
+        return `<div class="card" style="padding:1rem;margin-bottom:0.75rem;${isPending ? 'border-left:4px solid var(--yellow);' : 'border-left:4px solid var(--green);'}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:0.4rem;">
+                ${stars(r.rating)}
+                <strong>${escapeHtmlAdm(r.name)}</strong>
+                ${r.city ? '<span style="color:var(--gray-500);font-size:0.85rem;">· ' + escapeHtmlAdm(r.city) + '</span>' : ''}
+                <span style="color:var(--gray-400);font-size:0.8rem;">${date}</span>
+              </div>
+              <div style="color:var(--gray-700);font-style:italic;">${escapeHtmlAdm(r.text)}</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              ${isPending ? `<button onclick="approveReview('${r.id}')" style="padding:0.5rem 1rem;background:var(--green);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-weight:600;font-size:0.85rem;">&#10003; Godkänn</button>` : ''}
+              <button onclick="deleteReview('${r.id}')" style="padding:0.5rem 0.8rem;background:var(--gray-200);color:var(--gray-600);border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Radera</button>
+            </div>
+          </div>
+        </div>`;
+      };
+
+      div.innerHTML = `
+        <div class="section-header"><h2>Väntar på godkännande</h2><span class="badge" style="background:var(--yellow-light);color:var(--yellow);">${pending.length}</span></div>
+        ${pending.length ? pending.map(r => card(r, true)).join('') : '<div style="color:var(--gray-400);font-style:italic;">Inga nya recensioner att granska.</div>'}
+        <div class="section-header" style="margin-top:2rem;"><h2>Publicerade</h2><span class="badge">${approved.length}</span></div>
+        ${approved.length ? approved.map(r => card(r, false)).join('') : '<div style="color:var(--gray-400);font-style:italic;">Inga publicerade recensioner än.</div>'}
+      `;
+      main.appendChild(div);
+    }
+
+    function escapeHtmlAdm(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function approveReview(id) {
+      const r = REVIEWS.find(x => x.id === id);
+      if (!r) return;
+      r.approved = true;
+      const ok = await saveJSON('reviews.json', { reviews: REVIEWS });
+      if (ok) {
+        showToast('Recension publicerad', 'success');
+        await loadReviews();
+        renderView('reviews');
+      }
+    }
+
+    async function deleteReview(id) {
+      if (!confirm('Radera recensionen permanent?')) return;
+      REVIEWS = REVIEWS.filter(r => r.id !== id);
+      const ok = await saveJSON('reviews.json', { reviews: REVIEWS });
+      if (ok) {
+        showToast('Recension raderad', 'success');
+        await loadReviews();
+        renderView('reviews');
+      }
     }
 
     async function approveBooking(bookingId) {
@@ -1451,6 +1533,7 @@
         nav.innerHTML = `
           <a href="#" class="active" data-view="dashboard"><span class="icon">&#9632;</span> Dashboard</a>
           <a href="#" data-view="bookings"><span class="icon">&#128229;</span> Bokningar <span id="booking-badge" style="background:var(--red);color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size:0.7rem;font-weight:700;margin-left:auto;display:none;">0</span></a>
+          <a href="#" data-view="reviews"><span class="icon">&#9733;</span> Recensioner <span id="review-badge" style="background:var(--red);color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size:0.7rem;font-weight:700;margin-left:auto;display:none;">0</span></a>
           <a href="#" data-view="pipeline"><span class="icon">&#9654;</span> Pipeline</a>
           <a href="#" data-view="schedule"><span class="icon">&#128197;</span> Schema</a>
           <a href="#" data-view="routes"><span class="icon">&#128205;</span> Ruttkarta</a>
@@ -1552,6 +1635,7 @@
       let moreItems = [];
       if (CURRENT_USER.role === 'admin') {
         moreItems = [
+          { view: 'reviews', icon: '&#9733;', label: 'Recensioner' },
           { view: 'routes', icon: '&#128205;', label: 'Ruttkarta' },
           { view: 'reminders', icon: '&#128276;', label: 'Påminnelser' },
           { view: 'finance', icon: '&#128176;', label: 'Ekonomi' },
@@ -1617,6 +1701,7 @@
       switch(view) {
         case 'dashboard': main.innerHTML = header; renderAdminDashboard(main); break;
         case 'bookings': main.innerHTML = header; renderBookings(main); break;
+        case 'reviews': main.innerHTML = header; renderReviews(main); break;
         case 'pipeline': main.innerHTML = header; renderPipeline(main); break;
         case 'schedule': main.innerHTML = header; renderSchedule(main); break;
         case 'routes': main.innerHTML = header; renderRouteMap(main); break;
@@ -1634,7 +1719,7 @@
     }
 
     function getViewTitle(v) {
-      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Påminnelser', finance:'Ekonomi', arbete:'Arbete & Lön', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt' };
+      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', reviews:'Recensioner', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Påminnelser', finance:'Ekonomi', arbete:'Arbete & Lön', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt' };
       return t[v] || v;
     }
 
