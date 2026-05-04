@@ -4,7 +4,7 @@ description: Hanterar hela kundresan — lead, bokning, hamtning, knivregistreri
 user_invocable: true
 ---
 
-# Orderpipeline — Knivslip AB
+# Orderpipeline — Altravo AB (Knivkillarna)
 
 Du hanterar hela kundresan fran forsta kontakt till levererad order. Du ar den mest anvanda agenten.
 
@@ -123,6 +123,13 @@ Samla:
 - **Onskat hamtningsdatum** (forslag: narmaste vardag)
 - **Tidfonster** (t.ex. "17:00-19:00")
 - **Anteckningar**
+
+**Volymrabatt-prompt (OBLIGATORISKT):**
+Nar antal knivar ar kand, visa alltid rabattpotential:
+- 1-2 knivar: "Kunden betalar {antal} × 170 kr = {total} kr. Om de tar med 1 till kniv faller priset till 140 kr/st — spara {spar} kr totalt. Tips kunden?"
+- 3-5 knivar: "Bra! 3-5-priset galler: {antal} × 140 kr = {total} kr."
+- 6+ knivar: "Toppenpris! 6+-rabatt: {antal} × 120 kr = {total} kr."
+Detta okar snittordervarde och sparar kunden pengar — win-win.
 
 Procedur:
 1. Las `data/customers.json` — hitta kunden
@@ -336,9 +343,16 @@ Visa fasen nar kundinfo visas. For "Risk"-kunder: foresla paminnelse-SMS.
 ## Uppfoljning efter leverans
 
 Nar en order satts till `delivered` eller `completed`:
-1. Pamin om att skicka SMS samma dag: "Tack! Hur kanns knivarna?"
+1. Generera ett personaliserat uppfoljnings-SMS baserat pa knivarna i ordern:
+   - Las `data/knives.json` — hamta knivtyperna for denna order
+   - Generera SMS-text som namner faktiska knivtyper:
+     * "Hej {namn}! Dina knivar ar nu hemma igen — {knivtyp1} och {knivtyp2} ar vassa och redo! Nojd? Tipsa nagon i grannskapet sa far de 10% rabatt 🔪"
+     * Om bara en kniv: "Hej {namn}! Din {knivtyp} ar nu hvass igen! Nojd? Tipsa grannen sa far de 10% rabatt 🔪"
+   - Referensknivtyper: kockkniv, brod-/serokniv, fileet-/filékniv, sax, etc.
 2. Berakna `next_service_due` = leveransdatum + 4 manader
 3. Notera detta i kundens anteckningar
+4. Om kunden har < 3 knivar: lagg till upsell-paminne i anteckningarna:
+   "Kunden har {antal} knivar — paminns om volymrabatt: 3-5 knivar = 140 kr/st (vs {aktuellt pris} kr/st)"
 
 ## Referral-sparning
 
@@ -358,6 +372,25 @@ Nar en ny kund skapas med source `referral`:
 
 Logga ALLTID incidenter med `has_incident: true` och detaljerade `incident_notes`.
 
+## Leverans misslyckades (ingen hemma)
+
+Om kunden inte ar hemma vid leveransforsoket:
+1. Satt orderstatus kvar pa `out_for_delivery` (ej levererad)
+2. Notera i `incident_notes`: "Leveransforso {datum} {tid} — ingen hemma"
+3. Generera SMS till kunden: "Hej {namn}! Vi forsoke leverera dina knivar idag men du var inte hemma. Vi forsoka igen imorgon — eller kontakta oss for ny tid pa [telefon]."
+4. Boka om leveransen i schemat till nasta dag
+5. Om 2:a forsok misslyckas: RING kunden (ej bara SMS)
+6. Om 3 forsok misslyckas: eskalera till Gustav/Philip for personlig kontakt — 2-dagars-loftet hotas
+
+## NPS — Kundnojdhet
+
+Nar en order satts till `delivered`:
+- Generera SMS-forslag for nojdhetskoll: "Hej {namn}! Hur nojd ar du med slipningen? Svara 1-10 (10 = perfekt). Kort svar hjalper oss bli battre!"
+- Paminne om att skicka detta 2-4 timmar efter leverans (inte direkt)
+- Nar svar kommer in: notera i orderns `notes` som "NPS: {betyg}"
+- Betyg 1-6: kontakta kunden SAMMA DAG for att losa problemet
+- Betyg 9-10: fraga om Google-recension eller referral
+
 ## Regler
 
 - Skapa ALDRIG en order utan GDPR-samtycke
@@ -365,6 +398,7 @@ Logga ALLTID incidenter med `has_incident: true` och detaljerade `incident_notes
 - Kolla ALLTID att kunden inte redan finns innan ny skapas
 - Logga ALLTID statusandringar i status_history
 - Vid statusandring: uppdatera bade order och knivar
-- Svara pa leads inom 12 timmar — langre = risk att tappa kunden
+- Svara pa leads inom 5 MINUTER om mojligt (1 timme max) — efter 24h tappar ni 60% av leads
 - Samla ALLTID telefonnummer — utan det kan vi inte folja upp
 - Fraga ALLTID om referral-kalla vid source=referral
+- Super-referrers: kunder med 3+ referrals far en personlig tack-gest (gratis slipning eller rabatt)

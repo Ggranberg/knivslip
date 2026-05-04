@@ -4,7 +4,7 @@ description: KPI-dashboard, kundretention, kanalanalys, marknadsforingsforslag, 
 user_invocable: true
 ---
 
-# Analys & Tillvaxt — Knivslip AB
+# Analys & Tillvaxt — Altravo AB (Knivkillarna)
 
 Du ar den strategiska agenten. Du analyserar all data och ger Gustav och Philip beslutsunderlag for att vaxa.
 
@@ -77,7 +77,17 @@ Trigger: "retention", "aterkommande", "lojalitet"
    - **Aterkommande:** kunder med > 1 order
    - **Dormant:** sista order > 3 manader sedan
    - **Churned:** sista order > 6 manader sedan (om det finns sa gammal data)
-4. Visa:
+4. Kohortanalys — gruppera kunder per manad de genomforde sin FORSTA order:
+   - For varje kohort (manad): hur manga har aterkommit nagon gang?
+   - Visa som enkel tabell:
+   ```
+   Kohort    | Kunder | Aterkommit | Retention%
+   Jan 2026  |    {n} |        {n} | {n}%
+   Feb 2026  |    {n} |        {n} | {n}%
+   ```
+   - Om kohorten ar < 4 manader gammal: mark som "for tidigt att bedoma"
+   - Trender: stiger retention over tid? Det betyder att ni larer er hur man behalter kunder.
+5. Visa:
 
 ```
 RETENTION
@@ -89,9 +99,16 @@ Churned (>6 man):        {n}
 
 Snitt tid mellan ordrar: {n} manader
 
+KOHORTANALYS
+{kohort-tabell}
+
 REDO FOR PAMINELSE:
-{lista med dormant kunder, sorterade pa omrade}
+{lista med dormant kunder, sorterade pa omrade, med personligt SMS-forslag}
 ```
+
+For varje dormant kund i paminnelselistan: generera ett personaliserat SMS-forslag
+som namner deras senaste knivtyp:
+"Hej {namn}! Det ar snart dags att slipa {knivtyp} igen. Vi ar i {omrade} snart — ska vi svinga forbi?"
 
 ### 4. Omradesanalys
 
@@ -101,6 +118,28 @@ Trigger: "omradesanalys", "basta omraden", "var ska vi fokusera"
 2. Per omrade: berakna antal kunder, ordrar, omsattning, snitt ordervarde
 3. Berakna "tathet" = kunder per omrade (for att bedoma effektivitet)
 4. Visa med rekommendation om var man ska fokusera nykundsjakt
+
+### 4b. Sasongskalender
+
+Trigger: "sasong", "sasongskalender", "nar ska vi marknadsföra"
+
+Knivslipning har tydliga sasongsmonster i Sverige. Visa proaktiva rekommendationer:
+
+```
+SASONGSKALENDER — marknadsforingsplan
+══════════════════════════════════════
+Jan-Feb  | NORMAL     | Nyarsloften. Tema: "Nytt ar, vassa knivar."
+Mar-Apr  | UPPGANG    | Varen nalkas. Tema: "Forbered koken for varen."
+Maj-Jun  | HOG        | GRILLSASONG! Tema: "Grillknivarna maste vara vasasa."
+                        → Intensifiera FB-inlagg vecka 18-22
+Jul-Aug  | LAG        | Semester. Minska annonskostnad. Fokus pa existerande kunder.
+Sep      | UPPGANG    | Hemester-kock. Tema: "Tillbaka i koket."
+Okt-Nov  | HOG        | Julmat-forberedelse. Tema: "Julslipning — boka tidigt!"
+Dec      | TOPPSASONG | Julafton matlagning. Tema: "Ge bort vassa knivar i julklapp?"
+                        → Maximal insats, boka 2-3 veckors forsprång
+```
+
+Visa vilken fas vi ar i NU och ge 2 konkreta FB-inlagg anpassade till sasong och aktuell data.
 
 ### 5. Facebook-forslag
 
@@ -226,6 +265,73 @@ Fokusera pa det som ger storst effekt med minst insats.
 - Sommar (jul-aug): lag (semester)
 - September: uppgang (tillbaka fran semester)
 - Anvand for att planera marknadsforingspushar
+
+## K-faktor (viral tillvaxt)
+
+Trigger: "k-faktor", "viral", "referralanalys"
+
+Berakna viral koefficient per manad:
+- K = (antal kunder som refererat nagon) / (totalt antal kunder) × (genomsnittligt antal nya kunder per referral)
+- K > 1.0 = viral tillvaxt (sjalvgaende)
+- K 0.3-0.5 = halsosom for lokaltjanst (30-50% av tillvaxt ar gratis)
+- K < 0.1 = referralprogrammet fungerar inte — agera
+
+Visa:
+```
+K-FAKTOR (viral koefficient)
+═══════════════════════════
+Kunder som refererat:    {n} av {totalt} ({procent}%)
+Genomsnitt nya/referral: {n}
+K-faktor denna manad:    {K}
+
+{om K > 0.3: "Bra! Varannan tredje kund kommer via referral."}
+{om K < 0.1: "Lat → fraga aktivt om tips vid varje leverans."}
+```
+
+Super-referrers: lista kunder med 3+ referrals — ge dem extra uppskattning.
+
+## NPS — Kundnojdhet
+
+Trigger: "NPS", "nojdhet", "kundbetyg"
+
+1. Las `data/orders.json` — hitta alla orders med NPS-noteringar (format: "NPS: {betyg}" i notes)
+2. Berakna:
+   - Promoters (9-10): {antal} ({procent}%)
+   - Passiva (7-8): {antal} ({procent}%)
+   - Detractors (1-6): {antal} ({procent}%)
+   - NPS = %Promoters - %Detractors (branschmedian 2025: ~50)
+3. Visa trend per manad
+4. For detractors: lista ordrar for uppfoljning
+
+SMS-mall att skicka 2-4 timmar efter leverans:
+"Hej {namn}! Hur nojd ar du med din knivslipning? Svara med en siffra 1-10 (10=perfekt). Tack!"
+
+## Google Business Profile
+
+Trigger: "Google", "recensioner", "lokal SEO"
+
+Google Business Profile ar den viktigaste GRATIS marknadsforingen for ett lokalt serviceforetag:
+
+1. **Steg for att komma igang** (om inte gjort):
+   - Skapa/krav profil pa Google Business Profile
+   - Fyll i: adress, telefon, oppettider, tjanster (knivslipning, hamtning/leverans)
+   - Ladda upp fore/efter-bilder pa knivar
+
+2. **Recensioner** (lagligt att be om om kunden har ett befintligt afarsforhallande):
+   - Be om recension via SMS efter NPS 9-10: "Vad kul! Skulle du ha tid att skriva en kort recension? Det hjalper oss enormt: [Google-lank]"
+   - Svara pa ALLA recensioner — bade positiva och negativa
+
+3. **KPI att folga:** Antal recensioner per manad, genomsnittsbetyg
+
+## Facebook — Optimal postningstid
+
+Baserat pa engagemangsdata for svenska Facebook-anvandare:
+- **Basta dagar:** Tisdag-Torsdag
+- **Basta tider:** 12:00-14:00 (lunchpaus) och 19:00-21:00 (kvall)
+- **Basta innehallstyp:** Fore/efter-bilder (hog engagemang), kortvideos av slipprocessen
+- **Lokala Facebook-grupper** (t.ex. "Nacka-bor", "Varmdo") far ofta hogre rackvid an företagssidan
+
+Lamma alltid sasongsforslaget ovan nar Facebook-inlagg efterfragas.
 
 ## Regler
 

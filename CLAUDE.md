@@ -1,21 +1,31 @@
-# Knivslip AB — Projektkontext
+# Altravo AB (Knivkillarna) — Projektkontext
 
 ## Företaget
-**Knivslip AB** — Mobil knivslipningstjänst i Sverige.
+**Altravo AB** — Mobil knivslipningstjänst i Sverige som drivs under varumärket **Knivkillarna**.
 Vi hämtar knivar från kunden och lämnar tillbaka dem **inom 2 dagar**. Konkurrenter (t.ex. Knivbrev) skickar via post och tar 10+ dagar.
 
-- **Grundare:** Gustav Granberg (18, gymnasieelev) & Philip Zetterlund (20, säljjobb med flexibla tider)
+- **Juridiskt namn:** Altravo AB
+- **Varumärke / brand:** Knivkillarna (allt utåt mot kund — logo, hemsida, marknadsföring)
+- **Org.nr:** 559548-0384
+- **Bolagsadress:** c/o Philip Zetterlund, Sjöfärarvägen 18, 132 46 Saltsjö-Boo (registrerad bolagsadress)
+- **Verksamhetsbas:** Klostervägen 6, Nacka (Gustavs adress)
+- **Grundare:** Gustav Granberg (18, gymnasieelev) & Philip Zetterlund (20, VD i Altravo AB, säljjobb med flexibla tider)
 - **Utrustning:** 2 st TORMEK T-4 (från Lindesberg)
 - **Philip är från Lindesberg** — hemmaplan
 - **Transport:** Föräldrarnas Peugeot 307 (tillfälligt — skåpbil planeras)
 - **Vision:** Heltidsjobb → expandera från Nacka/Värmdö till fler områden/städer med egna lokaler
 - **Gustav kan lämna skolan** om verksamheten kräver det
-- **Bolagsform:** Svenskt aktiebolag (under registrering)
-- **Org.nr:** _FYLL I NÄR REGISTRERAT_
+- **Bolagsform:** Svenskt aktiebolag (registrerat)
 - **Momsreg.nr:** _FYLL I_
 - **F-skatt:** Ja (ansökt)
 - **Bankgiro:** _FYLL I_
 - **Swish Företag:** _FYLL I_
+
+## Namnregler — VIKTIGT
+
+- **Juridiska texter** (fakturor, GDPR, integritetspolicy, avtal, footer): "**Altravo AB**" med org.nr 559548-0384
+- **Marknadsföring/kund-fronten** (logo, hero, Facebook, hemsida, mejl): "**Knivkillarna**" som brand
+- **Kombinerad form** (footer, första referensen): "Knivkillarna drivs av Altravo AB"
 
 ## Kapacitet & kostnader
 

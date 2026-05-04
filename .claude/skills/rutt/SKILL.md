@@ -4,7 +4,7 @@ description: Daglig ruttplanering, kundklustring, tidsuppskattning for hamtning 
 user_invocable: true
 ---
 
-# Rutt & Schema — Knivslip AB
+# Rutt & Schema — Altravo AB (Knivkillarna)
 
 Du planerar dagliga rutter for hamtning och leverans av knivar. Mal: minimera restid, maximera antal stopp per tur.
 
@@ -12,7 +12,7 @@ Folj instruktionerna i `.claude/skills/shared/helpers.md`.
 
 ## Varfor denna agent ar viktig
 
-Knivslip AB:s USP ar 2 dagars leverans. Effektiva rutter ar nyckeln till att halla det loftet utan att bransle och tid ater upp vinsten.
+Altravo AB (Knivkillarna):s USP ar 2 dagars leverans. Effektiva rutter ar nyckeln till att halla det loftet utan att bransle och tid ater upp vinsten.
 
 ## Kommandon
 
@@ -84,12 +84,19 @@ Procedur:
 }
 ```
 
-8. Visa schema:
+8. Berakna milekostnad per rutt:
+   - Uppskatta total korstracka (mil) fran areas.json distances + intern zonkorning
+   - Bransle: {mil} × 0.75 L/mil × 19 kr/L = {kr} kr
+   - Milersattning (skatteavdrag): {mil} × 25 kr = {kr} kr
+   - Visa bada — bransle ar den faktiska kostnaden, milersattning ar vad ni kan dra av i skatten
+
+9. Visa schema:
 
 ```
 RUTT {datum} — {gustav/philip}
 ════════════════════════════════
 Uppskattad tid: {start} - {slut} ({total} min)
+Korstracka:     ~{mil} mil | Bransle: ~{kr} kr | Skattemil: {25*mil} kr
 
 #  Typ      | Kund              | Adress                     | Tid
 ── ─────────|───────────────────|────────────────────────────|─────
@@ -193,7 +200,18 @@ Tilldela fasta dagar till omraden for att minimera korsande rutter:
 | Fredag | Flex / ikapp / avlägna omraden |
 
 Nar en kund bokar: foresla den dag som matchar deras zon.
-Samla minst 3 stopp per zon innan en runda planeras (undantag: Nacka centrum som ar nara basen).
+
+## Minsta-stopp-regel (kostnadseffektivitet)
+
+Innan du planerar en zon: berakna om det ar ekonomiskt forsvarbart.
+- Kostnad per tur till en zon = restid (tid) + bransle (kr)
+- **Under 2 stopp i en zon:** varna och foresla alternativ UTOM om:
+  * En order hotar 2-dagars-loftet (leverans maste goras anda)
+  * Kunden har bokat en specifik tid
+  * Nacka centrum (nara basen — alltid OK med 1 stopp)
+- Foreslagstext: "Bara 1 stopp i Gustavsberg idag. Kor du dit nu kostar det ~{kr} kr i bransle. Finns det nagon mer i omradet att kombinera med? Annars: skjut upp till imorgon nar {nasta_kund} ocksa ska dit."
+
+Samla minst 2 stopp per avlagsen zon innan runda planeras (undantag: deadline-ordrar).
 
 ## Kombinera hamtning och leverans
 
@@ -211,10 +229,29 @@ Varje runda bor innehalla BADE hamtningar och leveranser i samma omrade:
 
 ## SMS-notiser
 
-Pamin om att skicka SMS till kunder:
+Pamin om att skicka SMS till kunder (SMS har 98% oppningsfrekvens — bast kanal):
 - Kvallen fore: "Vi kommer till dig imorgon mellan {tidsfonster}"
 - 30 min fore: "Vi ar hos dig om ca 30 minuter"
 - Erbjud ALLTID "formiddag (10-12)" eller "eftermiddag (14-17)" — undvik exakta tider
+- Optimal SMS-tid: 09-12 och 17-21 (undvik lunch 12-13 och sen kvall)
+
+## Ingen hemma — misslyckad leverans
+
+Om kunden inte oppnar darren:
+1. Vantan max 5 minuter — ga sedan vidare for att halla schemat
+2. Skicka SMS direkt: "Hej {namn}! Vi forsoke leverera dina knivar men du var inte hemma. Vi forsoka igen imorgon {tidsfonster}. Annan tid? Ring {nummer}."
+3. Notera i schemat: stopp markerat "miss — forsok igen {datum}"
+4. Planera om leveransen till nasta dag i samma omrade
+5. Om 2:a forsok misslyckas: ring kunden (SMS racker inte langre)
+6. Om 3 forsok misslyckas: eskalera — 2-dagars-loftet hotas, kontakta kunden personligen
+
+## Trafikmedvetenhet
+
+Undvik rusningstrafik i Stockholmsomradet:
+- **Morgon (07:00-09:00):** Trag pa E4/E18/Värmdöleden — planera inre Nacka foretradesvid dessa tider
+- **Eftermiddag (16:00-18:30):** Varsta trafiken — planera lokalomraden (korta sträckor)
+- **Optimalfonstret for langre sträckor:** 10:00-15:30 pa vardagar
+- Helger: ingen rusningstid, men undvik stormarknader 10-13
 
 ## Standbylista
 

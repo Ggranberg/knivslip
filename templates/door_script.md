@@ -1,4 +1,4 @@
-# Dorrknackningsmanus — Knivslip AB
+# Dorrknackningsmanus — Altravo AB (Knivkillarna)
 
 ## Oppning (forsta 10 sekunderna ar avgirande)
 

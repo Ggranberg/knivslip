@@ -1,4 +1,4 @@
-# Facebook-inlagg — Mallar for Knivslip AB
+# Facebook-inlagg — Mallar for Altravo AB (Knivkillarna)
 
 ## 1. Lansering / Introduktion
 

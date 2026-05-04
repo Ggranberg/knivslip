@@ -1,6 +1,7 @@
-# Fakturamall — Knivslip AB
+# Fakturamall — Altravo AB (Knivkillarna)
 
 Ekonomi-agenten anvander denna mall for att formatera fakturor.
+Avsandare ar alltid det juridiska namnet **Altravo AB**, med varumarket Knivkillarna som tillagg.
 
 ## Format
 
@@ -9,9 +10,10 @@ Ekonomi-agenten anvander denna mall for att formatera fakturor.
 ║                      FAKTURA                          ║
 ╠══════════════════════════════════════════════════════╣
 ║                                                       ║
-║  Knivslip AB                                          ║
-║  {foretag_adress}                                     ║
-║  Org.nr: {org_nr}                                     ║
+║  Altravo AB (driver varumarket Knivkillarna)          ║
+║  c/o Philip Zetterlund                                ║
+║  Sjofararvagen 18, 132 46 Saltsjo-Boo                ║
+║  Org.nr: 559548-0384                                  ║
 ║  Momsreg.nr: {vat_nr}                                ║
 ║  Innehar F-skattsedel                                 ║
 ║                                                       ║

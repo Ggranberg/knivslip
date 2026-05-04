@@ -4,7 +4,7 @@ description: Fakturor, bokforing, momsredovisning, resultatrapport — svensk st
 user_invocable: true
 ---
 
-# Ekonomi — Knivslip AB
+# Ekonomi — Altravo AB (Knivkillarna)
 
 Du hanterar all ekonomi: fakturor, bokforing, moms och rapporter. Allt ska folja svensk lag for aktiebolag.
 
@@ -78,10 +78,11 @@ Procedur:
   "reminder_sent": false,
   "reminder_date": null,
   "seller": {
-    "name": "Knivslip AB",
-    "org_nr": "XXXXXX-XXXX",
+    "name": "Altravo AB",
+    "brand": "Knivkillarna",
+    "org_nr": "559548-0384",
     "vat_nr": "SE XXXXXXXXXXXX",
-    "address": "FYLL I ADRESS",
+    "address": "c/o Philip Zetterlund, Sjofararvagen 18, 132 46 Saltsjo-Boo",
     "fskatt": true,
     "bankgiro": "XXX-XXXX",
     "swish": "123XXXXXXX"
@@ -100,7 +101,7 @@ Procedur:
 ╔══════════════════════════════════════════════╗
 ║                  FAKTURA                      ║
 ╠══════════════════════════════════════════════╣
-║ Knivslip AB                                   ║
+║ Altravo AB (driver varumarket Knivkillarna)                 ║
 ║ [adress]                                      ║
 ║ Org.nr: XXXXXX-XXXX                          ║
 ║ Innehar F-skattsedel                          ║
@@ -153,8 +154,8 @@ Samla:
 - Datum
 - Beskrivning (t.ex. "Bensin OKQ8")
 - Belopp inkl moms
-- Kategori: bransle, material, forpackning, telefon, forsakring, marknadsforing, kontorsmaterial, ovrigt
-- Momsavdrag? (ja/nej — 25% for de flesta)
+- Kategori: bransle, material, forpackning, telefon, forsakring, marknadsforing, kontorsmaterial, milersattning, ovrigt
+- Momsavdrag? (ja/nej — 25% for de flesta; milersattning har ingen moms)
 - Kvittoreferens (valfritt)
 
 Procedur:
@@ -163,6 +164,22 @@ Procedur:
 3. Berakna: belopp exkl moms = belopp inkl moms / 1.25 (om momsavdrag)
 4. Skapa transaktionsobjekt med type "expense"
 5. Lagg till i `transactions.json`
+
+**For milersattning (kategori: milersattning):**
+- Skatteverkets sats: 25 kr/mil for privatbil i tjansten (2025)
+- Berakna: antal mil × 25 kr = avdragsgill kostnad (ingen moms)
+- Pamin: "Spara korjournal med datum, start, slut, antal mil och syfte — Skatteverket kraver detta vid kontroll"
+- Exempel: "Rutt Nacka-Gustavsberg 3 mil = 75 kr milersattning"
+
+### 3b. Registrera milersattning
+
+Trigger: "milersattning", "korkostnad", "bil"
+
+Snabbregistrering av milersattning fran dagsrutten:
+1. Fraga: datum, fran, till, antal mil (tur och retur)
+2. Berakna: antal mil × 25 kr
+3. Registrera som expense med kategori "milersattning"
+4. Papar: "Inga kvitton kravs for milersattning, men korjournalen maste finnas"
 
 ### 4. Momsredovisning
 
@@ -265,12 +282,14 @@ Trigger: "export", "revisor", "bokforing export"
 ## Momsreserv
 
 Nar en faktura skapas eller betalning registreras:
-- Pamin: "Satt undan 25% av intakten for moms. Just nu bor ni ha {summa} kr reserverat."
-- Berakna total momsreserv = all utgaende moms - all ingaende moms for innevarande kvartal
+- Momsreserv = utgaende moms - ingaende moms for innevarande kvartal
+- Formel: om kunden betalar 500 kr inkl moms → 100 kr ar moms (20% av brutto = 25% av netto)
+- Pamin: "Satt undan {momsbelopp} kr for moms. Totalt bor ni ha {total_reserv} kr reserverat for Q{kvartal}."
+- Avsatt kvartalets momsreserv pa ett separat konto — roer den INTE fore deklarationen
 
-## Kassaflodesoverblick
+## Kassaflodesprognos (Runway)
 
-Trigger: "kassaflode", "pengar", "hur mycket har vi"
+Trigger: "kassaflode", "pengar", "hur mycket har vi", "runway"
 
 Visa:
 ```
@@ -283,17 +302,34 @@ Momsreserv (satt undan): -{summa} kr
 Disponibelt:              {summa} kr
 
 VANTER PA BETALNING:     {summa} kr ({antal} fakturor)
+
+RUNWAY
+Manadlig nettokostnad:   {summa} kr
+Disponibelt kapital:     {summa} kr
+Uppskattad runway:       {manad} manader
 ```
+
+Berakna runway = disponibelt kapital / manadlig nettokostnad (kostnader minus intakter).
+Om runway < 3 manader: ROD varning. Om < 6 manader: GUL varning.
 
 ## Deadlines och paminnelser
 
-Pamin automatiskt nar relevant:
-- **Momsdeklaration:** 12:e i feb/maj/aug/nov (e-deklaration: 17:e)
-- **Arbetsgivardeklaration:** 12:e varje manad (om lon betalas)
-- **Arsredovisning:** Senast 31 juli (for kalenderarsforetag)
-- **Inkomstdeklaration 2:** 1 juli
+Pamin automatiskt nar relevant. Berakna alltid exakt antal dagar kvar fran today:
 
-Nar datum narmar sig: varna i output.
+| Deadline | Datum | Dagar kvar | Status |
+|----------|-------|------------|--------|
+| Moms Q1 (jan-mar) | 12 maj (17 maj e-dekl.) | {berakna} | {ROD <7d, GUL <30d} |
+| Moms Q2 (apr-jun) | 12 aug (17 aug e-dekl.) | {berakna} | {ROD <7d, GUL <30d} |
+| Moms Q3 (jul-sep) | 12 nov (17 nov e-dekl.) | {berakna} | {ROD <7d, GUL <30d} |
+| Moms Q4 (okt-dec) | 12 feb nasta ar | {berakna} | {ROD <7d, GUL <30d} |
+| Arsredovisning | 31 juli | {berakna} | {ROD <30d} |
+| Inkomstdeklaration 2 | 1 juli | {berakna} | {ROD <30d} |
+
+Visa denna tabell automatiskt i kassaflodes-oversikten och nar momsrapport kors.
+
+- **Arbetsgivardeklaration:** 12:e varje manad (om lon betalas)
+
+Nar datum narmar sig: varna i output med exakt antal dagar.
 
 ## Svenska fakturakrav (lagstadgade)
 
@@ -328,6 +364,82 @@ Anvand dessa konton vid bokforing:
 - 1930: Foretagskonto bank
 - 1510: Kundfordringar
 
+## Bidrag per order (contribution margin)
+
+Nar resultatrapport kors, berakna aven bidrag per order:
+- Intakt per order (exkl moms): snitt ordervarde exkl moms
+- Rorliga kostnader per order: milersattning (uppskatta andel per order) + forpackningsmaterial
+- Bidrag = intakt - rorliga kostnader
+- Bidragsmarginal = bidrag / intakt × 100%
+- Mal: >70% bidragsmarginal (tjansteforetag med lag materialandel bor ligga hogt)
+
+## Arbetsgivaravgifter — viktig ungdomsrabatt
+
+Om ni anstaller Gustav (18 ar) eller annan person under 26 ar:
+- Standard arbetsgivaravgift: 31,42% pa lon
+- For anstallda under 26 ar: bara 19,73% (ungdomsrabatt)
+- Skillnad: ~12 procentenheter — sparar ca 1 200 kr pa en 10 000 kr-lon
+- Galler fram till den manad den anstallde fyller 26 ar
+- Paverkar INTE den anstalldes lon eller formaner
+
+## NYA 3:12-reglerna fran 2026 (KRITISKT — andrat helt)
+
+**Forenklingsregeln ar AVSKAFFAD fran 1 januari 2026.** Det gemensamma "grundbeloppet" gallar nu for alla famansforetag.
+
+- **Grundbelopp 2026:** 322 400 kr (4 inkomstbasbelopp) per fataget
+- Galler ALLA delagare gemensamt — inte langre per delagare
+- Lonekravet for huvudregeln ar i princip BORTTAGET, ersatt av schablonavdrag
+- Du kan fortfarande lagga till lonebaserat utrymme + ranta pa omkostnadsbelopp utover grundbeloppet
+- Utdelning upp till granbeloppet beskattas med 20% (kapitalskatt)
+- Utdelning over: beskattas som lon (upp till brytpunkt) → 32-57% skatt
+
+**For Gustav och Philip (50/50 agare):**
+- Grundbelopp DELAS — varje far cirka 161 200 kr/ar i utdelningsutrymme till lag skatt
+- Forst nar bolaget gar med riktig vinst (nar overskottet >300 000 kr/ar) blir detta relevant
+- Innan dess: ta INGEN lon eller utdelning — terminvera vinsten in i bolaget for att bygga upp omkostnadsbelopp
+- **Kommando:** "3:12" — visa beraknat utrymme baserat pa nuvarande resultat
+
+## Representation 2026 — viktig momsandring
+
+**Fran 1 april 2026 sanks momsen pa mat fran 12% till 6%.** Detta paverkar momsavdrag for representation.
+
+- **Enklare fortaring** (kaffe, lask, kex, frukt): max 60 kr/person — momsavdrag tilllatet
+- **Maltider** (lunch, middag): EJ avdragsgill kostnad sedan 2017
+- **Momsavdrag for mat:** max pa underlag 300 kr/person/tillfalle
+  - Med 6% moms (fran 1 april 2026): max 18 kr/person i momsavdrag
+  - Schablonavdrag om kostnaden overstiger 300 kr: 33 kr/person/tillfalle (sankt fran 36 kr)
+- Alkohol: hogre moms — separat berakning kravs
+- Spara ALLTID kvitto + anteckning om syfte och deltagare (Skatteverket kraver detta)
+
+## Friskvardsbidrag 2026 (om ni anstaller)
+
+Om bolaget anstaller nagon (Gustav, Philip eller annan):
+- **Skattefritt belopp:** 5 000 kr/anstalld/ar
+- Maste erbjudas ALLA anstallda pa lika villkor
+- Aktiviteter utan motion (t.ex. massage): max 1 000 kr/tillfalle
+- Galler INTE for delagare som tar utdelning utan lon — kraver lon
+- Bra incitament tidigt: lag kostnad, hog upskattning, helt skattefritt
+
+## Periodisering vid arsskifte (K2-regler)
+
+Altravo AB (Knivkillarna) foljer formodligen K2 (forenklat) eftersom omsattning < 3 MSEK och balansomslutning < 1.5 MSEK.
+
+Vid arsbokslut (31 dec):
+1. **Kundfordringar:** Bokfor som intakt om fakturan ar utstalld 31 dec, aven om betalning kommer i januari
+2. **Leverantorsskulder:** Bokfor som kostnad om fakturan ar mottagen 31 dec, aven om vi betalar i januari
+3. **Momsperiodisering:** Sista kvartalets moms (Q4) deklareras i februari nasta ar — bokfor som skuld
+4. **Slipstenar / utrustning:** Om kop > 25 000 kr → aktiveras som anlaggningstillgang (avskrivning), annars direkt kostnad
+5. **Periodisera INTE smabopa under 5 000 kr** (forenkling i K2)
+
+## Skatteverket-triggers — undvik kontroll
+
+Sma AB med dessa monster fastnar oftare i kontroll:
+- **Hog kontant-andel:** Skatteverket misstanker svartarbete. Kor SWISH eller bankoverforing — undvik kontant.
+- **Bil i bolaget utan korjournal:** Skatteverket kraver komplett korjournal vid kontroll. Spara start/slut/syfte for VARJE resa.
+- **Privata utgifter pa foretagskortet:** Aldrig handla privat med Knivslip-kort. Ar det otydligt? Notera "Eget uttag" och bokfor som lon.
+- **Stora kontant-uttag:** Eget uttag for delagare i AB beskattas som lon — ar inte tillaten utan lonebesked.
+- **Saknade kvitton:** Bokforingslagen kraver kvitto for ALLA transaktioner. Fota direkt med kameran.
+
 ## Regler
 
 - Fakturanummer ar SEKVENTIELLA och far ALDRIG ateranvandas
@@ -337,6 +449,7 @@ Anvand dessa konton vid bokforing:
 - Forfallodatum ar ALLTID 30 dagar fran fakturadatum om inte annat anges
 - Alla belopp avrundas till hela kronor
 - Bokfor lopande — ALDRIG spara till arsskiftet
+- Stam av moms MANATLIGEN (aven om ni deklarerar kvartalsvis) — fanger fel tidigt
 - Fotografera kvitton SAMMA DAG (termokvitton bleknar)
 - Separera privat och foretagsekonomi ALLTID
 - Fakturera SAMMA DAG som leverans — vanta aldrig

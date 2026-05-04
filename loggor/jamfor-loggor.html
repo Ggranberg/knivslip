@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Altravo AB (Knivkillarna) — logo-koncept</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #ffffff;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 40px 24px 80px;
+  }
+  header {
+    max-width: 1200px;
+    margin: 0 auto 32px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+    letter-spacing: -0.5px;
+  }
+  header p {
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+  .grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+  .card .logo {
+    width: 100%;
+    display: block;
+    background: #fff;
+  }
+  .card.dark .logo { background: #0d0d0d; }
+  .meta {
+    padding: 16px 20px 20px;
+    background: #f8fafc;
+    color: #0f172a;
+  }
+  .meta .num {
+    display: inline-block;
+    background: var(--accent);
+    color: #1e293b;
+    font-weight: 800;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .meta h2 {
+    margin: 2px 0 4px;
+    font-size: 18px;
+  }
+  .meta p {
+    margin: 0;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  footer {
+    max-width: 1200px;
+    margin: 40px auto 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  footer strong { color: var(--text); }
+  @media (max-width: 720px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Altravo AB (Knivkillarna) — logo-koncept</h1>
+    <p>Fyra olika riktningar. Välj favoriten, så bygger jag fullständiga varianter (ikon, horisontell, svartvit) av den.</p>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <img class="logo" src="koncept-1-modern.svg" alt="Koncept 1">
+      <div class="meta">
+        <span class="num">KONCEPT 1</span>
+        <h2>Modern & minimalistisk</h2>
+        <p>Rena linjer, en stålgrå kniv, svart typografi. Professionellt — funkar lika bra på faktura som på bilskylt.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <img class="logo" src="koncept-2-hantverk.svg" alt="Koncept 2">
+      <div class="meta">
+        <span class="num">KONCEPT 2</span>
+        <h2>Hantverksmässig & klassisk</h2>
+        <p>Cirkulär badge med korsade knivar. Signalerar kvalitet och tradition — folk tänker "det här är riktiga hantverkare".</p>
+      </div>
+    </div>
+
+    <div class="card dark">
+      <img class="logo" src="koncept-3-djarv.svg" alt="Koncept 3">
+      <div class="meta">
+        <span class="num">KONCEPT 3</span>
+        <h2>Djärv & tuff</h2>
+        <p>Svart botten, orange accent, massiv typ. Sticker ut i Facebook-flödet och på bilen — svår att missa.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <img class="logo" src="koncept-4-vanlig.svg" alt="Koncept 4">
+      <div class="meta">
+        <span class="num">KONCEPT 4</span>
+        <h2>Lekfull & vänlig</h2>
+        <p>Rundade former, blå + gul, tydligt 2-dagars-löfte direkt i loggan. Känns approachable — perfekt för privatpersoner via Facebook.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p><strong>Nästa steg:</strong> När ni valt ett koncept fixar jag: huvudlogga, enbart ikon (till Facebook-profil/favicon), horisontell version (till brevhuvud), svartvit version (till fakturor), samt PNG-export i flera storlekar. Säg bara vilken nummer ni gillar.</p>
+  </footer>
+</body>
+</html>
