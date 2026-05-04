@@ -149,6 +149,12 @@ nav {
   isolation: isolate;
 }
 
+@media (max-width: 768px) {
+  .hero {
+    background-image: url('videos/hero-poster-mobile.jpg');
+  }
+}
+
 .hero-video {
   position: absolute;
   inset: 0;
