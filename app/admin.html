@@ -2485,7 +2485,7 @@
     }
 
     // === ROUTE MAP ===
-    const HOME_COORDS = [59.3107, 18.1635]; // Klostervägen 6, Nacka
+    const HOME_COORDS = [59.3021436, 18.2572736]; // Klostervägen 6, 132 46 Saltsjö-Boo
 
     // Områdescentrum — fallback om exakt adress saknas
     const AREA_COORDS = {
@@ -2502,6 +2502,10 @@
     const ADDRESS_COORDS = {
       'klostervagen 6': HOME_COORDS,
       'klostervägen 6': HOME_COORDS,
+      'klostervagen 6, 132 46': HOME_COORDS,
+      'klostervägen 6, 132 46': HOME_COORDS,
+      'klostervagen 6 saltsjo-boo': HOME_COORDS,
+      'klostervägen 6 saltsjö-boo': HOME_COORDS,
       'platslagarvagen 12': [59.3055, 18.1235],
       'magnevagen 7': [59.308, 18.135],
       'charlottelundsvagen 3': [59.312, 18.158],
@@ -2575,7 +2579,7 @@
     }
 
     function buildGoogleMapsURL(stops, homeBase) {
-      const base = homeBase || 'Klostervägen 6, Nacka';
+      const base = homeBase || 'Klostervägen 6, 132 46 Saltsjö-Boo';
       const waypoints = stops.map(s => encodeURIComponent(s.address)).join('/');
       return `https://www.google.com/maps/dir/${encodeURIComponent(base)}/${waypoints}/${encodeURIComponent(base)}`;
     }
@@ -2671,7 +2675,7 @@
       let gmapsHTML = schedules.map(s => {
         const filtered = filterStops(s.stops);
         if (!filtered.length) return '';
-        const url = buildGoogleMapsURL(filtered, 'Klostervagen 6, Nacka');
+        const url = buildGoogleMapsURL(filtered, 'Klostervägen 6, 132 46 Saltsjö-Boo');
         return `<a href="${url}" target="_blank" class="map-btn google">&#128205; ${s.assigned_to} i Google Maps</a>`;
       }).join('');
 

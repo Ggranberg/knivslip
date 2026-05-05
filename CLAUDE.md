@@ -8,7 +8,7 @@ Vi hämtar knivar från kunden och lämnar tillbaka dem **inom 2 dagar**. Konkur
 - **Varumärke / brand:** Knivkillarna (allt utåt mot kund — logo, hemsida, marknadsföring)
 - **Org.nr:** 559548-0384
 - **Bolagsadress:** c/o Philip Zetterlund, Sjöfärarvägen 18, 132 46 Saltsjö-Boo (registrerad bolagsadress)
-- **Verksamhetsbas:** Klostervägen 6, Nacka (Gustavs adress)
+- **Verksamhetsbas:** Klostervägen 6, 132 46 Saltsjö-Boo (Gustavs adress, där slipning ofta sker)
 - **Grundare:** Gustav Granberg (18, gymnasieelev) & Philip Zetterlund (20, VD i Altravo AB, säljjobb med flexibla tider)
 - **Utrustning:** 2 st TORMEK T-4 (från Lindesberg)
 - **Philip är från Lindesberg** — hemmaplan
