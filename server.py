@@ -180,6 +180,47 @@ def generate_id(prefix, existing_ids):
     num = len(today_ids) + 1
     return f'{prefix}-{today_str}-{num:03d}'
 
+def reconcile_schedule_with_orders(orders):
+    """
+    Ta bort stopp i schedule.json där orderns pickup/delivery-datum
+    inte längre matchar schemastoppets datum. Detta gör att om man
+    ändrar pickup_date på en order, så plockas det gamla stoppet bort
+    och optimize_schedule lägger till det igen på rätt datum.
+    """
+    existing_schedule = load_json('schedule.json').get('schedule', [])
+    orders_by_id = {o['id']: o for o in orders}
+    changed = False
+
+    for sched in existing_schedule:
+        sched_date = sched.get('date')
+        kept = []
+        for stop in sched.get('stops', []):
+            order = orders_by_id.get(stop.get('order_id'))
+            if not order:
+                changed = True
+                continue
+            stop_type = stop.get('type')
+            expected = None
+            if stop_type == 'pickup':
+                expected = order.get('pickup', {}).get('date')
+            elif stop_type == 'delivery':
+                expected = order.get('delivery', {}).get('date')
+            # Om vi har ett förväntat datum och det skiljer sig — släng stoppet
+            if expected and expected != sched_date:
+                changed = True
+                continue
+            kept.append(stop)
+        sched['stops'] = kept
+
+    # Ta bort tomma schedule-entries (inga stopp kvar)
+    cleaned = [s for s in existing_schedule if s.get('stops')]
+    if len(cleaned) != len(existing_schedule):
+        changed = True
+
+    if changed:
+        save_json('schedule.json', {'schedule': cleaned})
+    return changed
+
 def optimize_schedule():
     """Re-optimize the full schedule based on current orders."""
     orders_data = load_json('orders.json')
@@ -188,6 +229,9 @@ def optimize_schedule():
 
     orders = orders_data.get('orders', [])
     customers = customers_data.get('customers', [])
+
+    # Steg 1: Synka bort föråldrade stopp (datum-ändringar)
+    reconcile_schedule_with_orders(orders)
 
     # Find deliveries (ready to go out)
     deliveries = [o for o in orders if o['status'] in ('quality_check', 'ready', 'out_for_delivery')]
@@ -737,6 +781,13 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
                 filepath = os.path.join(DATA_DIR, filename)
                 with open(filepath, 'w', encoding='utf-8') as f:
                     json.dump(data, f, indent=2, ensure_ascii=False)
+                # Auto-optimera schemat när orders eller customers ändras —
+                # så datum-ändringar reflekteras direkt i schedule.json
+                if filename in ('orders.json', 'customers.json'):
+                    try:
+                        optimize_schedule()
+                    except Exception as opt_err:
+                        print(f'[WARN] optimize_schedule efter save misslyckades: {opt_err}')
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
