@@ -251,7 +251,7 @@ def optimize_schedule():
     def get_customer(cid):
         return next((c for c in customers if c['id'] == cid), None)
 
-    # Build stops
+    # Build stops — varje stopp får sitt EGNA target_date från orderns pickup/delivery.date
     all_stops = []
     for o in deliveries:
         c = get_customer(o['customer_id'])
@@ -264,8 +264,9 @@ def optimize_schedule():
             'area_id': c.get('area_id') or detect_area(c.get('address',''), areas_data),
             'time_window': '', 'estimated_time': '', 'sequence': 0,
             'completed': False, 'notes': f"LEVERANS {o.get('estimated_knife_count','?')} knivar",
-            '_priority': 0,  # Lower = more urgent
+            '_priority': 0,
             '_pickup_date': pickup_date,
+            '_target_date': o.get('delivery',{}).get('date') or today,
             '_knives': o.get('estimated_knife_count', 0)
         })
 
@@ -282,6 +283,7 @@ def optimize_schedule():
             'completed': False, 'notes': f"HAMTNING {o.get('estimated_knife_count','?')} knivar",
             '_priority': 1,
             '_pickup_date': '',
+            '_target_date': o.get('pickup',{}).get('date') or tomorrow,
             '_knives': o.get('estimated_knife_count', 0)
         })
 
@@ -299,6 +301,7 @@ def optimize_schedule():
             'completed': False, 'notes': f"LEVERANS {o.get('actual_knife_count') or o.get('estimated_knife_count','?')} knivar (planerad)",
             '_priority': 0,
             '_pickup_date': o.get('pickup',{}).get('completed_at') or o.get('created_at',''),
+            '_target_date': o.get('delivery',{}).get('date') or today,
             '_knives': o.get('actual_knife_count') or o.get('estimated_knife_count', 0)
         })
 
@@ -351,34 +354,34 @@ def optimize_schedule():
         min_driver = min(drivers, key=lambda d: len(driver_stops.get(d, [])))
         driver_stops.setdefault(min_driver, []).extend(stops)
 
-    # Bygg nytt schema — bevara befintliga + lägg till nya
-    target_date = tomorrow if pickups else today
+    # Bygg nytt schema — varje stopp respekterar sitt egna _target_date.
     schedules = list(existing_schedule)  # börja med befintliga
 
+    # Gruppera per (target_date, driver) så stopp kan hamna på olika dagar
+    by_date_driver = {}
     for driver, stops in driver_stops.items():
+        for s in stops:
+            target = s.get('_target_date') or today
+            key = (target, driver)
+            by_date_driver.setdefault(key, []).append(s)
+
+    for (target_date, driver), stops in by_date_driver.items():
         if not stops:
             continue
-        # Clean internal fields and optimize order
-        clean_stops = []
-        for s in stops:
-            cs = {k: v for k, v in s.items() if not k.startswith('_')}
-            clean_stops.append(cs)
-
+        # Rensa interna fält och optimera ordning
+        clean_stops = [{k: v for k, v in s.items() if not k.startswith('_')} for s in stops]
         optimized = nearest_neighbor_sort(clean_stops, HOME_BASE)
         for i, s in enumerate(optimized):
             s['sequence'] = i + 1
 
-        total_time = len(optimized) * 20 + 15  # 20 min per stop + 15 min buffer
-
-        # Kolla om föraren redan har en rutt för detta datum
-        existing_route = next((s for s in schedules if s['date'] == target_date and s['assigned_to'] == driver), None)
+        existing_route = next((s for s in schedules if s.get('date') == target_date and s.get('assigned_to') == driver), None)
         if existing_route:
-            # Lägg till nya stopp i befintlig rutt
             existing_route['stops'].extend(optimized)
             for i, s in enumerate(existing_route['stops']):
                 s['sequence'] = i + 1
             existing_route['estimated_total_time_min'] = len(existing_route['stops']) * 20 + 15
         else:
+            total_time = len(optimized) * 20 + 15
             schedules.append({
                 'date': target_date,
                 'assigned_to': driver,
@@ -390,7 +393,7 @@ def optimize_schedule():
             })
 
     save_json('schedule.json', {'schedule': schedules})
-    print(f'[AUTO] Schema optimerat: {sum(len(s["stops"]) for s in schedules)} stopp, {len(schedules)} forare')
+    print(f'[AUTO] Schema optimerat: {sum(len(s["stops"]) for s in schedules)} stopp, {len(schedules)} schemalagda dagar')
 
 
 def handle_booking(data):
