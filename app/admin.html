@@ -2372,16 +2372,36 @@
       setFinancePeriod({ type: 'month', year: y, month: m });
     }
 
+    // Returnerar bokföringsdatum för en löneperiod:
+    // - Om perioden redan är slut → sista dagen i månaden (t.ex. 2026-04-30 för "2026-04")
+    // - Om perioden pågår → idag
+    // Detta gör att april-lön bokförs i april, även om den betalas i maj.
+    function transactionDateForPeriod(periodKey) {
+      if (!periodKey || periodKey === 'all') return today();
+      const parts = periodKey.split('-');
+      if (parts.length === 1) {
+        // Helår
+        const yearEnd = `${parts[0]}-12-31`;
+        return today() < yearEnd ? today() : yearEnd;
+      }
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]);
+      const lastDay = new Date(year, month, 0).getDate();
+      const periodEnd = `${parts[0]}-${parts[1]}-${String(lastDay).padStart(2,'0')}`;
+      return today() < periodEnd ? today() : periodEnd;
+    }
+
     async function markSalaryPaid(userId, userName, amount, periodKey) {
       const user = USERS.find(u => u.id === userId);
       if (!user) return;
       if (!confirm(`Markera ${userName}s lön (${amount.toLocaleString('sv')} kr för ${periodKey}) som betald?`)) return;
 
       const todayStr = today();
+      const txnDate = transactionDateForPeriod(periodKey);
       const adminName = (CURRENT_USER && CURRENT_USER.name) ? CURRENT_USER.name.split(' ')[0] : 'Admin';
       const payments = DATA.salary_payments || [];
 
-      // Skapa salary_payment-post
+      // Skapa salary_payment-post (paid_date = när det faktiskt betalades)
       const salId = 'SAL-' + todayStr.replace(/-/g,'') + '-' + (payments.length + 1).toString().padStart(3,'0');
       payments.push({
         id: salId, user_id: userId, user_name: userName,
@@ -2391,12 +2411,12 @@
       DATA.salary_payments = payments;
       await saveJSON('salary_payments.json', { payments });
 
-      // Skapa motsvarande expense-transaktion så det syns i kostnaderna
-      const txnId = 'TXN-' + todayStr.replace(/-/g,'') + '-' + (DATA.transactions.length + 1).toString().padStart(3,'0');
+      // Skapa expense-transaktion daterad i löneperioden
+      const txnId = 'TXN-' + txnDate.replace(/-/g,'') + '-' + (DATA.transactions.length + 1).toString().padStart(3,'0');
       DATA.transactions.push({
         id: txnId, type: 'expense', description: `Lön ${userName} (${periodKey})`,
         amount_incl_vat: amount, paid_by: 'företaget',
-        date: todayStr, salary_payment_id: salId,
+        date: txnDate, salary_payment_id: salId,
         created_by: adminName, created_at: now()
       });
       await saveJSON('transactions.json', { transactions: DATA.transactions });
@@ -2555,8 +2575,8 @@
     }
 
     function buildGoogleMapsURL(stops, homeBase) {
-      const base = homeBase || 'Klostervagen+6,+Nacka';
-      const waypoints = stops.map(s => encodeURIComponent(s.address.replace(/\s+/g, '+'))).join('/');
+      const base = homeBase || 'Klostervägen 6, Nacka';
+      const waypoints = stops.map(s => encodeURIComponent(s.address)).join('/');
       return `https://www.google.com/maps/dir/${encodeURIComponent(base)}/${waypoints}/${encodeURIComponent(base)}`;
     }
 
