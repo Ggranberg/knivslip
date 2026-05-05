@@ -146,6 +146,21 @@
     .kpi-card.green .kpi-value { color: var(--green); }
     .kpi-card.red .kpi-value { color: var(--red); }
 
+    .period-btn {
+      padding: 0.45rem 0.9rem;
+      background: var(--gray-100);
+      color: var(--dark);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .period-btn:hover { background: var(--gray-200); }
+    .period-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
     /* SECTIONS */
     .section { margin-bottom: 2rem; }
     .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
@@ -624,14 +639,15 @@
 
     // === DATA ===
     async function loadAllData() {
-      const [customers, orders, knives, invoices, transactions, schedule, pricing, areas, timelog] = await Promise.all([
+      const [customers, orders, knives, invoices, transactions, schedule, pricing, areas, timelog, salaryPayments] = await Promise.all([
         fetchJSON('customers.json'), fetchJSON('orders.json'), fetchJSON('knives.json'),
         fetchJSON('invoices.json'), fetchJSON('transactions.json'), fetchJSON('schedule.json'),
-        fetchJSON('pricing.json'), fetchJSON('areas.json'), fetchJSON('timelog.json')
+        fetchJSON('pricing.json'), fetchJSON('areas.json'), fetchJSON('timelog.json'),
+        fetchJSON('salary_payments.json').catch(() => ({ payments: [] }))
       ]);
       DATA = { customers: customers.customers, orders: orders.orders, knives: knives.knives,
         invoices: invoices.invoices, transactions: transactions.transactions, schedule: schedule.schedule,
-        pricing: pricing.pricing, areas: areas };
+        pricing: pricing.pricing, areas: areas, salary_payments: (salaryPayments && salaryPayments.payments) || [] };
       TIMELOG = timelog.entries;
       await loadPendingBookings();
       await loadReviews();
@@ -2061,26 +2077,100 @@
       });
     }
 
+    // === Period filter state ===
+    // FINANCE_PERIOD = { type: 'month'|'year'|'all', year?, month? }
+    let FINANCE_PERIOD = (function() {
+      const d = new Date();
+      return { type: 'month', year: d.getFullYear(), month: d.getMonth() + 1 };
+    })();
+
+    function periodLabel(p) {
+      const months = ['januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
+      if (p.type === 'all') return 'Hela tiden';
+      if (p.type === 'year') return String(p.year);
+      if (p.type === 'month') return `${months[p.month-1]} ${p.year}`;
+      return '';
+    }
+
+    function periodKey(p) {
+      if (p.type === 'all') return 'all';
+      if (p.type === 'year') return String(p.year);
+      return `${p.year}-${String(p.month).padStart(2,'0')}`;
+    }
+
+    function dateInPeriod(dateStr, p) {
+      if (!dateStr) return false;
+      if (p.type === 'all') return true;
+      const d = String(dateStr).slice(0,10);
+      if (p.type === 'year') return d.startsWith(String(p.year));
+      // month
+      return d.startsWith(`${p.year}-${String(p.month).padStart(2,'0')}`);
+    }
+
+    function shiftPeriod(p, delta) {
+      if (p.type === 'all') return p;
+      if (p.type === 'year') return { type: 'year', year: p.year + delta };
+      // month
+      let m = p.month + delta;
+      let y = p.year;
+      while (m < 1) { m += 12; y -= 1; }
+      while (m > 12) { m -= 12; y += 1; }
+      return { type: 'month', year: y, month: m };
+    }
+
+    function setFinancePeriod(p) {
+      FINANCE_PERIOD = p;
+      renderView('finance');
+    }
+
     function renderFinance(main) {
-      const income = DATA.transactions.filter(t => t.type === 'income');
-      const expenses = DATA.transactions.filter(t => t.type === 'expense');
+      const P = FINANCE_PERIOD;
+      const income = DATA.transactions.filter(t => t.type === 'income' && dateInPeriod(t.date, P));
+      const expenses = DATA.transactions.filter(t => t.type === 'expense' && dateInPeriod(t.date, P));
       const totalInc = income.reduce((s, t) => s + (t.amount_incl_vat || 0), 0);
       const totalExp = expenses.reduce((s, t) => s + (t.amount_incl_vat || 0), 0);
       const totalVat = income.reduce((s, t) => s + (t.vat || 0), 0);
-      const profit = totalInc - totalExp;
 
-      // Beräkna lönekostnader från timelog
+      // Beräkna lönekostnader från timelog (filtrerat på period)
+      const periodLogs = TIMELOG.filter(e => dateInPeriod(e.date, P));
+      const salaryPayments = DATA.salary_payments || [];
       const payroll = USERS.filter(u => u.pay_type).map(u => {
-        const logs = TIMELOG.filter(e => e.user_id === u.id);
+        const logs = periodLogs.filter(e => e.user_id === u.id);
         let total = 0;
         if (u.pay_type === 'per_knife') total = logs.reduce((s, l) => s + (l.knives_sharpened || 0), 0) * (u.pay_rate || 0);
         else if (u.pay_type === 'per_km') total = logs.reduce((s, l) => s + (l.km_driven || 0), 0) * (u.pay_rate || 0);
         else if (u.pay_type === 'hourly') {
           logs.forEach(l => { if (l.clock_in && l.clock_out) { const [h1,m1]=l.clock_in.split(':').map(Number); const [h2,m2]=l.clock_out.split(':').map(Number); total += ((h2*60+m2)-(h1*60+m1))/60 * (u.pay_rate||0); }});
         }
-        return { name: u.name.split(' ')[0], role: u.role, total: Math.round(total), type: u.pay_type };
-      }).filter(p => p.total > 0);
+        // Är denna lön redan markerad betald för perioden?
+        const pKey = periodKey(P);
+        const paidEntry = salaryPayments.find(sp => sp.user_id === u.id && sp.period === pKey);
+        return { user_id: u.id, name: u.name.split(' ')[0], role: u.role, total: Math.round(total), type: u.pay_type, paid: !!paidEntry, paid_date: paidEntry?.paid_date, paid_by: paidEntry?.paid_by };
+      }).filter(p => p.total > 0 || p.paid);
       const totalPayroll = payroll.reduce((s, p) => s + p.total, 0);
+      const unpaidPayroll = payroll.filter(p => !p.paid).reduce((s, p) => s + p.total, 0);
+
+      // Periodväljare
+      const months = ['januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
+      const allYears = [...new Set([...DATA.transactions.map(t => (t.date||'').slice(0,4)), String(new Date().getFullYear())].filter(Boolean))].sort();
+      main.insertAdjacentHTML('beforeend', `
+        <div class="card" style="padding:1rem;margin-bottom:1.25rem;">
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+            <button onclick='setFinancePeriod(${JSON.stringify({type:"month",year:new Date().getFullYear(),month:new Date().getMonth()+1})})' class="period-btn ${P.type==='month' && P.year===new Date().getFullYear() && P.month===new Date().getMonth()+1?'active':''}">Denna månad</button>
+            <button onclick='setFinancePeriod(${JSON.stringify(shiftPeriod({type:"month",year:new Date().getFullYear(),month:new Date().getMonth()+1},-1))})' class="period-btn">Förra månaden</button>
+            <button onclick='setFinancePeriod(${JSON.stringify({type:"year",year:new Date().getFullYear()})})' class="period-btn ${P.type==='year' && P.year===new Date().getFullYear()?'active':''}">Detta år</button>
+            <button onclick='setFinancePeriod({type:"all"})' class="period-btn ${P.type==='all'?'active':''}">Hela tiden</button>
+            <span style="color:var(--gray-300);">|</span>
+            <select id="period-month" onchange="onPeriodMonthChange()" style="padding:0.4rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;">
+              ${months.map((m,i) => `<option value="${i+1}" ${P.type==='month'&&P.month===i+1?'selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`).join('')}
+            </select>
+            <select id="period-year" onchange="onPeriodMonthChange()" style="padding:0.4rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;">
+              ${allYears.map(y => `<option value="${y}" ${(P.year||0)==parseInt(y)?'selected':''}>${y}</option>`).join('')}
+            </select>
+            <span style="margin-left:auto;font-weight:700;color:var(--accent);">Visar: ${periodLabel(P)}</span>
+          </div>
+        </div>
+      `);
 
       // Completade ordrar utan transaktion (missade intäkter)
       const completedOrders = DATA.orders.filter(o => o.status === 'completed');
@@ -2092,8 +2182,8 @@
         <div class="kpi-grid" style="margin-bottom:1.5rem;">
           <div class="kpi-card green"><div class="kpi-label">Intäkter</div><div class="kpi-value">${totalInc.toLocaleString('sv')} kr</div><div class="kpi-sub">${income.length} ordrar</div></div>
           <div class="kpi-card ${totalExp ? 'red' : ''}"><div class="kpi-label">Kostnader</div><div class="kpi-value">${totalExp.toLocaleString('sv')} kr</div><div class="kpi-sub">${expenses.length} poster</div></div>
-          <div class="kpi-card"><div class="kpi-label">Löner</div><div class="kpi-value">${totalPayroll.toLocaleString('sv')} kr</div><div class="kpi-sub">${payroll.length} personer</div></div>
-          <div class="kpi-card accent"><div class="kpi-label">Resultat</div><div class="kpi-value">${(totalInc - totalExp - totalPayroll).toLocaleString('sv')} kr</div><div class="kpi-sub">intäkter - kostnader - löner</div></div>
+          <div class="kpi-card ${unpaidPayroll ? 'red' : ''}"><div class="kpi-label">Löner</div><div class="kpi-value">${totalPayroll.toLocaleString('sv')} kr</div><div class="kpi-sub">${unpaidPayroll ? unpaidPayroll.toLocaleString('sv') + ' kr obetald' : 'Allt betalt ✓'}</div></div>
+          <div class="kpi-card accent"><div class="kpi-label">Resultat</div><div class="kpi-value">${(totalInc - totalExp - unpaidPayroll).toLocaleString('sv')} kr</div><div class="kpi-sub">intäkter - kostnader - obet. löner</div></div>
         </div>
       `);
 
@@ -2142,20 +2232,29 @@
         document.getElementById('exp-custom').style.display = this.value === 'Övrigt' ? 'block' : 'none';
       });
 
-      // Löneöversikt
+      // Löneöversikt med "Markera betald"-knappar
       if (payroll.length) {
+        const pKey = periodKey(P);
+        const canMarkPaid = P.type === 'month'; // Bara månader kan betalas ut
         main.insertAdjacentHTML('beforeend', `
           <div class="section">
-            <h2 style="margin-bottom:1rem;">Löner</h2>
+            <h2 style="margin-bottom:1rem;">Löner — ${periodLabel(P)}</h2>
             <div class="card" style="padding:1rem;">
               ${payroll.map(p => `
-                <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--gray-100);">
-                  <span>${p.name} <span style="color:var(--gray-400);font-size:0.8rem;">(${p.role})</span></span>
-                  <strong>${p.total.toLocaleString('sv')} kr</strong>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--gray-100);gap:0.75rem;flex-wrap:wrap;">
+                  <div style="flex:1;min-width:180px;">
+                    <span>${p.name} <span style="color:var(--gray-400);font-size:0.8rem;">(${p.role})</span></span>
+                    ${p.paid ? `<div style="font-size:0.75rem;color:var(--green);margin-top:0.15rem;">✓ Betald ${p.paid_date} av ${p.paid_by}</div>` : ''}
+                  </div>
+                  <strong style="${p.paid ? 'color:var(--gray-400);text-decoration:line-through;' : ''}">${p.total.toLocaleString('sv')} kr</strong>
+                  ${canMarkPaid ? (p.paid
+                    ? `<button onclick="unmarkSalaryPaid('${p.user_id}','${pKey}')" style="padding:0.3rem 0.7rem;background:none;border:1px solid var(--gray-300);color:var(--gray-500);border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.8rem;">Ångra</button>`
+                    : `<button onclick="markSalaryPaid('${p.user_id}','${p.name}',${p.total},'${pKey}')" style="padding:0.3rem 0.9rem;background:var(--green);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;">Markera betald</button>`)
+                    : '<span style="font-size:0.75rem;color:var(--gray-400);font-style:italic;">Välj månad för att betala</span>'}
                 </div>
               `).join('')}
               <div style="display:flex;justify-content:space-between;padding:0.75rem 0 0;font-weight:700;">
-                <span>Totalt löner</span>
+                <span>Totalt ${unpaidPayroll < totalPayroll ? '(varav obetald: ' + unpaidPayroll.toLocaleString('sv') + ' kr)' : ''}</span>
                 <span style="color:var(--red);">${totalPayroll.toLocaleString('sv')} kr</span>
               </div>
             </div>
@@ -2222,14 +2321,14 @@
         `);
       }
 
-      // Transaktionshistorik — redigerbar
-      const allTxn = DATA.transactions.slice().sort((a, b) => (b.date || b.created_at || '').localeCompare(a.date || a.created_at || ''));
+      // Transaktionshistorik — filtrerad på period, redigerbar
+      const allTxn = DATA.transactions.filter(t => dateInPeriod(t.date, P)).slice().sort((a, b) => (b.date || b.created_at || '').localeCompare(a.date || a.created_at || ''));
       const adminNames = USERS.filter(u => u.active && userHasRole(u, 'admin')).map(u => u.name.split(' ')[0]);
       const paidByOptions = ['företaget', ...adminNames].map(n => `<option value="${n}">${n}</option>`).join('');
 
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
-          <h2 style="margin-bottom:1rem;">Transaktioner</h2>
+          <h2 style="margin-bottom:1rem;">Transaktioner — ${periodLabel(P)}</h2>
           ${allTxn.length ? `<div class="card" style="overflow-x:auto;"><table><thead><tr><th>Datum</th><th>Typ</th><th>Beskrivning</th><th>Betald av</th><th>Belopp</th><th></th></tr></thead><tbody id="txn-table">
             ${allTxn.map(t => {
               const idx = DATA.transactions.indexOf(t);
@@ -2264,6 +2363,59 @@
       if (!confirm(`Ta bort "${t.description}" (${t.amount_incl_vat} kr)?`)) return;
       DATA.transactions.splice(idx, 1);
       await saveJSON('transactions.json', { transactions: DATA.transactions });
+      renderView('finance');
+    }
+
+    function onPeriodMonthChange() {
+      const m = parseInt(document.getElementById('period-month').value);
+      const y = parseInt(document.getElementById('period-year').value);
+      setFinancePeriod({ type: 'month', year: y, month: m });
+    }
+
+    async function markSalaryPaid(userId, userName, amount, periodKey) {
+      const user = USERS.find(u => u.id === userId);
+      if (!user) return;
+      if (!confirm(`Markera ${userName}s lön (${amount.toLocaleString('sv')} kr för ${periodKey}) som betald?`)) return;
+
+      const todayStr = today();
+      const adminName = (CURRENT_USER && CURRENT_USER.name) ? CURRENT_USER.name.split(' ')[0] : 'Admin';
+      const payments = DATA.salary_payments || [];
+
+      // Skapa salary_payment-post
+      const salId = 'SAL-' + todayStr.replace(/-/g,'') + '-' + (payments.length + 1).toString().padStart(3,'0');
+      payments.push({
+        id: salId, user_id: userId, user_name: userName,
+        period: periodKey, amount: amount,
+        paid_date: todayStr, paid_by: adminName, marked_at: now()
+      });
+      DATA.salary_payments = payments;
+      await saveJSON('salary_payments.json', { payments });
+
+      // Skapa motsvarande expense-transaktion så det syns i kostnaderna
+      const txnId = 'TXN-' + todayStr.replace(/-/g,'') + '-' + (DATA.transactions.length + 1).toString().padStart(3,'0');
+      DATA.transactions.push({
+        id: txnId, type: 'expense', description: `Lön ${userName} (${periodKey})`,
+        amount_incl_vat: amount, paid_by: 'företaget',
+        date: todayStr, salary_payment_id: salId,
+        created_by: adminName, created_at: now()
+      });
+      await saveJSON('transactions.json', { transactions: DATA.transactions });
+
+      renderView('finance');
+    }
+
+    async function unmarkSalaryPaid(userId, periodKey) {
+      if (!confirm(`Ångra lönebetalningen för ${periodKey}?`)) return;
+      const payments = (DATA.salary_payments || []).filter(p => !(p.user_id === userId && p.period === periodKey));
+      const removed = (DATA.salary_payments || []).find(p => p.user_id === userId && p.period === periodKey);
+      DATA.salary_payments = payments;
+      await saveJSON('salary_payments.json', { payments });
+
+      // Ta bort kopplad transaktion
+      if (removed) {
+        DATA.transactions = DATA.transactions.filter(t => t.salary_payment_id !== removed.id);
+        await saveJSON('transactions.json', { transactions: DATA.transactions });
+      }
       renderView('finance');
     }
 

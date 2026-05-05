@@ -17,7 +17,7 @@ APP_DIR = os.path.join(BASE_DIR, 'app')
 ALLOWED_FILES = ['users.json', 'timelog.json', 'customers.json', 'orders.json',
                  'knives.json', 'invoices.json', 'transactions.json', 'schedule.json',
                  'pricing.json', 'areas.json', 'legal.json', 'bookings.json',
-                 'reviews.json']
+                 'reviews.json', 'salary_payments.json']
 
 # Template for empty data files (created on first run if missing)
 DATA_TEMPLATES = {
@@ -30,6 +30,7 @@ DATA_TEMPLATES = {
     'timelog.json': {'entries': []},
     'bookings.json': {'bookings': []},
     'reviews.json': {'reviews': []},
+    'salary_payments.json': {'payments': []},
     'pricing.json': {'pricing': {'currency': 'SEK', 'vat_rate': 0.25, 'last_updated': '2026-04-06', 'price_tiers': [{'min_knives': 1, 'max_knives': 2, 'price_incl_vat': 170, 'price_excl_vat': 136, 'description': '1-2 knivar: 170 kr/st'}, {'min_knives': 3, 'max_knives': 5, 'price_incl_vat': 140, 'price_excl_vat': 112, 'description': '3-5 knivar: 140 kr/st'}, {'min_knives': 6, 'max_knives': 999, 'price_incl_vat': 120, 'price_excl_vat': 96, 'description': '6+ knivar: 120 kr/st'}], 'minimum_order': 0, 'pickup_fee': 0}},
     'areas.json': {'areas': [{'id': 'AREA-NACKA-C', 'name': 'Nacka centrum/Sickla', 'postnummer_prefix': ['131']}, {'id': 'AREA-NACKA-SALTSJOBADEN', 'name': 'Saltsjobaden/Fisksatra', 'postnummer_prefix': ['133']}, {'id': 'AREA-NACKA-BOO', 'name': 'Boo/Orminge', 'postnummer_prefix': ['132']}, {'id': 'AREA-VARMDO-C', 'name': 'Gustavsberg', 'postnummer_prefix': ['134']}], 'home_base': 'AREA-NACKA-C'},
     'users.json': {'users': [
