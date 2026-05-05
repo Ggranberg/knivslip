@@ -50,19 +50,24 @@ def init_data():
                 json.dump(template, f, indent=2, ensure_ascii=False)
             print(f'[INIT] Skapade {filename}')
 
-HOME_BASE = [59.3107, 18.1635]  # Klostervagen 6, Nacka
+HOME_BASE = [59.3021436, 18.2572736]  # Klostervägen 6, 132 46 Saltsjö-Boo
 
-# Address → coordinates (approximate)
+# Address → coordinates (approximate). Synkad med ADDRESS_COORDS i app/admin.html.
+# OBS: Inkludera INTE generiska kommunnamn som "nacka" eller "varmdo" här —
+# de fångar tusen olika adresser och ger fel optimering. Använd specifika
+# områden (Boo, Orminge etc.) eller exakta gator.
 COORD_MAP = {
-    # Områden
-    'klostervagen': [59.3107, 18.1635],
+    # Områden (specifika delar av kommunen)
     'sickla': [59.3055, 18.1235],
-    'nacka': [59.3107, 18.1635],
     'saltsjobaden': [59.2770, 18.1510],
-    'boo': [59.3310, 18.2440],
+    'saltsjo-boo': [59.3310, 18.2440],
     'orminge': [59.3250, 18.2100],
     'gustavsberg': [59.3270, 18.3950],
     'alta': [59.2960, 18.1780],
+    'bullando': [59.3059, 18.6535],
+    # Specifika hemmabaser
+    'klostervagen 6': HOME_BASE,
+    'klostervagen 6, 132 46': HOME_BASE,
     # Specifika adresser
     'platslagarvagen 12': [59.3055, 18.1235],
     'magnevagen 7': [59.308, 18.135],
@@ -92,6 +97,9 @@ COORD_MAP = {
     'floxvagen 4': [59.304, 18.145],
     'mistelvagen 2': [59.3065, 18.153],
     'lonnvagen 4': [59.3075, 18.146],
+    'lonnlovsvagen 4': [59.3271948, 18.2908347],
+    'bromsstrackan 10': [59.3059431, 18.6535262],
+    'bromsstrackan': [59.3059431, 18.6535262],
     'ronnbergsvagen 5': [59.3115, 18.154],
     'evalundsvagen 216': [59.3035, 18.162],
     'stensovagen 41b': [59.315, 18.168],
@@ -132,12 +140,13 @@ def save_json(filename, data):
 
 def coords_for_address(addr):
     clean = addr.lower().replace('å','a').replace('ä','a').replace('ö','o').replace('é','e')
-    for key, val in COORD_MAP.items():
+    # Matcha längsta nycklar först så "lonnlovsvagen 4" träffar före "nacka"
+    for key, val in sorted(COORD_MAP.items(), key=lambda kv: -len(kv[0])):
         if key in clean:
             return val
-    # Fallback: hash-based offset from Nacka center
+    # Fallback: hash-based scatter runt hemmabasen (inte Sickla)
     h = sum(ord(c) for c in addr)
-    return [59.31 + (h % 50) * 0.0003, 18.14 + (h % 70) * 0.0004]
+    return [HOME_BASE[0] + (h % 50 - 25) * 0.0003, HOME_BASE[1] + (h % 70 - 35) * 0.0004]
 
 def distance(c1, c2):
     return math.sqrt((c1[0]-c2[0])**2 + (c1[1]-c2[1])**2)
