@@ -3146,10 +3146,10 @@
       main.insertAdjacentHTML('beforeend', `
         <div class="clock-section">
           <div class="clock-status">
-            <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
-            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Utklockad ' + todayLog.clock_out : 'Ej inklockad')}</div>
+            <div class="clock-label">${clockedIn ? 'Locked in sedan' : 'Status'}</div>
+            <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Goonad ' + todayLog.clock_out : 'Ej inklockad')}</div>
           </div>
-          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
+          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Goona' : 'Lock in'}</button>
         </div>
       `);
 
@@ -3239,14 +3239,14 @@
       main.insertAdjacentHTML('beforeend', `
         <div style="margin-bottom:1.5rem;" class="slide-in">
           <div style="font-size:1.5rem;font-weight:700;">${greeting}, ${CURRENT_USER.name.split(' ')[0]}!</div>
-          <div style="color:var(--gray-500);">${clockedIn ? 'Du är inklockad. Bra jobbat!' : 'Klocka in för att börja din dag.'}</div>
+          <div style="color:var(--gray-500);">${clockedIn ? 'Du är locked in. Bra jobbat!' : 'Lock in för att börja din dag.'}</div>
         </div>
         <div class="clock-section ${clockedIn ? 'clocked-in' : ''}">
           <div class="clock-status">
-            <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
+            <div class="clock-label">${clockedIn ? 'Locked in sedan' : 'Status'}</div>
             <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Klar för idag ' + todayLog.clock_out : 'Ej inklockad')}</div>
           </div>
-          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
+          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Goona' : 'Lock in'}</button>
         </div>
       `);
 
@@ -3679,14 +3679,14 @@
       main.insertAdjacentHTML('beforeend', `
         <div style="margin-bottom:1.5rem;" class="slide-in">
           <div style="font-size:1.5rem;font-weight:700;">${greeting}, ${CURRENT_USER.name.split(' ')[0]}!</div>
-          <div style="color:var(--gray-500);">${clockedIn ? 'Du är ute på vägen. Kör säkert!' : 'Klocka in för att se dagens rutt.'}</div>
+          <div style="color:var(--gray-500);">${clockedIn ? 'Du är locked in — på vägen. Kör säkert!' : 'Lock in för att se dagens rutt.'}</div>
         </div>
         <div class="clock-section ${clockedIn ? 'clocked-in' : ''}">
           <div class="clock-status">
-            <div class="clock-label">${clockedIn ? 'Inklockad sedan' : 'Status'}</div>
+            <div class="clock-label">${clockedIn ? 'Locked in sedan' : 'Status'}</div>
             <div class="clock-time">${clockedIn ? todayLog.clock_in : (todayLog?.clock_out ? 'Klar för idag ' + todayLog.clock_out : 'Ej inklockad')}</div>
           </div>
-          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Klocka ut' : 'Klocka in'}</button>
+          <button class="clock-btn ${clockedIn ? 'out' : 'in'}" onclick="${clockedIn ? 'clockOut()' : 'clockIn()'}">${clockedIn ? 'Goona' : 'Lock in'}</button>
         </div>
       `);
 
