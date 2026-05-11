@@ -1893,7 +1893,7 @@
             <input type="text" class="search-input" id="cs" placeholder="Sök på namn, telefon, adress...">
             <select class="filter-select" id="sf"><option value="">Alla källor</option><option value="dorr">Dörr</option><option value="facebook">Facebook</option><option value="telefon">Telefon</option><option value="referral">Referral</option><option value="hemsida">Hemsida</option></select>
           </div>
-          <div class="card"><table><thead><tr><th>Namn</th><th>Telefon</th><th>Adress</th><th>Källa</th><th>Ordrar</th><th>Senaste</th></tr></thead><tbody id="ctable"></tbody></table></div>
+          <div class="card"><table><thead><tr><th>Namn</th><th>Telefon</th><th>Adress</th><th>Källa</th><th>Ordrar</th><th>Senaste</th><th></th></tr></thead><tbody id="ctable"></tbody></table></div>
         </div>
       `);
       function render() {
@@ -1905,7 +1905,7 @@
         document.getElementById('ctable').innerHTML = custs.map(c => {
           const ords = DATA.orders.filter(o => o.customer_id === c.id);
           const last = ords.sort((a,b) => b.created_at.localeCompare(a.created_at))[0];
-          return `<tr><td><a class="clickable-name" onclick="openCustomer('${c.id}')"><strong>${c.name}</strong></a></td><td>${c.phone||'<span class="missing">Saknas</span>'}</td><td>${c.address||'-'}</td><td><span class="source-tag ${c.source}">${c.source}</span></td><td>${ords.length}</td><td>${last?formatDate(last.created_at):'-'}</td></tr>`;
+          return `<tr><td><a class="clickable-name" onclick="openCustomer('${c.id}')"><strong>${c.name}</strong></a></td><td>${c.phone||'<span class="missing">Saknas</span>'}</td><td>${c.address||'-'}</td><td><span class="source-tag ${c.source}">${c.source}</span></td><td>${ords.length}</td><td>${last?formatDate(last.created_at):'-'}</td><td><button onclick="deleteCustomer('${c.id}')" title="Ta bort kund" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1.1rem;padding:0.25rem 0.5rem;">&#128465;</button></td></tr>`;
         }).join('');
       }
       document.getElementById('cs').addEventListener('input', render);
