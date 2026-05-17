@@ -136,10 +136,10 @@
 
   <!-- HERO -->
   <header class="hero">
-    <video class="hero-video" autoplay muted loop playsinline preload="auto"
+    <video class="hero-video" autoplay muted playsinline preload="auto"
            poster="videos/hero-poster.jpg" aria-hidden="true">
       <source src="videos/hero-mobile.mp4" media="(max-width: 768px)" type="video/mp4">
-      <source src="videos/hero.mp4" type="video/mp4">
+      <source src="videos/hero.mp4#t=18" type="video/mp4">
     </video>
     <div class="hero-overlay"></div>
     <div class="hero-content fade-in">
@@ -448,16 +448,33 @@
 
   <script>
     // Hero video: try autoplay, fall back to tap-anywhere-to-play on mobile.
-    // Poster image (sek 10) shows until video starts.
+    // Desktop story-loop: börja på vass tomat (18s) som hook, vid ended
+    // hoppa till slipningen (6s) — videon spelar då slip→vass naturligt och
+    // loopen blir slip+vass framöver.
     (function() {
       const video = document.querySelector('.hero-video');
       const hero = document.querySelector('.hero');
       if (!video || !hero) return;
 
+      const isDesktop = window.matchMedia('(min-width: 769px)').matches;
+
       const tryPlay = () => {
         const p = video.play();
         if (p && typeof p.catch === 'function') p.catch(() => {});
       };
+
+      if (isDesktop) {
+        const seekStart = () => { try { video.currentTime = 18; } catch (_) {} };
+        if (video.readyState >= 1) seekStart();
+        else video.addEventListener('loadedmetadata', seekStart, { once: true });
+
+        video.addEventListener('ended', () => {
+          try { video.currentTime = 6; } catch (_) {}
+          tryPlay();
+        });
+      } else {
+        video.loop = true;
+      }
 
       tryPlay();
       window.addEventListener('load', tryPlay);
