@@ -397,81 +397,42 @@ def optimize_schedule():
 
 
 def handle_booking(data):
-    """Skapar kund + order direkt vid bokning (inget pending-steg)."""
+    """Sparar bokning som pending i bookings.json. Admin ringer/redigerar/godkanner sedan."""
     name = data.get('name', '').strip()
     phone = data.get('phone', '').strip()
-    email = data.get('email', '').strip() or None
+    email = (data.get('email') or '').strip() or None
     address = data.get('address', '').strip()
-    postnummer = data.get('postnummer', '').strip() or None
-    stad = data.get('stad', '').strip() or 'Nacka'
+    postnummer = (data.get('postnummer') or '').strip() or None
+    stad = (data.get('stad') or '').strip() or 'Nacka'
     knives_str = data.get('knives', '3-5')
-    preferred_date = data.get('preferred_date', '').strip()
-    time_window = data.get('time_window', '').strip()
-    message = data.get('message', '').strip()
-
-    if not name or not phone or not address:
-        return {'ok': False, 'error': 'Namn, telefon och adress krävs'}
-
-    now_str = datetime.now().isoformat()
+    preferred_date = (data.get('preferred_date') or '').strip() or None
+    time_window = (data.get('time_window') or '').strip() or None
+    message = (data.get('message') or '').strip()
     source = data.get('source', 'hemsida')
 
-    # Skapa kund direkt
-    customers_data = load_json('customers.json')
-    orders_data = load_json('orders.json')
-    areas_data = load_json('areas.json')
-    customers = customers_data.get('customers', [])
-    orders = orders_data.get('orders', [])
+    if not name or not phone or not address:
+        return {'ok': False, 'error': 'Namn, telefon och adress kravs'}
 
-    knife_map = {'1-2': 2, '3-5': 4, '6+': 7}
-    knife_count = knife_map.get(knives_str, 4)
+    now_str = datetime.now().isoformat()
 
-    # Matcha på telefon OCH namn
-    existing = next((c for c in customers if phone and c.get('phone') == phone
-                     and c.get('name', '').lower().strip() == name.lower().strip()
-                     and not c.get('is_deleted')), None)
+    bookings_data = load_json('bookings.json')
+    bookings = bookings_data.get('bookings', [])
+    booking_id = generate_id('BOK', [b['id'] for b in bookings])
 
-    if existing:
-        customer_id = existing['id']
-        print(f'[BOKNING] Befintlig kund: {name} ({customer_id})')
-    else:
-        customer_id = generate_id('CUS', [c['id'] for c in customers])
-        area_id = detect_area(address, areas_data)
-        new_customer = {
-            'id': customer_id, 'name': name, 'phone': phone, 'email': email,
-            'address': address, 'postnummer': postnummer, 'stad': stad,
-            'area_id': area_id, 'source': source,
-            'gdpr_consent': {'given': True, 'timestamp': now_str, 'method': source, 'notes': 'Samtycke via bokningsformulär'},
-            'notes': message, 'created_at': now_str, 'updated_at': now_str, 'is_deleted': False
-        }
-        customers.append(new_customer)
-        save_json('customers.json', {'customers': customers})
-        print(f'[BOKNING] Ny kund: {name} ({customer_id})')
-
-    # Skapa order direkt med status booked
-    pickup_date = preferred_date or (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-    order_id = generate_id('ORD', [o['id'] for o in orders])
-    new_order = {
-        'id': order_id, 'customer_id': customer_id, 'status': 'booked',
-        'status_history': [
-            {'status': 'booked', 'timestamp': now_str, 'by': source}
-        ],
-        'source': source, 'estimated_knife_count': knife_count, 'actual_knife_count': None,
-        'pickup': {'date': pickup_date, 'time_window': time_window or None, 'assigned_to': None, 'completed_at': None},
-        'delivery': {'date': None, 'time_window': None, 'assigned_to': None, 'completed_at': None},
-        'quality_check': {'passed': None, 'checked_by': None, 'timestamp': None, 'notes': None},
-        'has_incident': False, 'incident_notes': None, 'invoice_id': None,
-        'notes': message, 'created_at': now_str, 'updated_at': now_str
+    new_booking = {
+        'id': booking_id, 'name': name, 'phone': phone, 'email': email,
+        'address': address, 'postnummer': postnummer, 'stad': stad,
+        'knives': knives_str, 'preferred_date': preferred_date, 'time_window': time_window,
+        'message': message, 'source': source,
+        'created_at': now_str, 'status': 'pending'
     }
-    orders.append(new_order)
-    save_json('orders.json', {'orders': orders})
+    bookings.append(new_booking)
+    save_json('bookings.json', {'bookings': bookings})
+    print(f'[BOKNING] Pending: {booking_id} for {name}, {knives_str} knivar')
 
-    optimize_schedule()
-    print(f'[BOKNING] Order: {order_id} för {name}, {knife_count} knivar')
+    send_notification({'id': booking_id, 'name': name, 'phone': phone, 'address': address, 'knives': knives_str})
 
-    # Skicka notis
-    send_notification({'id': order_id, 'name': name, 'phone': phone, 'address': address, 'knives': knives_str})
-
-    return {'ok': True, 'booking_id': order_id, 'customer_id': customer_id, 'order_id': order_id}
+    return {'ok': True, 'booking_id': booking_id}
 
 
 def handle_review(data):
