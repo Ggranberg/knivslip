@@ -65,6 +65,20 @@
         }
       ],
       "created_at": "2026-04-11T00:00:00"
+    },
+    {
+      "id": "USR-005",
+      "name": "Test",
+      "pin": "0000",
+      "role": "saljare",
+      "roles": [
+        "saljare"
+      ],
+      "active": true,
+      "pay_type": null,
+      "pay_rate": null,
+      "pays": [],
+      "created_at": "2026-05-25T00:00:00"
     }
   ]
 }

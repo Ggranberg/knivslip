@@ -409,6 +409,8 @@ def handle_booking(data):
     time_window = (data.get('time_window') or '').strip() or None
     message = (data.get('message') or '').strip()
     source = data.get('source', 'hemsida')
+    seller_id = (data.get('seller_id') or '').strip() or None
+    seller_name = (data.get('seller_name') or '').strip() or None
 
     if not name or not phone or not address:
         return {'ok': False, 'error': 'Namn, telefon och adress kravs'}
@@ -424,6 +426,7 @@ def handle_booking(data):
         'address': address, 'postnummer': postnummer, 'stad': stad,
         'knives': knives_str, 'preferred_date': preferred_date, 'time_window': time_window,
         'message': message, 'source': source,
+        'seller_id': seller_id, 'seller_name': seller_name,
         'created_at': now_str, 'status': 'pending'
     }
     bookings.append(new_booking)
