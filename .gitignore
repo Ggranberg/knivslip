@@ -6,6 +6,8 @@ data/invoices.json
 data/transactions.json
 data/timelog.json
 data/reviews.json
+data/companies.json
+data/salary_payments.json
 data/backups/
 
 # OBS: users.json pushas (behövs för inloggning på Railway)

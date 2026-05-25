@@ -639,15 +639,18 @@
 
     // === DATA ===
     async function loadAllData() {
-      const [customers, orders, knives, invoices, transactions, schedule, pricing, areas, timelog, salaryPayments] = await Promise.all([
+      const [customers, orders, knives, invoices, transactions, schedule, pricing, areas, timelog, salaryPayments, companies] = await Promise.all([
         fetchJSON('customers.json'), fetchJSON('orders.json'), fetchJSON('knives.json'),
         fetchJSON('invoices.json'), fetchJSON('transactions.json'), fetchJSON('schedule.json'),
         fetchJSON('pricing.json'), fetchJSON('areas.json'), fetchJSON('timelog.json'),
-        fetchJSON('salary_payments.json').catch(() => ({ payments: [] }))
+        fetchJSON('salary_payments.json').catch(() => ({ payments: [] })),
+        fetchJSON('companies.json').catch(() => ({ companies: [], settings: { bank_account: '', swish_number: '', next_invoice_number: 1001 } }))
       ]);
       DATA = { customers: customers.customers, orders: orders.orders, knives: knives.knives,
         invoices: invoices.invoices, transactions: transactions.transactions, schedule: schedule.schedule,
-        pricing: pricing.pricing, areas: areas, salary_payments: (salaryPayments && salaryPayments.payments) || [] };
+        pricing: pricing.pricing, areas: areas, salary_payments: (salaryPayments && salaryPayments.payments) || [],
+        companies: (companies && companies.companies) || [],
+        company_settings: (companies && companies.settings) || { bank_account: '', swish_number: '', next_invoice_number: 1001 } };
       TIMELOG = timelog.entries;
       await loadPendingBookings();
       await loadReviews();
@@ -1569,6 +1572,7 @@
           <a href="#" data-view="schedule"><span class="icon">&#128197;</span> Schema</a>
           <a href="#" data-view="routes"><span class="icon">&#128205;</span> Ruttkarta</a>
           <a href="#" data-view="customers"><span class="icon">&#128101;</span> Kunder</a>
+          <a href="#" data-view="foretag"><span class="icon">&#127970;</span> Företag</a>
           <a href="#" data-view="reminders"><span class="icon">&#128276;</span> Påminnelser</a>
           <a href="#" data-view="finance"><span class="icon">&#128176;</span> Ekonomi</a>
           <a href="#" data-view="stats"><span class="icon">&#128202;</span> Statistik</a>
@@ -1621,6 +1625,7 @@
           { view: 'pipeline', icon: '&#9654;', label: 'Pipeline' },
           { view: 'schedule', icon: '&#128197;', label: 'Schema' },
           { view: 'customers', icon: '&#128101;', label: 'Kunder' },
+          { view: 'foretag', icon: '&#127970;', label: 'Företag' },
           { view: 'more', icon: '&#8943;', label: 'Mer' },
         ];
       } else if (role === 'slipare') {
@@ -1745,6 +1750,7 @@
         case 'schedule': main.innerHTML = header; renderSchedule(main); break;
         case 'routes': main.innerHTML = header; renderRouteMap(main); break;
         case 'customers': main.innerHTML = header; renderCustomers(main); break;
+        case 'foretag': main.innerHTML = header; renderCompanies(main); break;
         case 'reminders': main.innerHTML = header; renderReminders(main); break;
         case 'finance': main.innerHTML = header; renderFinance(main); break;
         case 'stats': main.innerHTML = header; renderStats(main); break;
@@ -1759,7 +1765,7 @@
     }
 
     function getViewTitle(v) {
-      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', reviews:'Recensioner', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', reminders:'Påminnelser', finance:'Ekonomi', arbete:'Arbete & Lön', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt', saljare:'Säljare' };
+      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', reviews:'Recensioner', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', foretag:'Företag', reminders:'Påminnelser', finance:'Ekonomi', arbete:'Arbete & Lön', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt', saljare:'Säljare' };
       return t[v] || v;
     }
 
@@ -1935,6 +1941,689 @@
       document.getElementById('cs').addEventListener('input', render);
       document.getElementById('sf').addEventListener('change', render);
       render();
+    }
+
+    // === FÖRETAG (B2B) ===
+
+    // Säljarinfo — Altravo AB. Org.nr 559548-0384.
+    // Momsregnr = SE + org.nr utan bindestreck + 01 (Skatteverkets format).
+    const SELLER_INFO = {
+      name: 'Altravo AB',
+      brand: 'Knivkillarna',
+      org_number: '559548-0384',
+      vat_number: 'SE559548038401',
+      address: 'c/o Philip Zetterlund, Sjöfärarvägen 18',
+      postnummer: '132 46',
+      stad: 'Saltsjö-Boo',
+      email: 'kontakt@knivkillarna.se',
+      phone: '',
+      f_skatt: true
+    };
+
+    function nextCompanyId() {
+      const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      const todays = DATA.companies.filter(c => c.id && c.id.includes('FTG-'+today));
+      return `FTG-${today}-${String(todays.length+1).padStart(3,'0')}`;
+    }
+    function nextJobId() {
+      const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      const all = (DATA.companies || []).flatMap(c => c.jobs || []);
+      const todays = all.filter(j => j.id && j.id.includes('FTGJ-'+today));
+      return `FTGJ-${today}-${String(todays.length+1).padStart(3,'0')}`;
+    }
+    function nextInvoiceId() {
+      const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      const todays = (DATA.invoices || []).filter(i => i.id && i.id.includes('INV-'+today));
+      return `INV-${today}-${String(todays.length+1).padStart(3,'0')}`;
+    }
+    function consumeNextInvoiceNumber() {
+      if (!DATA.company_settings.next_invoice_number) DATA.company_settings.next_invoice_number = 1001;
+      const n = DATA.company_settings.next_invoice_number;
+      DATA.company_settings.next_invoice_number = n + 1;
+      return n;
+    }
+    async function saveCompanies() {
+      return await saveJSON('companies.json', { companies: DATA.companies, settings: DATA.company_settings });
+    }
+    async function saveInvoices() {
+      return await saveJSON('invoices.json', { invoices: DATA.invoices });
+    }
+
+    function renderCompanies(main) {
+      const settings = DATA.company_settings || {};
+      const settingsWarning = (!settings.bank_account || !settings.swish_number) ? `
+        <div style="background:#fff3cd;border:1px solid #ffc107;color:#664d03;padding:0.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:0.9rem;">
+          <strong>OBS:</strong> ${!settings.bank_account ? 'Bankkonto saknas. ' : ''}${!settings.swish_number ? 'Swish-nummer saknas. ' : ''}Fyll i under <a href="#" onclick="openCompanySettings();return false;" style="color:var(--accent);font-weight:700;">Inställningar</a> innan ni skickar fakturor.
+        </div>` : '';
+
+      main.insertAdjacentHTML('beforeend', `
+        ${settingsWarning}
+        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+          <button onclick="openCompanyForm()" style="padding:0.6rem 1.2rem;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:inherit;font-weight:600;cursor:pointer;">+ Nytt företag</button>
+          <button onclick="openCompanySettings()" style="padding:0.6rem 1.2rem;background:none;border:1px solid var(--gray-300);color:var(--dark);border-radius:var(--radius);font-family:inherit;font-weight:600;cursor:pointer;">&#9881; Inställningar (bank / Swish)</button>
+        </div>
+        <div class="section">
+          <div class="table-controls">
+            <input type="text" class="search-input" id="comp-search" placeholder="Sök på namn, org.nr, kontaktperson...">
+          </div>
+          <div class="card"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Kontakt</th><th>Ofakturerat</th><th>Slipningar</th><th>Senaste</th><th></th></tr></thead><tbody id="comp-table"></tbody></table></div>
+        </div>
+      `);
+      function render() {
+        const s = (document.getElementById('comp-search').value || '').toLowerCase();
+        let list = (DATA.companies || []).filter(c => !c.is_deleted);
+        if (s) list = list.filter(c =>
+          (c.name||'').toLowerCase().includes(s) ||
+          (c.org_number||'').toLowerCase().includes(s) ||
+          (c.contact_person||'').toLowerCase().includes(s) ||
+          (c.email||'').toLowerCase().includes(s)
+        );
+        document.getElementById('comp-table').innerHTML = list.length ? list.map(c => {
+          const jobs = c.jobs || [];
+          const uninvoiced = jobs.filter(j => !j.invoice_id);
+          const uninvoicedTotal = uninvoiced.reduce((s,j) => s + (j.knives * j.price_per_knife_excl_vat), 0);
+          const last = jobs.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''))[0];
+          return `<tr>
+            <td><a class="clickable-name" onclick="openCompany('${c.id}')"><strong>${c.name}</strong></a></td>
+            <td style="font-size:0.85rem;color:var(--gray-500);">${c.org_number || '-'}</td>
+            <td style="font-size:0.85rem;">${c.contact_person || '-'}${c.phone ? '<br><span style="color:var(--gray-500);">'+c.phone+'</span>' : ''}</td>
+            <td>${uninvoiced.length ? `<strong style="color:var(--red);">${Math.round(uninvoicedTotal).toLocaleString('sv')} kr</strong> <span style="color:var(--gray-500);font-size:0.8rem;">(${uninvoiced.length} st)</span>` : '<span style="color:var(--green);">✓ Allt fakturerat</span>'}</td>
+            <td>${jobs.length}</td>
+            <td>${last ? formatDate(last.date) : '-'}</td>
+            <td><button onclick="deleteCompany('${c.id}')" title="Ta bort företag" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1.1rem;padding:0.25rem 0.5rem;">&#128465;</button></td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--gray-400);font-style:italic;padding:2rem;">Inga företag ännu. Klicka "+ Nytt företag" för att lägga till.</td></tr>';
+      }
+      document.getElementById('comp-search').addEventListener('input', render);
+      render();
+    }
+
+    function openCompanyForm(existing) {
+      const c = existing || { name: '', org_number: '', contact_person: '', email: '', phone: '',
+        billing_address: '', billing_postnummer: '', billing_stad: '', payment_terms_days: 30,
+        reference: '', default_price_per_knife_excl_vat: 100, notes: '' };
+      const isNew = !existing;
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal">
+          <div class="modal-header">
+            <h2>${isNew ? 'Nytt företag' : 'Redigera ' + c.name}</h2>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="profile-row">
+              <div class="profile-field"><label>Företagsnamn *</label><input id="cf-name" value="${c.name||''}" placeholder="Restaurang AB"></div>
+              <div class="profile-field"><label>Org.nr</label><input id="cf-org" value="${c.org_number||''}" placeholder="556677-8899"></div>
+            </div>
+            <div class="profile-row">
+              <div class="profile-field"><label>Kontaktperson</label><input id="cf-contact" value="${c.contact_person||''}" placeholder="Anna Andersson"></div>
+              <div class="profile-field"><label>Referens / kostnadsställe</label><input id="cf-ref" value="${c.reference||''}" placeholder="Kök Sickla"></div>
+            </div>
+            <div class="profile-row">
+              <div class="profile-field"><label>E-post (för faktura)</label><input id="cf-email" value="${c.email||''}" placeholder="faktura@foretag.se"></div>
+              <div class="profile-field"><label>Telefon</label><input id="cf-phone" value="${c.phone||''}"></div>
+            </div>
+            <div class="profile-field"><label>Fakturaadress</label><input id="cf-address" value="${c.billing_address||''}" placeholder="Storgatan 1"></div>
+            <div class="profile-row">
+              <div class="profile-field"><label>Postnummer</label><input id="cf-post" value="${c.billing_postnummer||''}" placeholder="131 51"></div>
+              <div class="profile-field"><label>Stad</label><input id="cf-stad" value="${c.billing_stad||''}" placeholder="Nacka"></div>
+            </div>
+            <div class="profile-row">
+              <div class="profile-field"><label>Betalningsvillkor (dagar)</label><input type="number" id="cf-terms" value="${c.payment_terms_days||30}" min="0"></div>
+              <div class="profile-field"><label>Pris/kniv exkl moms (kr)</label><input type="number" id="cf-price" value="${c.default_price_per_knife_excl_vat||100}" min="0" step="1"></div>
+            </div>
+            <div class="profile-field"><label>Anteckningar</label><textarea id="cf-notes" rows="2">${c.notes||''}</textarea></div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-save" onclick="saveCompanyForm('${isNew ? '' : c.id}')">${isNew ? 'Spara företag' : 'Spara ändringar'}</button>
+            <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    }
+
+    async function saveCompanyForm(existingId) {
+      const name = document.getElementById('cf-name').value.trim();
+      if (!name) { showToast('Företagsnamn krävs', 'error'); return; }
+      const data = {
+        name: name,
+        org_number: document.getElementById('cf-org').value.trim(),
+        contact_person: document.getElementById('cf-contact').value.trim(),
+        reference: document.getElementById('cf-ref').value.trim(),
+        email: document.getElementById('cf-email').value.trim(),
+        phone: document.getElementById('cf-phone').value.trim(),
+        billing_address: document.getElementById('cf-address').value.trim(),
+        billing_postnummer: document.getElementById('cf-post').value.trim(),
+        billing_stad: document.getElementById('cf-stad').value.trim(),
+        payment_terms_days: parseInt(document.getElementById('cf-terms').value) || 30,
+        default_price_per_knife_excl_vat: parseInt(document.getElementById('cf-price').value) || 100,
+        notes: document.getElementById('cf-notes').value.trim(),
+        updated_at: now()
+      };
+      if (existingId) {
+        const c = DATA.companies.find(x => x.id === existingId);
+        if (c) Object.assign(c, data);
+      } else {
+        DATA.companies.push({
+          id: nextCompanyId(),
+          ...data,
+          jobs: [],
+          created_at: now()
+        });
+      }
+      await saveCompanies();
+      document.querySelector('.modal-overlay')?.remove();
+      renderView('foretag');
+    }
+
+    function openCompany(id) {
+      const c = DATA.companies.find(x => x.id === id);
+      if (!c) return;
+      const jobs = (c.jobs || []).slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+      const uninvoiced = jobs.filter(j => !j.invoice_id);
+      const uninvoicedTotal = uninvoiced.reduce((s,j) => s + (j.knives * j.price_per_knife_excl_vat), 0);
+      const invoices = (DATA.invoices || []).filter(i => i.company_id === id)
+        .sort((a,b) => (b.issue_date||'').localeCompare(a.issue_date||''));
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:780px;">
+          <div class="modal-header">
+            <h2>${c.name}</h2>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;font-size:0.9rem;color:var(--gray-500);">
+              <div><strong style="color:var(--dark);">${c.org_number || '–'}</strong><div>Org.nr</div></div>
+              <div><strong style="color:var(--dark);">${c.contact_person || '–'}</strong><div>Kontakt</div></div>
+              <div><strong style="color:var(--dark);">${c.payment_terms_days || 30} dgr</strong><div>Betalningsvillkor</div></div>
+              <div><strong style="color:var(--dark);">${c.default_price_per_knife_excl_vat || 100} kr/st</strong><div>Pris exkl moms</div></div>
+            </div>
+            <div style="font-size:0.85rem;color:var(--gray-500);margin-bottom:1rem;">
+              ${c.billing_address || ''}${c.billing_postnummer ? ', ' + c.billing_postnummer : ''}${c.billing_stad ? ' ' + c.billing_stad : ''}
+              ${c.email ? ' &middot; ' + c.email : ''}${c.phone ? ' &middot; ' + c.phone : ''}
+            </div>
+
+            <div style="background:${uninvoiced.length ? '#fff8e1' : '#e8f5e9'};border:1px solid ${uninvoiced.length ? '#ffc107' : '#4caf50'};padding:0.85rem 1rem;border-radius:var(--radius);margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+              <div>
+                <div style="font-weight:700;font-size:1.1rem;">${uninvoiced.length ? Math.round(uninvoicedTotal).toLocaleString('sv') + ' kr exkl moms' : '✓ Inga ofakturerade slipningar'}</div>
+                <div style="font-size:0.8rem;color:var(--gray-500);">${uninvoiced.length} ofakturerade slipning${uninvoiced.length === 1 ? '' : 'ar'}</div>
+              </div>
+              ${uninvoiced.length ? `<button onclick="createInvoiceForCompany('${c.id}')" style="padding:0.6rem 1.2rem;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:inherit;font-weight:700;cursor:pointer;">Skapa faktura &rarr;</button>` : ''}
+            </div>
+
+            <div class="profile-section">
+              <h3>Lägg till slipning</h3>
+              <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;background:var(--gray-50);padding:0.75rem;border-radius:var(--radius);">
+                <div style="flex:1;min-width:120px;">
+                  <label style="font-size:0.75rem;color:var(--gray-500);display:block;">Datum</label>
+                  <input type="date" id="job-date" value="${today()}" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;">
+                </div>
+                <div style="flex:1;min-width:100px;">
+                  <label style="font-size:0.75rem;color:var(--gray-500);display:block;">Antal knivar</label>
+                  <input type="number" id="job-knives" value="" min="1" placeholder="0" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;">
+                </div>
+                <div style="flex:1;min-width:120px;">
+                  <label style="font-size:0.75rem;color:var(--gray-500);display:block;">Pris/kniv exkl moms</label>
+                  <input type="number" id="job-price" value="${c.default_price_per_knife_excl_vat || 100}" min="0" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;">
+                </div>
+                <div style="flex:2;min-width:140px;">
+                  <label style="font-size:0.75rem;color:var(--gray-500);display:block;">Beskrivning (valfri)</label>
+                  <input type="text" id="job-notes" placeholder="t.ex. Kökskniv-set" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;">
+                </div>
+                <button onclick="addCompanyJob('${c.id}')" style="padding:0.55rem 1rem;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:inherit;font-weight:600;cursor:pointer;height:38px;">+ Lägg till</button>
+              </div>
+            </div>
+
+            <div class="profile-section">
+              <h3>Slipningar (${jobs.length})</h3>
+              ${jobs.length ? `
+                <div style="overflow-x:auto;">
+                  <table style="width:100%;font-size:0.9rem;">
+                    <thead><tr style="border-bottom:1px solid var(--gray-200);"><th style="text-align:left;padding:0.4rem;">Datum</th><th style="text-align:left;padding:0.4rem;">Beskrivning</th><th style="text-align:right;padding:0.4rem;">Antal</th><th style="text-align:right;padding:0.4rem;">Pris/st</th><th style="text-align:right;padding:0.4rem;">Summa</th><th style="text-align:center;padding:0.4rem;">Status</th><th></th></tr></thead>
+                    <tbody>
+                      ${jobs.map(j => {
+                        const total = j.knives * j.price_per_knife_excl_vat;
+                        const inv = j.invoice_id ? (DATA.invoices || []).find(i => i.id === j.invoice_id) : null;
+                        return `<tr style="border-bottom:1px solid var(--gray-100);">
+                          <td style="padding:0.4rem;">${formatDate(j.date)}</td>
+                          <td style="padding:0.4rem;color:var(--gray-600);">${j.notes||'–'}</td>
+                          <td style="padding:0.4rem;text-align:right;">${j.knives}</td>
+                          <td style="padding:0.4rem;text-align:right;">${j.price_per_knife_excl_vat} kr</td>
+                          <td style="padding:0.4rem;text-align:right;font-weight:600;">${Math.round(total).toLocaleString('sv')} kr</td>
+                          <td style="padding:0.4rem;text-align:center;font-size:0.8rem;">${inv ? `<span style="color:var(--green);">Faktura #${inv.invoice_number}</span>` : '<span style="color:var(--red);">Ofakturerad</span>'}</td>
+                          <td style="padding:0.4rem;">${j.invoice_id ? '' : `<button onclick="deleteCompanyJob('${c.id}','${j.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;">&times;</button>`}</td>
+                        </tr>`;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                </div>` : '<div style="color:var(--gray-400);font-style:italic;">Inga slipningar ännu</div>'}
+            </div>
+
+            <div class="profile-section">
+              <h3>Fakturor (${invoices.length})</h3>
+              ${invoices.length ? `
+                <div style="overflow-x:auto;">
+                  <table style="width:100%;font-size:0.9rem;">
+                    <thead><tr style="border-bottom:1px solid var(--gray-200);"><th style="text-align:left;padding:0.4rem;">Nr</th><th style="text-align:left;padding:0.4rem;">Datum</th><th style="text-align:left;padding:0.4rem;">Förfaller</th><th style="text-align:right;padding:0.4rem;">Belopp</th><th style="text-align:center;padding:0.4rem;">Status</th><th></th></tr></thead>
+                    <tbody>
+                      ${invoices.map(i => `<tr style="border-bottom:1px solid var(--gray-100);">
+                        <td style="padding:0.4rem;font-weight:700;">#${i.invoice_number}</td>
+                        <td style="padding:0.4rem;">${formatDate(i.issue_date)}</td>
+                        <td style="padding:0.4rem;${(new Date(i.due_date) < new Date() && !i.payment?.paid) ? 'color:var(--red);font-weight:700;' : ''}">${formatDate(i.due_date)}</td>
+                        <td style="padding:0.4rem;text-align:right;font-weight:600;">${Math.round(i.total_incl_vat).toLocaleString('sv')} kr</td>
+                        <td style="padding:0.4rem;text-align:center;">${i.payment?.paid ? '<span style="color:var(--green);">✓ Betald</span>' : '<span style="color:var(--red);">Obetald</span>'}</td>
+                        <td style="padding:0.4rem;display:flex;gap:0.25rem;justify-content:flex-end;">
+                          <button onclick="viewInvoice('${i.id}')" style="padding:0.3rem 0.6rem;background:var(--accent);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.75rem;font-family:inherit;">Visa / Skriv ut</button>
+                          ${i.payment?.paid
+                            ? `<button onclick="unmarkInvoicePaid('${i.id}')" style="padding:0.3rem 0.6rem;background:none;border:1px solid var(--gray-300);color:var(--gray-500);border-radius:4px;cursor:pointer;font-size:0.75rem;font-family:inherit;">Ångra</button>`
+                            : `<button onclick="markInvoicePaid('${i.id}')" style="padding:0.3rem 0.6rem;background:var(--green);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.75rem;font-family:inherit;">Betald</button>`}
+                          <button onclick="deleteInvoice('${i.id}')" style="padding:0.3rem 0.5rem;background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;cursor:pointer;font-size:0.75rem;font-family:inherit;">&times;</button>
+                        </td>
+                      </tr>`).join('')}
+                    </tbody>
+                  </table>
+                </div>` : '<div style="color:var(--gray-400);font-style:italic;">Inga fakturor ännu</div>'}
+            </div>
+
+            ${c.notes ? `<div class="profile-section"><h3>Anteckningar</h3><div style="white-space:pre-wrap;color:var(--gray-600);font-size:0.9rem;">${c.notes}</div></div>` : ''}
+          </div>
+          <div class="modal-actions">
+            <button class="btn-save" onclick="openCompanyForm(DATA.companies.find(x=>x.id==='${c.id}'))">Redigera uppgifter</button>
+            <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Stäng</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    }
+
+    async function addCompanyJob(companyId) {
+      const c = DATA.companies.find(x => x.id === companyId);
+      if (!c) return;
+      const date = document.getElementById('job-date').value;
+      const knives = parseInt(document.getElementById('job-knives').value);
+      const price = parseInt(document.getElementById('job-price').value);
+      const notes = document.getElementById('job-notes').value.trim();
+      if (!date || !knives || knives < 1) { showToast('Datum och antal knivar krävs', 'error'); return; }
+      if (!price || price < 0) { showToast('Pris krävs', 'error'); return; }
+      c.jobs = c.jobs || [];
+      c.jobs.push({
+        id: nextJobId(),
+        date: date,
+        knives: knives,
+        price_per_knife_excl_vat: price,
+        notes: notes,
+        invoice_id: null,
+        created_at: now(),
+        created_by: CURRENT_USER?.name || ''
+      });
+      c.updated_at = now();
+      await saveCompanies();
+      document.querySelector('.modal-overlay')?.remove();
+      openCompany(companyId);
+    }
+
+    async function deleteCompanyJob(companyId, jobId) {
+      const c = DATA.companies.find(x => x.id === companyId);
+      if (!c) return;
+      const j = (c.jobs || []).find(x => x.id === jobId);
+      if (!j) return;
+      if (j.invoice_id) { showToast('Slipning på faktura — ta bort fakturan först', 'error'); return; }
+      if (!confirm(`Ta bort slipning ${formatDate(j.date)} (${j.knives} knivar)?`)) return;
+      c.jobs = c.jobs.filter(x => x.id !== jobId);
+      c.updated_at = now();
+      await saveCompanies();
+      document.querySelector('.modal-overlay')?.remove();
+      openCompany(companyId);
+    }
+
+    async function deleteCompany(id) {
+      const c = DATA.companies.find(x => x.id === id);
+      if (!c) return;
+      const hasInvoices = (DATA.invoices || []).some(i => i.company_id === id);
+      if (hasInvoices) { showToast('Företaget har fakturor — bokföringslagen kräver 7 års arkivering. Avmarkera istället.', 'error'); return; }
+      if (!confirm(`Ta bort ${c.name} och alla slipningar?`)) return;
+      DATA.companies = DATA.companies.filter(x => x.id !== id);
+      await saveCompanies();
+      document.querySelector('.modal-overlay')?.remove();
+      renderView('foretag');
+    }
+
+    async function createInvoiceForCompany(companyId) {
+      const c = DATA.companies.find(x => x.id === companyId);
+      if (!c) return;
+      const uninvoiced = (c.jobs || []).filter(j => !j.invoice_id);
+      if (!uninvoiced.length) { showToast('Inga ofakturerade slipningar', 'error'); return; }
+      const settings = DATA.company_settings || {};
+      if (!settings.bank_account && !settings.swish_number) {
+        if (!confirm('Bankkonto och Swish saknas i Inställningar. Skapa fakturan ändå?')) return;
+      }
+      const total_excl = uninvoiced.reduce((s,j) => s + (j.knives * j.price_per_knife_excl_vat), 0);
+      const vat = total_excl * 0.25;
+      const total_incl = total_excl + vat;
+      const today = new Date().toISOString().slice(0,10);
+      const due = new Date(Date.now() + (c.payment_terms_days || 30) * 86400000).toISOString().slice(0,10);
+      const invoiceNumber = consumeNextInvoiceNumber();
+      const invoice = {
+        id: nextInvoiceId(),
+        invoice_number: invoiceNumber,
+        company_id: companyId,
+        customer_id: null,
+        issue_date: today,
+        due_date: due,
+        payment_terms_days: c.payment_terms_days || 30,
+        lines: uninvoiced.map(j => ({
+          job_id: j.id,
+          date: j.date,
+          description: `Slipning ${j.knives} knivar${j.notes ? ' — ' + j.notes : ''}`,
+          quantity: j.knives,
+          unit: 'st',
+          unit_price_excl_vat: j.price_per_knife_excl_vat,
+          total_excl_vat: j.knives * j.price_per_knife_excl_vat
+        })),
+        subtotal_excl_vat: total_excl,
+        vat_rate: 0.25,
+        vat_amount: vat,
+        total_incl_vat: total_incl,
+        seller: SELLER_INFO,
+        buyer: {
+          name: c.name, org_number: c.org_number,
+          address: c.billing_address, postnummer: c.billing_postnummer, stad: c.billing_stad,
+          contact_person: c.contact_person, email: c.email, reference: c.reference
+        },
+        payment_info: {
+          bank_account: settings.bank_account || '',
+          swish_number: settings.swish_number || ''
+        },
+        status: 'sent',
+        payment: { paid: false, paid_date: null, method: null },
+        created_at: now(),
+        created_by: CURRENT_USER?.name || ''
+      };
+      DATA.invoices = DATA.invoices || [];
+      DATA.invoices.push(invoice);
+      uninvoiced.forEach(j => { j.invoice_id = invoice.id; });
+      c.updated_at = now();
+      await saveInvoices();
+      await saveCompanies();
+      document.querySelector('.modal-overlay')?.remove();
+      viewInvoice(invoice.id);
+      showToast(`Faktura #${invoiceNumber} skapad — ${Math.round(total_incl).toLocaleString('sv')} kr`, 'success');
+      setTimeout(() => openCompany(companyId), 100);
+    }
+
+    async function markInvoicePaid(invoiceId) {
+      const inv = DATA.invoices.find(i => i.id === invoiceId);
+      if (!inv) return;
+      inv.payment = { paid: true, paid_date: today(), method: 'manuell' };
+      inv.status = 'paid';
+      // Skapa intäkts-transaktion så det dyker upp i ekonomin
+      DATA.transactions = DATA.transactions || [];
+      const txnExists = DATA.transactions.find(t => t.invoice_id === inv.id);
+      if (!txnExists) {
+        DATA.transactions.push({
+          id: `TXN-${today().replace(/-/g,'')}-${String(DATA.transactions.length+1).padStart(3,'0')}`,
+          type: 'income',
+          date: today(),
+          description: `Faktura #${inv.invoice_number} — ${inv.buyer?.name || 'företag'}`,
+          amount_incl_vat: inv.total_incl_vat,
+          amount_excl_vat: inv.subtotal_excl_vat,
+          vat: inv.vat_amount,
+          invoice_id: inv.id,
+          company_id: inv.company_id,
+          customer_name: inv.buyer?.name,
+          created_at: now()
+        });
+        await saveJSON('transactions.json', { transactions: DATA.transactions });
+      }
+      await saveInvoices();
+      const companyId = inv.company_id;
+      document.querySelector('.modal-overlay')?.remove();
+      openCompany(companyId);
+    }
+
+    async function unmarkInvoicePaid(invoiceId) {
+      const inv = DATA.invoices.find(i => i.id === invoiceId);
+      if (!inv) return;
+      if (!confirm('Markera fakturan som obetald?')) return;
+      inv.payment = { paid: false, paid_date: null, method: null };
+      inv.status = 'sent';
+      // Ta bort kopplad transaktion
+      DATA.transactions = (DATA.transactions || []).filter(t => t.invoice_id !== inv.id);
+      await saveJSON('transactions.json', { transactions: DATA.transactions });
+      await saveInvoices();
+      const companyId = inv.company_id;
+      document.querySelector('.modal-overlay')?.remove();
+      openCompany(companyId);
+    }
+
+    async function deleteInvoice(invoiceId) {
+      const inv = DATA.invoices.find(i => i.id === invoiceId);
+      if (!inv) return;
+      if (!confirm(`Ta bort faktura #${inv.invoice_number}? Slipningarna blir ofakturerade igen.\n\nOBS: Bokföringslagen kräver att skickade fakturor sparas i 7 år. Ta bara bort om fakturan aldrig skickades till kunden.`)) return;
+      // Lös upp jobs som var kopplade
+      const c = DATA.companies.find(x => x.id === inv.company_id);
+      if (c) (c.jobs || []).forEach(j => { if (j.invoice_id === inv.id) j.invoice_id = null; });
+      // Ta bort transaktion om finns
+      DATA.transactions = (DATA.transactions || []).filter(t => t.invoice_id !== inv.id);
+      DATA.invoices = DATA.invoices.filter(i => i.id !== invoiceId);
+      await saveJSON('transactions.json', { transactions: DATA.transactions });
+      await saveInvoices();
+      await saveCompanies();
+      const companyId = inv.company_id;
+      document.querySelector('.modal-overlay')?.remove();
+      openCompany(companyId);
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    function viewInvoice(invoiceId) {
+      const inv = DATA.invoices.find(i => i.id === invoiceId);
+      if (!inv) return;
+      const s = inv.seller || SELLER_INFO;
+      const b = inv.buyer || {};
+      const pi = inv.payment_info || {};
+      const fmtDate = d => d ? new Date(d).toLocaleDateString('sv-SE') : '';
+      const fmtKr = n => Math.round(n).toLocaleString('sv-SE') + ' kr';
+      const html = `<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Faktura #${inv.invoice_number} — ${escapeHtml(b.name)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: #222; margin: 0; padding: 2rem; background: #f5f5f5; }
+  .sheet { background: white; max-width: 21cm; min-height: 29.7cm; margin: 0 auto; padding: 2.5cm 2cm; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #e85d04; padding-bottom: 1rem; margin-bottom: 2rem; }
+  .brand { font-size: 1.8rem; font-weight: 800; color: #e85d04; letter-spacing: -0.02em; }
+  .brand-sub { font-size: 0.8rem; color: #666; }
+  .doctitle { text-align: right; }
+  .doctitle h1 { font-size: 2rem; margin: 0; color: #222; letter-spacing: 0.05em; }
+  .doctitle .num { font-size: 1.1rem; color: #666; }
+  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+  .party h3 { font-size: 0.75rem; text-transform: uppercase; color: #888; letter-spacing: 0.1em; margin: 0 0 0.5rem; font-weight: 600; }
+  .party .name { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .party div { font-size: 0.9rem; line-height: 1.45; }
+  .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; background: #f8f8f8; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem; }
+  .meta-grid .label { font-size: 0.7rem; text-transform: uppercase; color: #888; letter-spacing: 0.08em; }
+  .meta-grid .value { font-size: 0.95rem; font-weight: 700; margin-top: 0.2rem; }
+  table.lines { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+  table.lines th { background: #222; color: white; padding: 0.6rem 0.5rem; text-align: left; font-size: 0.85rem; font-weight: 600; }
+  table.lines th.right { text-align: right; }
+  table.lines td { padding: 0.6rem 0.5rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+  table.lines td.right { text-align: right; }
+  table.lines tbody tr:last-child td { border-bottom: 1px solid #ccc; }
+  .totals { margin-left: auto; width: 50%; min-width: 280px; }
+  .totals .row { display: flex; justify-content: space-between; padding: 0.4rem 0; }
+  .totals .row.total { border-top: 2px solid #222; margin-top: 0.5rem; padding-top: 0.7rem; font-size: 1.2rem; font-weight: 800; }
+  .totals .row.total .amount { color: #e85d04; }
+  .payment-box { margin-top: 2rem; padding: 1rem; background: #fffbe6; border: 1px solid #ffc107; border-radius: 4px; }
+  .payment-box h3 { margin: 0 0 0.5rem; font-size: 0.9rem; color: #664d03; }
+  .payment-box div { font-size: 0.9rem; line-height: 1.6; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #ddd; font-size: 0.75rem; color: #888; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .footer strong { display: block; color: #555; margin-bottom: 0.2rem; }
+  .actions { max-width: 21cm; margin: 1rem auto; display: flex; gap: 0.5rem; justify-content: flex-end; }
+  .actions button { padding: 0.6rem 1.2rem; background: #e85d04; color: white; border: none; border-radius: 6px; font-family: inherit; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+  .actions button.secondary { background: white; color: #222; border: 1px solid #ccc; }
+  @media print {
+    body { background: white; padding: 0; }
+    .sheet { box-shadow: none; max-width: none; padding: 1.5cm; }
+    .actions { display: none; }
+    @page { size: A4; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="actions">
+  <button onclick="window.print()">&#128424; Skriv ut / Spara som PDF</button>
+  ${b.email ? `<button class="secondary" onclick="window.location.href='mailto:${escapeHtml(b.email)}?subject=${encodeURIComponent('Faktura #' + inv.invoice_number + ' — Knivkillarna')}&body=${encodeURIComponent('Hej ' + (b.contact_person || b.name) + ',\\n\\nBifogar faktura #' + inv.invoice_number + ' på ' + fmtKr(inv.total_incl_vat) + ' inkl moms.\\nFörfallodatum: ' + fmtDate(inv.due_date) + '.\\n\\nHälsningar,\\nKnivkillarna')}'">&#9993; Mejla kunden</button>` : ''}
+</div>
+<div class="sheet">
+  <div class="header">
+    <div>
+      <div class="brand">${escapeHtml(s.brand || 'Knivkillarna')}</div>
+      <div class="brand-sub">Mobil knivslipning &middot; ${escapeHtml(s.name)}</div>
+    </div>
+    <div class="doctitle">
+      <h1>FAKTURA</h1>
+      <div class="num">Nr ${inv.invoice_number}</div>
+    </div>
+  </div>
+
+  <div class="parties">
+    <div class="party">
+      <h3>Säljare</h3>
+      <div class="name">${escapeHtml(s.name)} <span style="font-weight:400;color:#888;">(${escapeHtml(s.brand)})</span></div>
+      <div>${escapeHtml(s.address)}</div>
+      <div>${escapeHtml(s.postnummer)} ${escapeHtml(s.stad)}</div>
+      <div>Org.nr: ${escapeHtml(s.org_number)}</div>
+      <div>Momsregnr: ${escapeHtml(s.vat_number)}</div>
+      ${s.email ? `<div>${escapeHtml(s.email)}</div>` : ''}
+      ${s.phone ? `<div>${escapeHtml(s.phone)}</div>` : ''}
+      ${s.f_skatt ? '<div style="margin-top:0.4rem;font-weight:600;">Innehar F-skattsedel</div>' : ''}
+    </div>
+    <div class="party">
+      <h3>Fakturamottagare</h3>
+      <div class="name">${escapeHtml(b.name)}</div>
+      ${b.address ? `<div>${escapeHtml(b.address)}</div>` : ''}
+      ${(b.postnummer || b.stad) ? `<div>${escapeHtml(b.postnummer||'')} ${escapeHtml(b.stad||'')}</div>` : ''}
+      ${b.org_number ? `<div>Org.nr: ${escapeHtml(b.org_number)}</div>` : ''}
+      ${b.contact_person ? `<div style="margin-top:0.4rem;">Att: ${escapeHtml(b.contact_person)}</div>` : ''}
+      ${b.reference ? `<div>Referens: ${escapeHtml(b.reference)}</div>` : ''}
+      ${b.email ? `<div>${escapeHtml(b.email)}</div>` : ''}
+    </div>
+  </div>
+
+  <div class="meta-grid">
+    <div><div class="label">Fakturadatum</div><div class="value">${fmtDate(inv.issue_date)}</div></div>
+    <div><div class="label">Förfallodatum</div><div class="value">${fmtDate(inv.due_date)}</div></div>
+    <div><div class="label">Betalningsvillkor</div><div class="value">${inv.payment_terms_days} dagar</div></div>
+    <div><div class="label">Fakturanr</div><div class="value">${inv.invoice_number}</div></div>
+  </div>
+
+  <table class="lines">
+    <thead>
+      <tr>
+        <th style="width:14%;">Datum</th>
+        <th>Beskrivning</th>
+        <th class="right" style="width:8%;">Antal</th>
+        <th class="right" style="width:14%;">à-pris</th>
+        <th class="right" style="width:16%;">Summa exkl moms</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${inv.lines.map(l => `<tr>
+        <td>${fmtDate(l.date)}</td>
+        <td>${escapeHtml(l.description)}</td>
+        <td class="right">${l.quantity} ${escapeHtml(l.unit || 'st')}</td>
+        <td class="right">${fmtKr(l.unit_price_excl_vat)}</td>
+        <td class="right">${fmtKr(l.total_excl_vat)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="row"><span>Summa exkl moms</span><span>${fmtKr(inv.subtotal_excl_vat)}</span></div>
+    <div class="row"><span>Moms (${Math.round(inv.vat_rate*100)}%)</span><span>${fmtKr(inv.vat_amount)}</span></div>
+    <div class="row total"><span>Att betala</span><span class="amount">${fmtKr(inv.total_incl_vat)}</span></div>
+  </div>
+
+  <div class="payment-box">
+    <h3>Betalningsinformation</h3>
+    <div>
+      ${pi.bank_account ? `<strong>Bankkonto:</strong> ${escapeHtml(pi.bank_account)}<br>` : '<strong style="color:#d32f2f;">Bankkonto: ej angivet</strong><br>'}
+      ${pi.swish_number ? `<strong>Swish företag:</strong> ${escapeHtml(pi.swish_number)}<br>` : ''}
+      <strong>Ange fakturanummer ${inv.invoice_number} som referens vid betalning.</strong><br>
+      Vid sen betalning debiteras dröjsmålsränta enligt räntelagen.
+    </div>
+  </div>
+
+  <div class="footer">
+    <div><strong>${escapeHtml(s.name)}</strong>${escapeHtml(s.address)}<br>${escapeHtml(s.postnummer)} ${escapeHtml(s.stad)}</div>
+    <div><strong>Org.nr</strong>${escapeHtml(s.org_number)}<br><strong>Momsregnr</strong>${escapeHtml(s.vat_number)}</div>
+    <div><strong>F-skatt</strong>Innehar F-skattsedel<br><strong>Moms</strong>25%</div>
+  </div>
+</div>
+</body>
+</html>`;
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (!win) { showToast('Pop-up blockerad — tillåt pop-ups för admin', 'error'); }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+
+    function openCompanySettings() {
+      const s = DATA.company_settings || { bank_account: '', swish_number: '', next_invoice_number: 1001 };
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:520px;">
+          <div class="modal-header">
+            <h2>Faktureringsinställningar</h2>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size:0.9rem;color:var(--gray-600);margin-bottom:1rem;">Dessa uppgifter visas på alla fakturor till företag. Företag betalar i regel via bank — Swish är bonus för småfakturor.</p>
+            <div class="profile-field">
+              <label>Bankkonto (clearingnr + kontonr) *</label>
+              <input id="cs-bank" value="${escapeHtml(s.bank_account||'')}" placeholder="Ex: SEB 5263-12 345 67">
+              <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.25rem;">Format som t.ex. "Swedbank 8327-9 123 456 789-0" eller IBAN. Detta visas som primärt betalningssätt.</div>
+            </div>
+            <div class="profile-field">
+              <label>Swish företag (10-siffrigt)</label>
+              <input id="cs-swish" value="${escapeHtml(s.swish_number||'')}" placeholder="123 456 78 90">
+              <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.25rem;">Frivilligt. Visas bara om ifyllt.</div>
+            </div>
+            <div class="profile-field">
+              <label>Nästa fakturanummer</label>
+              <input id="cs-next" type="number" value="${s.next_invoice_number||1001}" min="1">
+              <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.25rem;">Bokföringslagen: nummer ska vara löpande utan luckor. Ändra bara om du vet vad du gör.</div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-save" onclick="saveCompanySettings()">Spara</button>
+            <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    }
+
+    async function saveCompanySettings() {
+      DATA.company_settings = DATA.company_settings || {};
+      DATA.company_settings.bank_account = document.getElementById('cs-bank').value.trim();
+      DATA.company_settings.swish_number = document.getElementById('cs-swish').value.trim();
+      DATA.company_settings.next_invoice_number = parseInt(document.getElementById('cs-next').value) || 1001;
+      await saveCompanies();
+      document.querySelector('.modal-overlay')?.remove();
+      renderView('foretag');
+      showToast('Inställningar sparade', 'success');
     }
 
     function renderReminders(main) {
