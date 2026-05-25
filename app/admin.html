@@ -3971,12 +3971,8 @@
                 <input type="text" id="sj-postnummer" maxlength="6" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
               <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Stad</label>
                 <input type="text" id="sj-stad" value="Nacka" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
-              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Antal knivar</label>
-                <select id="sj-knives" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;">
-                  <option value="1-2">1-2 knivar</option>
-                  <option value="3-5" selected>3-5 knivar</option>
-                  <option value="6+">6+ knivar</option>
-                </select></div>
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Antal knivar *</label>
+                <input type="number" id="sj-knives" min="1" max="100" placeholder="T.ex. 5" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
               <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Önskat datum</label>
                 <input type="date" id="sj-date" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
               <div style="grid-column:1 / -1;"><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Notering</label>
@@ -4038,6 +4034,8 @@
       const sellerId = sellerSelect ? sellerSelect.value : defaultSellerId;
       const seller = USERS.find(u => u.id === sellerId);
 
+      const knivesCount = parseInt(document.getElementById('sj-knives').value) || 0;
+
       const payload = {
         source: 'saljare',
         seller_id: sellerId,
@@ -4048,13 +4046,18 @@
         address: document.getElementById('sj-address').value.trim(),
         postnummer: document.getElementById('sj-postnummer').value.trim(),
         stad: document.getElementById('sj-stad').value.trim(),
-        knives: document.getElementById('sj-knives').value,
+        knives: knivesCount ? String(knivesCount) : '',
         preferred_date: document.getElementById('sj-date').value,
         message: document.getElementById('sj-message').value.trim(),
       };
 
       if (!payload.name || !payload.phone || !payload.address) {
         statusEl.textContent = 'Namn, telefon och adress krävs';
+        statusEl.style.color = 'var(--red)';
+        return;
+      }
+      if (!knivesCount) {
+        statusEl.textContent = 'Antal knivar krävs (skriv en siffra)';
         statusEl.style.color = 'var(--red)';
         return;
       }
