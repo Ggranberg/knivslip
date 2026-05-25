@@ -1103,6 +1103,7 @@
           <div class="modal-actions">
             <button class="btn-save" onclick="saveOrderEdit('${o.id}')">Spara</button>
             <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
+            <button onclick="deleteOrder('${o.id}')" style="margin-left:auto;background:var(--red);color:var(--white);border:none;">Ta bort</button>
           </div>
         </div>`;
       document.body.appendChild(overlay);
@@ -1520,6 +1521,18 @@
       return userRoles(u).map(r => map[r] || r).join(' / ') || '—';
     }
     async function saveSchedule() { await saveJSON('schedule.json', { schedule: DATA.schedule }); }
+    async function deleteOrder(orderId) {
+      const o = DATA.orders.find(x => x.id === orderId);
+      if (!o) return;
+      const customerName = getCustomerName(o.customer_id);
+      if (!confirm(`Ta bort ordern fran ${customerName} (${orderId})?\n\nDetta gar inte att angra.`)) return;
+      DATA.orders = DATA.orders.filter(x => x.id !== orderId);
+      await saveOrders();
+      document.querySelector('.modal-overlay')?.remove();
+      const activeNav = document.querySelector('.sidebar-nav a.active');
+      if (activeNav) renderView(activeNav.dataset.view);
+    }
+
     async function saveOrders() {
       await saveJSON('orders.json', { orders: DATA.orders });
       // Auto-optimera schemat efter varje orderändring
