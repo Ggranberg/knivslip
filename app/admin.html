@@ -5174,10 +5174,6 @@
       const time = new Date().toLocaleTimeString('sv-SE', {hour:'2-digit', minute:'2-digit'});
       const entry = TIMELOG.find(e => e.user_id === CURRENT_USER.id && e.date === today());
       if (!entry || !entry.clock_in) return;
-      // Validera att utklockning är efter inklockning
-      const [inH, inM] = entry.clock_in.split(':').map(Number);
-      const [outH, outM] = time.split(':').map(Number);
-      if ((outH * 60 + outM) <= (inH * 60 + inM)) return;
       entry.clock_out = time;
       saveTimelog();
       const btn = document.querySelector('.clock-btn');
