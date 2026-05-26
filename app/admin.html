@@ -627,6 +627,13 @@
         document.getElementById('login-error').textContent = 'Fel PIN-kod';
         return false;
       }
+      // Säljare loggar in på sin egen portal — inte personalportalen
+      const isOnlySaljare = (user.roles || [user.role]).every(r => r === 'saljare');
+      if (isOnlySaljare) {
+        document.getElementById('login-error').innerHTML = 'Säljare loggar in på <a href="https://knivkillarna.se/saljare" style="color:var(--accent);text-decoration:underline;">knivkillarna.se/saljare</a>';
+        sessionStorage.removeItem('knivslip_pin');
+        return false;
+      }
       CURRENT_USER = user;
       sessionStorage.setItem('knivslip_pin', pin);
       document.getElementById('login-screen').style.display = 'none';

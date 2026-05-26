@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="robots" content="noindex">
+  <title>Säljarportal — Knivkillarna</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #e85d04;
+      --accent-hover: #d04e00;
+      --dark: #1a1a1a;
+      --gray-900: #2a2a2a;
+      --gray-800: #3a3a3a;
+      --gray-700: #4a4a4a;
+      --gray-500: #888;
+      --gray-400: #aaa;
+      --gray-300: #d0d0d0;
+      --gray-200: #e5e5e5;
+      --gray-100: #f5f5f5;
+      --white: #fff;
+      --red: #e53935;
+      --green: #43a047;
+      --radius: 10px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray-100);
+      color: var(--dark);
+      min-height: 100vh;
+    }
+
+    /* LOGIN */
+    .login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--dark);
+      padding: 1rem;
+    }
+    .login-box {
+      background: var(--gray-900);
+      padding: 2.5rem 2rem;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      color: var(--white);
+    }
+    .logo {
+      color: var(--accent);
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-align: center;
+      margin-bottom: 0.3rem;
+    }
+    .subtitle {
+      color: var(--gray-500);
+      font-size: 0.85rem;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .pin-dots {
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+      margin: 1rem 0 1.5rem;
+    }
+    .pin-dot {
+      width: 16px; height: 16px;
+      border: 2px solid var(--gray-700);
+      border-radius: 50%;
+      transition: all 0.15s;
+    }
+    .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+    .pin-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem;
+    }
+    .pin-key {
+      aspect-ratio: 1.6 / 1;
+      background: var(--gray-800);
+      color: var(--white);
+      border: 1px solid var(--gray-700);
+      border-radius: var(--radius);
+      font-size: 1.5rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pin-key:active { background: var(--accent); }
+    .pin-key.fn { background: transparent; border-color: transparent; font-size: 1.2rem; color: var(--gray-500); }
+    .login-error {
+      color: var(--red);
+      font-size: 0.85rem;
+      text-align: center;
+      margin-top: 1rem;
+      min-height: 1.2em;
+    }
+    .login-link {
+      display: block;
+      text-align: center;
+      margin-top: 1.5rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+
+    /* APP */
+    .app { display: none; max-width: 600px; margin: 0 auto; padding: 1rem; padding-bottom: 4rem; }
+    .app.visible { display: block; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 0 1.5rem;
+    }
+    .header .greeting { font-size: 0.85rem; color: var(--gray-500); }
+    .header .name { font-size: 1.1rem; font-weight: 800; }
+    .header .logout {
+      background: none;
+      border: 1px solid var(--gray-300);
+      padding: 0.4rem 0.8rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      color: var(--gray-500);
+    }
+    .banner {
+      background: linear-gradient(135deg, var(--accent) 0%, #ff8533 100%);
+      color: white;
+      padding: 1.25rem;
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+    }
+    .banner-label { font-size: 0.75rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.05em; }
+    .banner-class { font-size: 1.3rem; font-weight: 800; margin: 0.25rem 0 0.75rem; }
+    .banner-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 1rem;
+    }
+    .banner-grid .v { font-size: 1.3rem; font-weight: 800; }
+    .banner-grid .l { font-size: 0.7rem; opacity: 0.85; text-transform: uppercase; }
+    .section { margin-bottom: 2rem; }
+    .section h2 {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray-500);
+      margin-bottom: 0.75rem;
+    }
+    .card {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 0.75rem;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .form-grid .full { grid-column: 1 / -1; }
+    .form-grid label {
+      font-size: 0.75rem;
+      color: var(--gray-500);
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+    .form-grid input, .form-grid textarea {
+      width: 100%;
+      padding: 0.7rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 1rem;
+    }
+    .form-grid input:focus, .form-grid textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .submit-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.9rem;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      width: 100%;
+      margin-top: 1rem;
+    }
+    .submit-btn:hover { background: var(--accent-hover); }
+    .submit-btn:disabled { background: var(--gray-400); cursor: not-allowed; }
+    .form-status { font-size: 0.85rem; text-align: center; margin-top: 0.75rem; min-height: 1.2em; }
+    .form-status.success { color: var(--green); }
+    .form-status.error { color: var(--red); }
+
+    .booking-item {
+      background: var(--white);
+      border-radius: 10px;
+      padding: 0.9rem;
+      margin-bottom: 0.5rem;
+      border-left: 3px solid var(--gray-300);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .booking-item.pending { border-left-color: var(--red); }
+    .booking-item.approved { border-left-color: var(--green); }
+    .booking-name { font-weight: 700; font-size: 0.95rem; }
+    .booking-meta { font-size: 0.8rem; color: var(--gray-500); margin-top: 0.2rem; }
+    .booking-status {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--red);
+      margin-top: 0.4rem;
+    }
+    .booking-status.approved { color: var(--green); }
+    .empty {
+      text-align: center;
+      color: var(--gray-400);
+      padding: 2rem;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div class="login-screen" id="login-screen">
+    <div class="login-box">
+      <div class="logo">KNIVKILLARNA</div>
+      <div class="subtitle">Säljarportal</div>
+      <div class="pin-dots" id="pin-dots">
+        <div class="pin-dot" data-i="0"></div>
+        <div class="pin-dot" data-i="1"></div>
+        <div class="pin-dot" data-i="2"></div>
+        <div class="pin-dot" data-i="3"></div>
+      </div>
+      <div class="pin-grid">
+        <button class="pin-key" data-d="1">1</button>
+        <button class="pin-key" data-d="2">2</button>
+        <button class="pin-key" data-d="3">3</button>
+        <button class="pin-key" data-d="4">4</button>
+        <button class="pin-key" data-d="5">5</button>
+        <button class="pin-key" data-d="6">6</button>
+        <button class="pin-key" data-d="7">7</button>
+        <button class="pin-key" data-d="8">8</button>
+        <button class="pin-key" data-d="9">9</button>
+        <button class="pin-key fn" data-d=""></button>
+        <button class="pin-key" data-d="0">0</button>
+        <button class="pin-key fn" data-d="del">⌫</button>
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <a class="login-link" href="https://knivkillarna.se/klass">Inte registrerad än? Gå med i klass →</a>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="app" id="app">
+    <div class="header">
+      <div>
+        <div class="greeting">Hej</div>
+        <div class="name" id="user-name"></div>
+      </div>
+      <button class="logout" onclick="logout()">Logga ut</button>
+    </div>
+
+    <div id="class-banner"></div>
+
+    <div class="section">
+      <h2>📝 Registrera ny bokning</h2>
+      <div class="card">
+        <div class="form-grid">
+          <div class="full"><label>Kundens namn *</label><input type="text" id="b-name"></div>
+          <div class="full"><label>Telefon *</label><input type="tel" id="b-phone" placeholder="070-XXX XX XX"></div>
+          <div class="full"><label>E-post</label><input type="email" id="b-email"></div>
+          <div class="full"><label>Adress *</label><input type="text" id="b-address"></div>
+          <div><label>Postnummer</label><input type="text" id="b-postnummer" maxlength="6"></div>
+          <div><label>Stad</label><input type="text" id="b-stad" value="Nacka"></div>
+          <div><label>Antal knivar *</label><input type="number" id="b-knives" min="1" max="100"></div>
+          <div><label>Önskat datum</label><input type="date" id="b-date"></div>
+          <div class="full"><label>Notering</label><textarea id="b-message" rows="2" placeholder="T.ex. portkod, ringklocka..."></textarea></div>
+        </div>
+        <button class="submit-btn" id="submit-btn" onclick="submitBooking()">✓ Registrera bokning</button>
+        <div class="form-status" id="form-status"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📋 Mina bokningar</h2>
+      <div id="bookings-list"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? ''
+      : 'https://knivkillarna.up.railway.app';
+
+    let PIN = null;
+    let USER = null;
+    let CLASS = null;
+    let BOOKINGS = [];
+    let COMPLETED = [];
+    let currentPin = '';
+
+    // PIN-pad
+    function renderPinDots() {
+      document.querySelectorAll('.pin-dot').forEach((d, i) => {
+        d.classList.toggle('filled', i < currentPin.length);
+      });
+    }
+    document.querySelectorAll('.pin-key').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const d = btn.dataset.d;
+        const err = document.getElementById('login-error');
+        err.textContent = '';
+        if (d === 'del') {
+          currentPin = currentPin.slice(0, -1);
+        } else if (d) {
+          if (currentPin.length >= 6) return;
+          currentPin += d;
+        } else {
+          return;
+        }
+        renderPinDots();
+        if (currentPin.length >= 4) {
+          // Försök logga in efter 4 siffror, men om fel — låt användaren skriva mer (5-6 siffrigt PIN)
+          await tryLogin();
+        }
+      });
+    });
+
+    async function tryLogin() {
+      const err = document.getElementById('login-error');
+      try {
+        const res = await fetch(API + '/api/saljare/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: currentPin })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          PIN = currentPin;
+          USER = data.user;
+          CLASS = data.class;
+          BOOKINGS = data.bookings || [];
+          COMPLETED = data.completed_orders || [];
+          localStorage.setItem('knivkillarna_saljare_pin', PIN);
+          showApp();
+        } else if (currentPin.length >= 6) {
+          err.textContent = data.error || 'Fel PIN';
+          currentPin = '';
+          renderPinDots();
+        }
+        // Om mindre än 6 siffror och fel — vänta på fler siffror
+      } catch (e) {
+        err.textContent = 'Nätverksfel — testa igen';
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('knivkillarna_saljare_pin');
+      PIN = null; USER = null; CLASS = null;
+      currentPin = '';
+      renderPinDots();
+      document.getElementById('app').classList.remove('visible');
+      document.getElementById('login-screen').style.display = 'flex';
+    }
+
+    function showApp() {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').classList.add('visible');
+      document.getElementById('user-name').textContent = USER.name;
+      renderBanner();
+      renderBookings();
+    }
+
+    function knivesFromBooking(b) {
+      const n = parseInt(b.knives || '');
+      if (!isNaN(n)) return n;
+      if (b.knives === '1-2') return 2;
+      if (b.knives === '3-5') return 4;
+      if (b.knives === '6+') return 7;
+      return 0;
+    }
+
+    function renderBanner() {
+      const el = document.getElementById('class-banner');
+      if (!CLASS) {
+        el.innerHTML = `
+          <div class="banner" style="background:linear-gradient(135deg,#666 0%,#888 100%);">
+            <div class="banner-label">Din klass</div>
+            <div class="banner-class">— ingen klass —</div>
+            <div style="font-size:0.85rem;opacity:0.9;">Kontakta admin för att kopplas till en klass.</div>
+          </div>`;
+        return;
+      }
+      const actualKnives = COMPLETED.reduce((s, o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
+      const earned = actualKnives * (CLASS.commission_per_knife || 0);
+      const pendingKnives = BOOKINGS.filter(b => b.status === 'pending').reduce((s, b) => s + knivesFromBooking(b), 0);
+      const potential = pendingKnives * (CLASS.commission_per_knife || 0);
+      el.innerHTML = `
+        <div class="banner">
+          <div class="banner-label">Din klass</div>
+          <div class="banner-class">${CLASS.name}</div>
+          <div class="banner-grid">
+            <div><div class="l">Per kniv</div><div class="v">${CLASS.commission_per_knife} kr</div></div>
+            <div><div class="l">Du tjänat</div><div class="v">${earned} kr</div></div>
+            <div><div class="l">Knivar slipade</div><div class="v">${actualKnives}</div></div>
+            <div><div class="l">Väntar</div><div class="v">+${potential} kr</div></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBookings() {
+      const el = document.getElementById('bookings-list');
+      if (!BOOKINGS.length) {
+        el.innerHTML = '<div class="empty">Inga bokningar än — registrera din första ovan.</div>';
+        return;
+      }
+      el.innerHTML = BOOKINGS.map(b => {
+        const cls = b.status === 'pending' ? 'pending' : 'approved';
+        const statusLabel = b.status === 'pending' ? 'Väntar på admin' : b.status;
+        const dateStr = b.created_at ? new Date(b.created_at).toLocaleDateString('sv-SE') : '';
+        return `
+          <div class="booking-item ${cls}">
+            <div class="booking-name">${b.name}</div>
+            <div class="booking-meta">${b.phone} · ${b.address}${b.postnummer ? ', ' + b.postnummer : ''} ${b.stad || ''}</div>
+            <div class="booking-meta">${b.knives} knivar${b.preferred_date ? ' · önskat ' + b.preferred_date : ''} · ${dateStr}</div>
+            <div class="booking-status ${cls}">${statusLabel}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function submitBooking() {
+      const btn = document.getElementById('submit-btn');
+      const status = document.getElementById('form-status');
+      status.textContent = '';
+      status.className = 'form-status';
+
+      const payload = {
+        source: 'saljare',
+        seller_id: USER.id,
+        seller_name: USER.name,
+        name: document.getElementById('b-name').value.trim(),
+        phone: document.getElementById('b-phone').value.trim(),
+        email: document.getElementById('b-email').value.trim(),
+        address: document.getElementById('b-address').value.trim(),
+        postnummer: document.getElementById('b-postnummer').value.trim(),
+        stad: document.getElementById('b-stad').value.trim() || 'Nacka',
+        knives: document.getElementById('b-knives').value,
+        preferred_date: document.getElementById('b-date').value,
+        message: document.getElementById('b-message').value.trim(),
+      };
+
+      if (!payload.name || !payload.phone || !payload.address) {
+        status.textContent = 'Namn, telefon och adress krävs';
+        status.classList.add('error');
+        return;
+      }
+      if (!parseInt(payload.knives)) {
+        status.textContent = 'Antal knivar krävs';
+        status.classList.add('error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Sparar...';
+
+      try {
+        const res = await fetch(API + '/api/booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.ok) {
+          status.textContent = '✓ Bokning sparad (' + data.booking_id + ')';
+          status.classList.add('success');
+          // Rensa fält
+          ['b-name','b-phone','b-email','b-address','b-postnummer','b-knives','b-date','b-message'].forEach(id => document.getElementById(id).value = '');
+          document.getElementById('b-stad').value = 'Nacka';
+          // Ladda om bokningar
+          await refresh();
+        } else {
+          status.textContent = 'Fel: ' + (data.error || 'okänt');
+          status.classList.add('error');
+        }
+      } catch (e) {
+        status.textContent = 'Nätverksfel: ' + e.message;
+        status.classList.add('error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✓ Registrera bokning';
+      }
+    }
+
+    async function refresh() {
+      if (!PIN) return;
+      try {
+        const res = await fetch(API + '/api/saljare/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: PIN })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          BOOKINGS = data.bookings || [];
+          COMPLETED = data.completed_orders || [];
+          CLASS = data.class;
+          renderBanner();
+          renderBookings();
+        }
+      } catch (e) { /* tyst */ }
+    }
+
+    // Auto-login om PIN finns i localStorage
+    (async function init() {
+      const saved = localStorage.getItem('knivkillarna_saljare_pin');
+      if (saved) {
+        currentPin = saved;
+        await tryLogin();
+        if (!USER) {
+          // Saved PIN ogiltig — rensa
+          localStorage.removeItem('knivkillarna_saljare_pin');
+          currentPin = '';
+          renderPinDots();
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

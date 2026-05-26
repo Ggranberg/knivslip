@@ -657,6 +657,60 @@ def class_join(data):
     return {'ok': True, 'user_id': user_id, 'class_name': klass['name']}
 
 
+def saljare_login(data):
+    """Login fr saljare-portal. Accepterar BARA saljare-role (admin/slipare/forare nekas).
+    Returnerar user + class + saljares egna bokningar + completed orders."""
+    pin = (data.get('pin') or '').strip()
+    if not pin or not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
+        return {'ok': False, 'error': 'Ogiltig PIN'}
+
+    users_data = load_json('users.json')
+    user = next((u for u in users_data.get('users', [])
+                 if u.get('pin') == pin and u.get('active')
+                 and 'saljare' in (u.get('roles') or [u.get('role')] or [])), None)
+    if not user:
+        return {'ok': False, 'error': 'Fel PIN-kod'}
+
+    # Klass-info (om medlem)
+    klass = None
+    if user.get('class_id'):
+        classes_data = load_json('classes.json')
+        klass = next((c for c in classes_data.get('classes', []) if c['id'] == user['class_id']), None)
+
+    # Bara saljarens egna bokningar
+    bookings_data = load_json('bookings.json')
+    my_bookings = [b for b in bookings_data.get('bookings', []) if b.get('seller_id') == user['id']]
+    my_bookings.sort(key=lambda b: b.get('created_at', ''), reverse=True)
+
+    # Bara completed orders fr provision-rakning
+    orders_data = load_json('orders.json')
+    my_completed_orders = [o for o in orders_data.get('orders', [])
+                           if o.get('seller_id') == user['id'] and o.get('status') == 'completed']
+
+    # Returnera bara nodvandiga falt om user/klass (skydda pa data)
+    safe_user = {
+        'id': user['id'], 'name': user['name'],
+        'role': 'saljare', 'class_id': user.get('class_id')
+    }
+    safe_class = None
+    if klass:
+        safe_class = {
+            'id': klass['id'], 'name': klass['name'],
+            'commission_per_knife': klass.get('commission_per_knife', 0),
+            'code': klass.get('code')
+        }
+
+    return {
+        'ok': True,
+        'user': safe_user,
+        'class': safe_class,
+        'bookings': my_bookings,
+        'completed_orders': [{'id': o['id'], 'actual_knife_count': o.get('actual_knife_count'),
+                              'estimated_knife_count': o.get('estimated_knife_count'),
+                              'status': o.get('status')} for o in my_completed_orders]
+    }
+
+
 def create_order_for_customer(data):
     """Create a new order for an existing customer (from admin panel)."""
     customer_id = data.get('customer_id', '').strip()
@@ -817,6 +871,13 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
 
         elif path == '/api/class/join':
             result = class_join(data)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
+
+        elif path == '/api/saljare/login':
+            result = saljare_login(data)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
