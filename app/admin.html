@@ -652,14 +652,14 @@
         fetchJSON('invoices.json'), fetchJSON('transactions.json'), fetchJSON('schedule.json'),
         fetchJSON('pricing.json'), fetchJSON('areas.json'), fetchJSON('timelog.json'),
         fetchJSON('salary_payments.json').catch(() => ({ payments: [] })),
-        fetchJSON('companies.json').catch(() => ({ companies: [], settings: { bank_account: '', swish_number: '', next_invoice_number: 1001 } })),
+        fetchJSON('companies.json').catch(() => ({ companies: [], settings: { bank_account: '', bankgiro: '', swish_number: '', next_invoice_number: 1001 } })),
         fetchJSON('classes.json').catch(() => ({ classes: [] }))
       ]);
       DATA = { customers: customers.customers, orders: orders.orders, knives: knives.knives,
         invoices: invoices.invoices, transactions: transactions.transactions, schedule: schedule.schedule,
         pricing: pricing.pricing, areas: areas, salary_payments: (salaryPayments && salaryPayments.payments) || [],
         companies: (companies && companies.companies) || [],
-        company_settings: (companies && companies.settings) || { bank_account: '', swish_number: '', next_invoice_number: 1001 },
+        company_settings: (companies && companies.settings) || { bank_account: '', bankgiro: '', swish_number: '', next_invoice_number: 1001 },
         classes: (classes && classes.classes) || [] };
       TIMELOG = timelog.entries;
       await loadPendingBookings();
@@ -2005,16 +2005,16 @@
 
     function renderCompanies(main) {
       const settings = DATA.company_settings || {};
-      const settingsWarning = (!settings.bank_account || !settings.swish_number) ? `
+      const settingsWarning = (!settings.bankgiro && !settings.bank_account) ? `
         <div style="background:#fff3cd;border:1px solid #ffc107;color:#664d03;padding:0.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:0.9rem;">
-          <strong>OBS:</strong> ${!settings.bank_account ? 'Bankkonto saknas. ' : ''}${!settings.swish_number ? 'Swish-nummer saknas. ' : ''}Fyll i under <a href="#" onclick="openCompanySettings();return false;" style="color:var(--accent);font-weight:700;">Inställningar</a> innan ni skickar fakturor.
+          <strong>OBS:</strong> Bankgiro och bankkonto saknas. Fyll i minst Bankgiro under <a href="#" onclick="openCompanySettings();return false;" style="color:var(--accent);font-weight:700;">Inställningar</a> innan ni skickar fakturor.
         </div>` : '';
 
       main.insertAdjacentHTML('beforeend', `
         ${settingsWarning}
         <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
           <button onclick="openCompanyForm()" style="padding:0.6rem 1.2rem;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:inherit;font-weight:600;cursor:pointer;">+ Nytt företag</button>
-          <button onclick="openCompanySettings()" style="padding:0.6rem 1.2rem;background:none;border:1px solid var(--gray-300);color:var(--dark);border-radius:var(--radius);font-family:inherit;font-weight:600;cursor:pointer;">&#9881; Inställningar (bank / Swish)</button>
+          <button onclick="openCompanySettings()" style="padding:0.6rem 1.2rem;background:none;border:1px solid var(--gray-300);color:var(--dark);border-radius:var(--radius);font-family:inherit;font-weight:600;cursor:pointer;">&#9881; Inställningar (Bankgiro / Swish)</button>
         </div>
         <div class="section">
           <div class="table-controls">
@@ -2312,8 +2312,8 @@
       const uninvoiced = (c.jobs || []).filter(j => !j.invoice_id);
       if (!uninvoiced.length) { showToast('Inga ofakturerade slipningar', 'error'); return; }
       const settings = DATA.company_settings || {};
-      if (!settings.bank_account && !settings.swish_number) {
-        if (!confirm('Bankkonto och Swish saknas i Inställningar. Skapa fakturan ändå?')) return;
+      if (!settings.bankgiro && !settings.bank_account && !settings.swish_number) {
+        if (!confirm('Bankgiro, bankkonto och Swish saknas i Inställningar. Skapa fakturan ändå?')) return;
       }
       const total_excl = uninvoiced.reduce((s,j) => s + (j.knives * j.price_per_knife_excl_vat), 0);
       const vat = total_excl * 0.25;
@@ -2349,6 +2349,7 @@
           contact_person: c.contact_person, email: c.email, reference: c.reference
         },
         payment_info: {
+          bankgiro: settings.bankgiro || '',
           bank_account: settings.bank_account || '',
           swish_number: settings.swish_number || ''
         },
@@ -2570,7 +2571,9 @@
   <div class="payment-box">
     <h3>Betalningsinformation</h3>
     <div>
-      ${pi.bank_account ? `<strong>Bankkonto:</strong> ${escapeHtml(pi.bank_account)}<br>` : '<strong style="color:#d32f2f;">Bankkonto: ej angivet</strong><br>'}
+      ${pi.bankgiro ? `<strong>Bankgiro:</strong> ${escapeHtml(pi.bankgiro)}<br>` : ''}
+      ${pi.bank_account ? `<strong>Bankkonto:</strong> ${escapeHtml(pi.bank_account)}<br>` : ''}
+      ${!pi.bankgiro && !pi.bank_account ? '<strong style="color:#d32f2f;">Betalningsinformation saknas</strong><br>' : ''}
       ${pi.swish_number ? `<strong>Swish företag:</strong> ${escapeHtml(pi.swish_number)}<br>` : ''}
       <strong>Ange fakturanummer ${inv.invoice_number} som referens vid betalning.</strong><br>
       Vid sen betalning debiteras dröjsmålsränta enligt räntelagen.
@@ -2593,7 +2596,7 @@
     }
 
     function openCompanySettings() {
-      const s = DATA.company_settings || { bank_account: '', swish_number: '', next_invoice_number: 1001 };
+      const s = DATA.company_settings || { bank_account: '', bankgiro: '', swish_number: '', next_invoice_number: 1001 };
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
       overlay.innerHTML = `
@@ -2605,9 +2608,14 @@
           <div class="modal-body">
             <p style="font-size:0.9rem;color:var(--gray-600);margin-bottom:1rem;">Dessa uppgifter visas på alla fakturor till företag. Företag betalar i regel via bank — Swish är bonus för småfakturor.</p>
             <div class="profile-field">
-              <label>Bankkonto (clearingnr + kontonr) *</label>
+              <label>Bankgiro</label>
+              <input id="cs-bg" value="${escapeHtml(s.bankgiro||'')}" placeholder="Ex: 5050-1055">
+              <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.25rem;">Format: NNNN-NNN eller NNNNN-NN. Vanligaste betalsättet för B2B-fakturor.</div>
+            </div>
+            <div class="profile-field">
+              <label>Bankkonto (clearingnr + kontonr)</label>
               <input id="cs-bank" value="${escapeHtml(s.bank_account||'')}" placeholder="Ex: SEB 5263-12 345 67">
-              <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.25rem;">Format som t.ex. "Swedbank 8327-9 123 456 789-0" eller IBAN. Detta visas som primärt betalningssätt.</div>
+              <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.25rem;">Alternativ för kunder som inte använder Bankgiro.</div>
             </div>
             <div class="profile-field">
               <label>Swish företag (10-siffrigt)</label>
@@ -2631,6 +2639,7 @@
 
     async function saveCompanySettings() {
       DATA.company_settings = DATA.company_settings || {};
+      DATA.company_settings.bankgiro = document.getElementById('cs-bg').value.trim();
       DATA.company_settings.bank_account = document.getElementById('cs-bank').value.trim();
       DATA.company_settings.swish_number = document.getElementById('cs-swish').value.trim();
       DATA.company_settings.next_invoice_number = parseInt(document.getElementById('cs-next').value) || 1001;
