@@ -570,7 +570,7 @@
       </div>
 
       <div class="login-error" id="login-error"></div>
-      <a href="/admin/join.html" style="display:block;text-align:center;margin-top:1.5rem;color:var(--accent);text-decoration:none;font-size:0.85rem;">Är du elev? Gå med i klass →</a>
+      <a href="https://knivkillarna.se/klass" style="display:block;text-align:center;margin-top:1.5rem;color:var(--accent);text-decoration:none;font-size:0.85rem;">Är du elev? Gå med i klass →</a>
     </div>
   </div>
 
@@ -4995,7 +4995,7 @@
       }
       const allBookings = await loadSaljareBookings();
       const stats = classStatsFor(klass, allBookings);
-      const joinUrl = `${window.location.origin}/admin/join.html?code=${klass.code}`;
+      const joinUrl = `https://knivkillarna.se/klass?code=${klass.code}`;
 
       // Leaderboard per medlem
       const memberStats = stats.members.map(m => {
