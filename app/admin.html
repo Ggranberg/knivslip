@@ -570,7 +570,7 @@
       </div>
 
       <div class="login-error" id="login-error"></div>
-      <a href="https://knivkillarna.se/klass" style="display:block;text-align:center;margin-top:1.5rem;color:var(--accent);text-decoration:none;font-size:0.85rem;">Är du elev? Gå med i klass →</a>
+      <a href="https://knivkillarna.se/saljare" style="display:block;text-align:center;margin-top:1.5rem;color:var(--accent);text-decoration:none;font-size:0.85rem;">Är du elev som säljer? Gå till säljarportalen →</a>
     </div>
   </div>
 
@@ -4621,76 +4621,42 @@
       renderView('forare-route');
     }
 
-    // === SÄLJARE ===
+    // === SÄLJARE (admin-vy som visar alla klass-säljar-bokningar) ===
     async function loadSaljareBookings() {
       try {
         const data = await fetchJSON('bookings.json');
-        return (data.bookings || []).filter(b => b.source === 'saljare');
+        return (data.bookings || []).filter(b => b.source === 'klass' || b.source === 'saljare');
       } catch(e) { return []; }
     }
 
     async function renderSaljare(main) {
-      const isAdmin = CURRENT_USER.role === 'admin';
-      const sellers = USERS.filter(u => u.active && userHasRole(u, 'saljare'));
-      const allSellerBookings = await loadSaljareBookings();
-      const myBookings = isAdmin ? allSellerBookings : allSellerBookings.filter(b => b.seller_id === CURRENT_USER.id);
+      const allBookings = await loadSaljareBookings();
+      const pending = allBookings.filter(b => b.status === 'pending').length;
+      const approved = allBookings.filter(b => b.status !== 'pending').length;
 
-      const pending = myBookings.filter(b => b.status === 'pending').length;
-      const approved = myBookings.filter(b => b.status !== 'pending').length;
-
-      // Provision-info om jag tillhor en klass (bara visa for mig sjalv, inte admin-vyn)
-      let classBanner = '';
-      if (!isAdmin && CURRENT_USER.class_id) {
-        const myClass = (DATA.classes || []).find(c => c.id === CURRENT_USER.class_id);
-        if (myClass) {
-          const myCompletedOrders = (DATA.orders || []).filter(o => o.seller_id === CURRENT_USER.id && o.status === 'completed');
-          const myActualKnives = myCompletedOrders.reduce((s, o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
-          const myEarned = myActualKnives * (myClass.commission_per_knife || 0);
-          const myPendingKnives = myBookings.filter(b => b.status === 'pending').reduce((s, b) => s + knivesFromBooking(b), 0);
-          const myPotential = myPendingKnives * (myClass.commission_per_knife || 0);
-          classBanner = `
-            <div class="section">
-              <div class="card" style="padding:1.25rem;background:linear-gradient(135deg, var(--accent) 0%, #ff8533 100%);color:white;">
-                <div style="font-size:0.8rem;opacity:0.9;text-transform:uppercase;letter-spacing:0.05em;">Din klass</div>
-                <div style="font-size:1.3rem;font-weight:800;margin:0.25rem 0 0.75rem 0;">${myClass.name}</div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1rem;">
-                  <div><div style="font-size:0.7rem;opacity:0.85;text-transform:uppercase;">Per kniv</div><div style="font-size:1.4rem;font-weight:800;">${myClass.commission_per_knife} kr</div></div>
-                  <div><div style="font-size:0.7rem;opacity:0.85;text-transform:uppercase;">Du tjänat</div><div style="font-size:1.4rem;font-weight:800;">${myEarned} kr</div></div>
-                  <div><div style="font-size:0.7rem;opacity:0.85;text-transform:uppercase;">Knivar slipade</div><div style="font-size:1.4rem;font-weight:800;">${myActualKnives}</div></div>
-                  <div><div style="font-size:0.7rem;opacity:0.85;text-transform:uppercase;">Väntar bekräftelse</div><div style="font-size:1.4rem;font-weight:800;">+${myPotential} kr</div></div>
-                </div>
-              </div>
-            </div>
-          `;
-        }
-      }
-      if (classBanner) main.insertAdjacentHTML('beforeend', classBanner);
-
-      const sellerOptions = sellers.map(u => {
-        const sel = (!isAdmin && u.id === CURRENT_USER.id) ? 'selected' : '';
-        return `<option value="${u.id}" ${sel}>${u.name}</option>`;
-      }).join('');
-
-      const defaultSellerId = isAdmin ? (sellers[0]?.id || '') : CURRENT_USER.id;
+      const classes = DATA.classes || [];
+      const classOptions = classes.map(c => `<option value="${c.id}">${c.name} (${c.code})</option>`).join('');
 
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:1.5rem;">
-            <div class="card" style="padding:1rem;text-align:center;"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Totalt</div><div style="font-size:1.8rem;font-weight:800;">${myBookings.length}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Totalt</div><div style="font-size:1.8rem;font-weight:800;">${allBookings.length}</div></div>
             <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--red);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Väntar</div><div style="font-size:1.8rem;font-weight:800;color:var(--red);">${pending}</div></div>
             <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--green);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Hanterade</div><div style="font-size:1.8rem;font-weight:800;color:var(--green);">${approved}</div></div>
           </div>
         </div>
 
+        ${classes.length ? `
         <div class="section">
-          <h2 style="margin-bottom:1rem;">&#128221; Registrera ny bokning</h2>
+          <h2 style="margin-bottom:1rem;">&#128221; Registrera bokning åt klass</h2>
+          <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:0.75rem;">Eleverna registrerar själva på <a href="https://knivkillarna.se/saljare" target="_blank" style="color:var(--accent);">knivkillarna.se/saljare</a>. Använd detta bara om du själv vill lägga in en bokning åt en klass.</p>
           <div class="card" style="padding:1rem;">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">
-              ${isAdmin && sellers.length ? `
-                <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Säljare</label>
-                  <select id="sj-seller" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;">${sellerOptions}</select></div>
-              ` : ''}
-              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Namn *</label>
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Klass *</label>
+                <select id="sj-class" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;">${classOptions}</select></div>
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Vem registrerade?</label>
+                <input type="text" id="sj-seller-name" placeholder="Elevens namn" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Kundens namn *</label>
                 <input type="text" id="sj-name" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
               <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Telefon *</label>
                 <input type="tel" id="sj-phone" placeholder="070-XXX XX XX" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
@@ -4710,33 +4676,39 @@
                 <textarea id="sj-message" rows="2" placeholder="T.ex. portkod, ringklocka, kniv-typer..." style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;resize:vertical;"></textarea></div>
             </div>
             <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center;">
-              <button class="log-submit" onclick="submitSaljarBooking('${defaultSellerId}')" style="padding:0.6rem 1.2rem;">&#10003; Registrera bokning</button>
+              <button class="log-submit" onclick="submitSaljarBooking()" style="padding:0.6rem 1.2rem;">&#10003; Registrera bokning</button>
               <span id="sj-status" style="font-size:0.85rem;"></span>
             </div>
           </div>
         </div>
+        ` : `<div class="section"><div class="card" style="padding:1rem;text-align:center;color:var(--gray-500);">Skapa en klass i <strong>Klasser</strong>-fliken först.</div></div>`}
 
         <div class="section">
-          <h2 style="margin-bottom:1rem;">${isAdmin ? 'Alla säljar-bokningar' : 'Mina registrerade bokningar'}</h2>
+          <h2 style="margin-bottom:1rem;">Alla klass-bokningar</h2>
           <div id="saljare-bookings-list"></div>
         </div>
       `);
 
-      renderSaljarBookingsList(myBookings, isAdmin);
+      renderSaljarBookingsList(allBookings);
     }
 
-    function renderSaljarBookingsList(bookings, isAdmin) {
+    function renderSaljarBookingsList(bookings) {
       const container = document.getElementById('saljare-bookings-list');
       if (!container) return;
       if (!bookings.length) {
-        container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--gray-400);">Inga bokningar än — registrera din första ovan.</div>';
+        container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--gray-400);">Inga klass-bokningar än.</div>';
         return;
       }
+      const classes = DATA.classes || [];
+      const classNameById = Object.fromEntries(classes.map(c => [c.id, c.name]));
       const sorted = [...bookings].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
       container.innerHTML = sorted.map(b => {
         const statusColor = b.status === 'pending' ? 'var(--red)' : 'var(--green)';
         const statusLabel = b.status === 'pending' ? 'Väntar på godkännande' : b.status;
-        const sellerLine = isAdmin && b.seller_name ? `<div style="font-size:0.75rem;color:var(--accent);font-weight:600;">Säljare: ${b.seller_name}</div>` : '';
+        const klassName = classNameById[b.class_id];
+        const attrLine = klassName
+          ? `<div style="font-size:0.75rem;color:var(--accent);font-weight:600;">${klassName}${b.seller_name ? ' — ' + b.seller_name : ''}</div>`
+          : (b.seller_name ? `<div style="font-size:0.75rem;color:var(--accent);font-weight:600;">Säljare: ${b.seller_name}</div>` : '');
         const dateStr = b.created_at ? new Date(b.created_at).toLocaleDateString('sv-SE') + ' ' + new Date(b.created_at).toLocaleTimeString('sv-SE', {hour:'2-digit', minute:'2-digit'}) : '';
         return `
           <div class="card" style="padding:1rem;margin-bottom:0.5rem;border-left:3px solid ${statusColor};">
@@ -4746,7 +4718,7 @@
                 <div style="font-size:0.85rem;color:var(--gray-500);">${b.phone} · ${b.address}${b.postnummer ? ', ' + b.postnummer : ''} ${b.stad || ''}</div>
                 <div style="font-size:0.85rem;margin-top:0.25rem;">${b.knives} knivar${b.preferred_date ? ' · önskat ' + b.preferred_date : ''}</div>
                 ${b.message ? `<div style="font-size:0.8rem;color:var(--gray-500);font-style:italic;margin-top:0.25rem;">${b.message}</div>` : ''}
-                ${sellerLine}
+                ${attrLine}
               </div>
               <div style="text-align:right;">
                 <div style="font-size:0.75rem;color:${statusColor};font-weight:700;text-transform:uppercase;">${statusLabel}</div>
@@ -4758,19 +4730,16 @@
       }).join('');
     }
 
-    async function submitSaljarBooking(defaultSellerId) {
+    async function submitSaljarBooking() {
       const statusEl = document.getElementById('sj-status');
-      const isAdmin = CURRENT_USER.role === 'admin';
-      const sellerSelect = document.getElementById('sj-seller');
-      const sellerId = sellerSelect ? sellerSelect.value : defaultSellerId;
-      const seller = USERS.find(u => u.id === sellerId);
-
+      const classId = document.getElementById('sj-class').value;
+      const sellerName = document.getElementById('sj-seller-name').value.trim() || 'admin';
       const knivesCount = parseInt(document.getElementById('sj-knives').value) || 0;
 
       const payload = {
-        source: 'saljare',
-        seller_id: sellerId,
-        seller_name: seller ? seller.name : '',
+        source: 'klass',
+        class_id: classId,
+        seller_name: sellerName,
         name: document.getElementById('sj-name').value.trim(),
         phone: document.getElementById('sj-phone').value.trim(),
         email: document.getElementById('sj-email').value.trim(),
@@ -4782,6 +4751,11 @@
         message: document.getElementById('sj-message').value.trim(),
       };
 
+      if (!classId) {
+        statusEl.textContent = 'Välj en klass';
+        statusEl.style.color = 'var(--red)';
+        return;
+      }
       if (!payload.name || !payload.phone || !payload.address) {
         statusEl.textContent = 'Namn, telefon och adress krävs';
         statusEl.style.color = 'var(--red)';
@@ -4847,27 +4821,28 @@
     }
 
     function classStatsFor(klass, allBookings) {
-      const members = USERS.filter(u => u.class_id === klass.id);
-      const memberIds = new Set(members.map(m => m.id));
-      const myBookings = allBookings.filter(b => memberIds.has(b.seller_id));
+      // Klassens bokningar = de med matching class_id
+      const myBookings = allBookings.filter(b => b.class_id === klass.id);
 
-      // Riktig provision: order.actual_knife_count for completed orders med seller_id
-      const ordersForClass = (DATA.orders || []).filter(o => memberIds.has(o.seller_id) && o.status === 'completed');
+      // Aktiva elever = unika seller_names i klassens bokningar
+      const memberNames = [...new Set(myBookings.map(b => (b.seller_name || '').trim()).filter(Boolean))];
+
+      const ordersForClass = (DATA.orders || []).filter(o => o.class_id === klass.id && o.status === 'completed');
       const actualKnives = ordersForClass.reduce((s, o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
       const earnedCommission = actualKnives * (klass.commission_per_knife || 0);
 
-      // Potentiell provision fran pending + ej-avslutade bokningar
       const pendingBookings = myBookings.filter(b => b.status === 'pending');
       const pendingKnives = pendingBookings.reduce((s, b) => s + knivesFromBooking(b), 0);
       const pendingCommission = pendingKnives * (klass.commission_per_knife || 0);
 
       return {
-        members, memberCount: members.length,
+        memberNames, memberCount: memberNames.length,
         totalBookings: myBookings.length,
         pendingBookings: pendingBookings.length,
         actualKnives, earnedCommission,
         pendingKnives, pendingCommission,
-        allBookings: myBookings
+        allBookings: myBookings,
+        completedOrders: ordersForClass
       };
     }
 
@@ -5002,17 +4977,24 @@
       }
       const allBookings = await loadSaljareBookings();
       const stats = classStatsFor(klass, allBookings);
-      const joinUrl = `https://knivkillarna.se/klass?code=${klass.code}`;
+      const joinUrl = `https://knivkillarna.se/saljare?code=${klass.code}`;
 
-      // Leaderboard per medlem
-      const memberStats = stats.members.map(m => {
-        const myBookings = stats.allBookings.filter(b => b.seller_id === m.id);
-        const myOrders = (DATA.orders || []).filter(o => o.seller_id === m.id && o.status === 'completed');
-        const actualKnives = myOrders.reduce((s, o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
-        const earned = actualKnives * (klass.commission_per_knife || 0);
-        const pendingKnives = myBookings.filter(b => b.status === 'pending').reduce((s, b) => s + knivesFromBooking(b), 0);
-        return { user: m, bookings: myBookings.length, actualKnives, earned, pendingKnives };
-      }).sort((a, b) => b.actualKnives - a.actualKnives || b.bookings - a.bookings);
+      // Topplista per seller_name (case-insensitive matching)
+      const byName = {};
+      stats.allBookings.forEach(b => {
+        const key = (b.seller_name || 'okänd').trim().toLowerCase();
+        if (!byName[key]) byName[key] = { displayName: (b.seller_name || 'Okänd').trim(), bookings: 0, actualKnives: 0, pendingKnives: 0 };
+        byName[key].bookings++;
+        if (b.status === 'pending') byName[key].pendingKnives += knivesFromBooking(b);
+      });
+      stats.completedOrders.forEach(o => {
+        const key = (o.seller_name || 'okänd').trim().toLowerCase();
+        if (!byName[key]) byName[key] = { displayName: (o.seller_name || 'Okänd').trim(), bookings: 0, actualKnives: 0, pendingKnives: 0 };
+        byName[key].actualKnives += (o.actual_knife_count || o.estimated_knife_count || 0);
+      });
+      const memberStats = Object.values(byName)
+        .map(s => ({ ...s, earned: s.actualKnives * (klass.commission_per_knife || 0) }))
+        .sort((a, b) => b.actualKnives - a.actualKnives || b.bookings - a.bookings);
 
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
@@ -5074,7 +5056,7 @@
       const container = document.getElementById('klass-leaderboard');
       if (!container) return;
       if (!memberStats.length) {
-        container.innerHTML = `<div class="card" style="padding:1.5rem;text-align:center;color:var(--gray-400);">Inga elever ännu. Dela klasskoden <strong style="color:var(--accent);">${klass.code}</strong> så kan de registrera sig.</div>`;
+        container.innerHTML = `<div class="card" style="padding:1.5rem;text-align:center;color:var(--gray-400);">Inga bokningar ännu. Dela klasskoden <strong style="color:var(--accent);">${klass.code}</strong> så kan eleverna börja sälja.</div>`;
         return;
       }
       container.innerHTML = memberStats.map((s, i) => {
@@ -5084,8 +5066,8 @@
             <div style="flex:1;min-width:160px;display:flex;align-items:center;gap:0.75rem;">
               <span style="font-size:1.3rem;width:36px;text-align:center;">${medal}</span>
               <div>
-                <div style="font-weight:700;">${s.user.name}</div>
-                <div style="font-size:0.75rem;color:var(--gray-500);">PIN: ${s.user.pin} · ${s.bookings} bokningar${s.pendingKnives > 0 ? ' · ' + s.pendingKnives + ' knivar väntar' : ''}</div>
+                <div style="font-weight:700;">${s.displayName}</div>
+                <div style="font-size:0.75rem;color:var(--gray-500);">${s.bookings} bokningar${s.pendingKnives > 0 ? ' · ' + s.pendingKnives + ' knivar väntar' : ''}</div>
               </div>
             </div>
             <div style="display:flex;gap:1.5rem;text-align:center;">
@@ -5120,19 +5102,9 @@
     async function deleteKlass(klassId) {
       const klass = (DATA.classes || []).find(c => c.id === klassId);
       if (!klass) return;
-      const members = USERS.filter(u => u.class_id === klassId);
-      const msg = members.length > 0
-        ? `Ta bort klass "${klass.name}"?\n\n${members.length} elever förlorar sin koppling till klassen (men deras konton finns kvar). Bokningar och provisionshistorik bevaras.`
-        : `Ta bort klass "${klass.name}"?`;
-      if (!confirm(msg)) return;
+      if (!confirm(`Ta bort klass "${klass.name}"?\n\nBokningar och provisionshistorik bevaras. Eleverna kan inte längre logga in med klasskoden.`)) return;
       DATA.classes = (DATA.classes || []).filter(c => c.id !== klassId);
-      // Nolla class_id pa medlemmar
-      let usersChanged = false;
-      USERS.forEach(u => {
-        if (u.class_id === klassId) { u.class_id = null; usersChanged = true; }
-      });
       await saveJSON('classes.json', { classes: DATA.classes });
-      if (usersChanged) await saveJSON('users.json', { users: USERS });
       renderView('klasser');
     }
 

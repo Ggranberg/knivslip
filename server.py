@@ -414,6 +414,7 @@ def handle_booking(data):
     source = data.get('source', 'hemsida')
     seller_id = (data.get('seller_id') or '').strip() or None
     seller_name = (data.get('seller_name') or '').strip() or None
+    class_id = (data.get('class_id') or '').strip() or None
 
     if not name or not phone or not address:
         return {'ok': False, 'error': 'Namn, telefon och adress kravs'}
@@ -430,6 +431,7 @@ def handle_booking(data):
         'knives': knives_str, 'preferred_date': preferred_date, 'time_window': time_window,
         'message': message, 'source': source,
         'seller_id': seller_id, 'seller_name': seller_name,
+        'class_id': class_id,
         'created_at': now_str, 'status': 'pending'
     }
     bookings.append(new_booking)
@@ -600,6 +602,7 @@ def approve_booking(booking_id):
         ],
         'source': booking.get('source', 'hemsida'), 'estimated_knife_count': knife_count, 'actual_knife_count': None,
         'seller_id': booking.get('seller_id'), 'seller_name': booking.get('seller_name'),
+        'class_id': booking.get('class_id'),
         'pickup': {'date': pickup_date, 'time_window': time_window or None, 'assigned_to': None, 'completed_at': None},
         'delivery': {'date': None, 'time_window': None, 'assigned_to': None, 'completed_at': None},
         'quality_check': {'passed': None, 'checked_by': None, 'timestamp': None, 'notes': None},
@@ -619,95 +622,41 @@ def approve_booking(booking_id):
     return {'ok': True, 'customer_id': customer_id, 'order_id': order_id}
 
 
-def class_join(data):
-    """Elev går med i klass via klasskod. Skapar saljare-user med class_id."""
+def class_login(data):
+    """Login till klass-portal med bara klasskod (ingen PIN, inga elev-konton).
+    Returnerar klass-info + alla bokningar och completed orders for klassen."""
     code = (data.get('class_code') or '').strip().upper()
-    name = (data.get('name') or '').strip()
-    pin = (data.get('pin') or '').strip()
-
-    if not code or not name or not pin:
-        return {'ok': False, 'error': 'Klasskod, namn och PIN kravs'}
-    if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
-        return {'ok': False, 'error': 'PIN maste vara 4-6 siffror'}
+    if not code:
+        return {'ok': False, 'error': 'Klasskod krävs'}
 
     classes_data = load_json('classes.json')
-    classes = classes_data.get('classes', [])
-    klass = next((c for c in classes if (c.get('code') or '').upper() == code and c.get('active', True)), None)
+    klass = next((c for c in classes_data.get('classes', [])
+                  if (c.get('code') or '').upper() == code and c.get('active', True)), None)
     if not klass:
         return {'ok': False, 'error': 'Ogiltig klasskod'}
 
-    users_data = load_json('users.json')
-    users = users_data.get('users', [])
-    if any(u.get('pin') == pin for u in users):
-        return {'ok': False, 'error': 'PIN-koden ar redan tagen, valj en annan'}
-
-    now_str = datetime.now().isoformat()
-    user_id = generate_id('USR', [u['id'] for u in users])
-    new_user = {
-        'id': user_id, 'name': name, 'pin': pin,
-        'role': 'saljare', 'roles': ['saljare'],
-        'active': True, 'pay_type': None, 'pay_rate': None, 'pays': [],
-        'class_id': klass['id'],
-        'created_at': now_str,
-    }
-    users.append(new_user)
-    save_json('users.json', {'users': users})
-    print(f'[KLASS] Ny elev: {name} ({user_id}) i klass {klass["name"]}')
-
-    return {'ok': True, 'user_id': user_id, 'class_name': klass['name']}
-
-
-def saljare_login(data):
-    """Login fr saljare-portal. Accepterar BARA saljare-role (admin/slipare/forare nekas).
-    Returnerar user + class + saljares egna bokningar + completed orders."""
-    pin = (data.get('pin') or '').strip()
-    if not pin or not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
-        return {'ok': False, 'error': 'Ogiltig PIN'}
-
-    users_data = load_json('users.json')
-    user = next((u for u in users_data.get('users', [])
-                 if u.get('pin') == pin and u.get('active')
-                 and 'saljare' in (u.get('roles') or [u.get('role')] or [])), None)
-    if not user:
-        return {'ok': False, 'error': 'Fel PIN-kod'}
-
-    # Klass-info (om medlem)
-    klass = None
-    if user.get('class_id'):
-        classes_data = load_json('classes.json')
-        klass = next((c for c in classes_data.get('classes', []) if c['id'] == user['class_id']), None)
-
-    # Bara saljarens egna bokningar
     bookings_data = load_json('bookings.json')
-    my_bookings = [b for b in bookings_data.get('bookings', []) if b.get('seller_id') == user['id']]
-    my_bookings.sort(key=lambda b: b.get('created_at', ''), reverse=True)
+    class_bookings = [b for b in bookings_data.get('bookings', []) if b.get('class_id') == klass['id']]
+    class_bookings.sort(key=lambda b: b.get('created_at', ''), reverse=True)
 
-    # Bara completed orders fr provision-rakning
     orders_data = load_json('orders.json')
-    my_completed_orders = [o for o in orders_data.get('orders', [])
-                           if o.get('seller_id') == user['id'] and o.get('status') == 'completed']
+    completed_orders = [o for o in orders_data.get('orders', [])
+                        if o.get('class_id') == klass['id'] and o.get('status') == 'completed']
 
-    # Returnera bara nodvandiga falt om user/klass (skydda pa data)
-    safe_user = {
-        'id': user['id'], 'name': user['name'],
-        'role': 'saljare', 'class_id': user.get('class_id')
+    safe_class = {
+        'id': klass['id'], 'name': klass['name'],
+        'commission_per_knife': klass.get('commission_per_knife', 0),
+        'code': klass.get('code')
     }
-    safe_class = None
-    if klass:
-        safe_class = {
-            'id': klass['id'], 'name': klass['name'],
-            'commission_per_knife': klass.get('commission_per_knife', 0),
-            'code': klass.get('code')
-        }
 
     return {
         'ok': True,
-        'user': safe_user,
         'class': safe_class,
-        'bookings': my_bookings,
+        'bookings': class_bookings,
         'completed_orders': [{'id': o['id'], 'actual_knife_count': o.get('actual_knife_count'),
                               'estimated_knife_count': o.get('estimated_knife_count'),
-                              'status': o.get('status')} for o in my_completed_orders]
+                              'seller_name': o.get('seller_name'),
+                              'status': o.get('status')} for o in completed_orders]
     }
 
 
@@ -869,15 +818,8 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
 
-        elif path == '/api/class/join':
-            result = class_join(data)
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
-
-        elif path == '/api/saljare/login':
-            result = saljare_login(data)
+        elif path == '/api/class/login':
+            result = class_login(data)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
