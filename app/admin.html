@@ -570,6 +570,7 @@
       </div>
 
       <div class="login-error" id="login-error"></div>
+      <a href="/admin/join.html" style="display:block;text-align:center;margin-top:1.5rem;color:var(--accent);text-decoration:none;font-size:0.85rem;">Är du elev? Gå med i klass →</a>
     </div>
   </div>
 
@@ -639,18 +640,20 @@
 
     // === DATA ===
     async function loadAllData() {
-      const [customers, orders, knives, invoices, transactions, schedule, pricing, areas, timelog, salaryPayments, companies] = await Promise.all([
+      const [customers, orders, knives, invoices, transactions, schedule, pricing, areas, timelog, salaryPayments, companies, classes] = await Promise.all([
         fetchJSON('customers.json'), fetchJSON('orders.json'), fetchJSON('knives.json'),
         fetchJSON('invoices.json'), fetchJSON('transactions.json'), fetchJSON('schedule.json'),
         fetchJSON('pricing.json'), fetchJSON('areas.json'), fetchJSON('timelog.json'),
         fetchJSON('salary_payments.json').catch(() => ({ payments: [] })),
-        fetchJSON('companies.json').catch(() => ({ companies: [], settings: { bank_account: '', swish_number: '', next_invoice_number: 1001 } }))
+        fetchJSON('companies.json').catch(() => ({ companies: [], settings: { bank_account: '', swish_number: '', next_invoice_number: 1001 } })),
+        fetchJSON('classes.json').catch(() => ({ classes: [] }))
       ]);
       DATA = { customers: customers.customers, orders: orders.orders, knives: knives.knives,
         invoices: invoices.invoices, transactions: transactions.transactions, schedule: schedule.schedule,
         pricing: pricing.pricing, areas: areas, salary_payments: (salaryPayments && salaryPayments.payments) || [],
         companies: (companies && companies.companies) || [],
-        company_settings: (companies && companies.settings) || { bank_account: '', swish_number: '', next_invoice_number: 1001 } };
+        company_settings: (companies && companies.settings) || { bank_account: '', swish_number: '', next_invoice_number: 1001 },
+        classes: (classes && classes.classes) || [] };
       TIMELOG = timelog.entries;
       await loadPendingBookings();
       await loadReviews();
@@ -1569,6 +1572,7 @@
           <a href="#" data-view="reviews"><span class="icon">&#9733;</span> Recensioner <span id="review-badge" style="background:var(--red);color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size:0.7rem;font-weight:700;margin-left:auto;display:none;">0</span></a>
           <a href="#" data-view="pipeline"><span class="icon">&#9654;</span> Pipeline</a>
           <a href="#" data-view="saljare"><span class="icon">&#128188;</span> Säljare</a>
+          <a href="#" data-view="klasser"><span class="icon">&#127979;</span> Klasser</a>
           <a href="#" data-view="schedule"><span class="icon">&#128197;</span> Schema</a>
           <a href="#" data-view="routes"><span class="icon">&#128205;</span> Ruttkarta</a>
           <a href="#" data-view="customers"><span class="icon">&#128101;</span> Kunder</a>
@@ -1680,6 +1684,7 @@
         moreItems = [
           { view: 'reviews', icon: '&#9733;', label: 'Recensioner' },
           { view: 'saljare', icon: '&#128188;', label: 'Säljare' },
+          { view: 'klasser', icon: '&#127979;', label: 'Klasser' },
           { view: 'routes', icon: '&#128205;', label: 'Ruttkarta' },
           { view: 'reminders', icon: '&#128276;', label: 'Påminnelser' },
           { view: 'finance', icon: '&#128176;', label: 'Ekonomi' },
@@ -1761,11 +1766,13 @@
         case 'forare-home': main.innerHTML = header; renderForareHome(main); break;
         case 'forare-route': main.innerHTML = header; renderForareRoute(main); break;
         case 'saljare': main.innerHTML = header; renderSaljare(main); break;
+        case 'klasser': main.innerHTML = header; renderKlasser(main); break;
+        case 'klass-detail': main.innerHTML = header; renderKlassDetail(main); break;
       }
     }
 
     function getViewTitle(v) {
-      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', reviews:'Recensioner', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', foretag:'Företag', reminders:'Påminnelser', finance:'Ekonomi', arbete:'Arbete & Lön', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt', saljare:'Säljare' };
+      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', reviews:'Recensioner', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', foretag:'Företag', reminders:'Påminnelser', finance:'Ekonomi', arbete:'Arbete & Lön', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt', saljare:'Säljare', klasser:'Klasser', 'klass-detail':'Klassdetalj' };
       return t[v] || v;
     }
 
@@ -4624,6 +4631,34 @@
       const pending = myBookings.filter(b => b.status === 'pending').length;
       const approved = myBookings.filter(b => b.status !== 'pending').length;
 
+      // Provision-info om jag tillhor en klass (bara visa for mig sjalv, inte admin-vyn)
+      let classBanner = '';
+      if (!isAdmin && CURRENT_USER.class_id) {
+        const myClass = (DATA.classes || []).find(c => c.id === CURRENT_USER.class_id);
+        if (myClass) {
+          const myCompletedOrders = (DATA.orders || []).filter(o => o.seller_id === CURRENT_USER.id && o.status === 'completed');
+          const myActualKnives = myCompletedOrders.reduce((s, o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
+          const myEarned = myActualKnives * (myClass.commission_per_knife || 0);
+          const myPendingKnives = myBookings.filter(b => b.status === 'pending').reduce((s, b) => s + knivesFromBooking(b), 0);
+          const myPotential = myPendingKnives * (myClass.commission_per_knife || 0);
+          classBanner = `
+            <div class="section">
+              <div class="card" style="padding:1.25rem;background:linear-gradient(135deg, var(--accent) 0%, #ff8533 100%);color:white;">
+                <div style="font-size:0.8rem;opacity:0.9;text-transform:uppercase;letter-spacing:0.05em;">Din klass</div>
+                <div style="font-size:1.3rem;font-weight:800;margin:0.25rem 0 0.75rem 0;">${myClass.name}</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1rem;">
+                  <div><div style="font-size:0.7rem;opacity:0.85;text-transform:uppercase;">Per kniv</div><div style="font-size:1.4rem;font-weight:800;">${myClass.commission_per_knife} kr</div></div>
+                  <div><div style="font-size:0.7rem;opacity:0.85;text-transform:uppercase;">Du tjänat</div><div style="font-size:1.4rem;font-weight:800;">${myEarned} kr</div></div>
+                  <div><div style="font-size:0.7rem;opacity:0.85;text-transform:uppercase;">Knivar slipade</div><div style="font-size:1.4rem;font-weight:800;">${myActualKnives}</div></div>
+                  <div><div style="font-size:0.7rem;opacity:0.85;text-transform:uppercase;">Väntar bekräftelse</div><div style="font-size:1.4rem;font-weight:800;">+${myPotential} kr</div></div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      }
+      if (classBanner) main.insertAdjacentHTML('beforeend', classBanner);
+
       const sellerOptions = sellers.map(u => {
         const sel = (!isAdmin && u.id === CURRENT_USER.id) ? 'selected' : '';
         return `<option value="${u.id}" ${sel}>${u.name}</option>`;
@@ -4776,6 +4811,322 @@
         statusEl.textContent = 'Nätverksfel: ' + e.message;
         statusEl.style.color = 'var(--red)';
       }
+    }
+
+    // === KLASSER ===
+    let CURRENT_KLASS_ID = null;
+
+    function generateKlassCode() {
+      // Undvik forvxlbara: 0/O, 1/I, L. Format: 6 tecken
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      const existing = new Set((DATA.classes || []).map(c => (c.code || '').toUpperCase()));
+      for (let attempt = 0; attempt < 50; attempt++) {
+        let code = '';
+        for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+        if (!existing.has(code)) return code;
+      }
+      return 'KLASS' + Date.now().toString().slice(-4);
+    }
+
+    function knivesFromBooking(b) {
+      // Bokningar har antingen siffra (saljarbokning) eller "1-2"/"3-5"/"6+" (hemsida)
+      const v = b.knives || '';
+      const n = parseInt(v);
+      if (!isNaN(n)) return n;
+      if (v === '1-2') return 2;
+      if (v === '3-5') return 4;
+      if (v === '6+') return 7;
+      return 0;
+    }
+
+    function classStatsFor(klass, allBookings) {
+      const members = USERS.filter(u => u.class_id === klass.id);
+      const memberIds = new Set(members.map(m => m.id));
+      const myBookings = allBookings.filter(b => memberIds.has(b.seller_id));
+
+      // Riktig provision: order.actual_knife_count for completed orders med seller_id
+      const ordersForClass = (DATA.orders || []).filter(o => memberIds.has(o.seller_id) && o.status === 'completed');
+      const actualKnives = ordersForClass.reduce((s, o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
+      const earnedCommission = actualKnives * (klass.commission_per_knife || 0);
+
+      // Potentiell provision fran pending + ej-avslutade bokningar
+      const pendingBookings = myBookings.filter(b => b.status === 'pending');
+      const pendingKnives = pendingBookings.reduce((s, b) => s + knivesFromBooking(b), 0);
+      const pendingCommission = pendingKnives * (klass.commission_per_knife || 0);
+
+      return {
+        members, memberCount: members.length,
+        totalBookings: myBookings.length,
+        pendingBookings: pendingBookings.length,
+        actualKnives, earnedCommission,
+        pendingKnives, pendingCommission,
+        allBookings: myBookings
+      };
+    }
+
+    async function renderKlasser(main) {
+      const allBookings = await loadSaljareBookings();
+      const classes = DATA.classes || [];
+
+      const totalEarned = classes.reduce((s, k) => s + classStatsFor(k, allBookings).earnedCommission, 0);
+      const totalKnives = classes.reduce((s, k) => s + classStatsFor(k, allBookings).actualKnives, 0);
+      const totalMembers = classes.reduce((s, k) => s + USERS.filter(u => u.class_id === k.id).length, 0);
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:1.5rem;">
+            <div class="card" style="padding:1rem;text-align:center;"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Klasser</div><div style="font-size:1.8rem;font-weight:800;">${classes.length}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Elever</div><div style="font-size:1.8rem;font-weight:800;">${totalMembers}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--green);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Knivar sålda</div><div style="font-size:1.8rem;font-weight:800;color:var(--green);">${totalKnives}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--accent);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Provision intj.</div><div style="font-size:1.8rem;font-weight:800;color:var(--accent);">${totalEarned} kr</div></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 style="margin-bottom:1rem;">&#10010; Skapa ny klass</h2>
+          <div class="card" style="padding:1rem;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;align-items:end;">
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Klassens namn *</label>
+                <input type="text" id="kl-name" placeholder="T.ex. Nacka Gym 9A" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Provision (kr/kniv) *</label>
+                <input type="number" id="kl-commission" min="1" max="200" value="10" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Kontaktperson</label>
+                <input type="text" id="kl-contact" placeholder="T.ex. lärarens namn" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
+              <button class="log-submit" onclick="createKlass()" style="padding:0.6rem 1.2rem;">Skapa klass</button>
+            </div>
+            <div id="kl-create-status" style="font-size:0.85rem;margin-top:0.75rem;"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 style="margin-bottom:1rem;">Alla klasser</h2>
+          <div id="classes-list"></div>
+        </div>
+      `);
+
+      renderClassesList(allBookings);
+    }
+
+    function renderClassesList(allBookings) {
+      const container = document.getElementById('classes-list');
+      if (!container) return;
+      const classes = DATA.classes || [];
+      if (!classes.length) {
+        container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--gray-400);">Inga klasser ännu — skapa en ovan så får eleverna en klasskod att registrera sig med.</div>';
+        return;
+      }
+      container.innerHTML = classes.map(k => {
+        const stats = classStatsFor(k, allBookings);
+        const joinUrl = `${window.location.origin}/admin/join.html?code=${k.code}`;
+        return `
+          <div class="card" style="padding:1rem;margin-bottom:0.75rem;cursor:pointer;border-left:3px solid var(--accent);" onclick="openKlass('${k.id}')">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+              <div style="flex:1;min-width:200px;">
+                <div style="font-weight:800;font-size:1.1rem;">${k.name}</div>
+                <div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.25rem;">Klasskod: <span style="font-family:monospace;background:var(--gray-100);padding:2px 6px;border-radius:4px;font-weight:700;letter-spacing:0.1em;">${k.code}</span> · ${k.commission_per_knife} kr/kniv${k.contact ? ' · ' + k.contact : ''}</div>
+              </div>
+              <div style="display:flex;gap:1rem;text-align:center;">
+                <div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Elever</div><div style="font-size:1.3rem;font-weight:800;">${stats.memberCount}</div></div>
+                <div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Knivar</div><div style="font-size:1.3rem;font-weight:800;color:var(--green);">${stats.actualKnives}</div></div>
+                <div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Tjänat</div><div style="font-size:1.3rem;font-weight:800;color:var(--accent);">${stats.earnedCommission} kr</div></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function createKlass() {
+      const status = document.getElementById('kl-create-status');
+      const name = document.getElementById('kl-name').value.trim();
+      const commission = parseInt(document.getElementById('kl-commission').value) || 0;
+      const contact = document.getElementById('kl-contact').value.trim();
+
+      if (!name) {
+        status.textContent = 'Klassens namn krävs';
+        status.style.color = 'var(--red)';
+        return;
+      }
+      if (commission <= 0) {
+        status.textContent = 'Provision måste vara större än 0';
+        status.style.color = 'var(--red)';
+        return;
+      }
+
+      const classes = DATA.classes || [];
+      const today_str = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      const todayCount = classes.filter(c => c.id && c.id.includes(`CLS-${today_str}`)).length;
+      const newId = `CLS-${today_str}-${String(todayCount + 1).padStart(3, '0')}`;
+
+      const newKlass = {
+        id: newId,
+        name: name,
+        code: generateKlassCode(),
+        commission_per_knife: commission,
+        contact: contact || null,
+        active: true,
+        created_at: new Date().toISOString()
+      };
+      classes.push(newKlass);
+      DATA.classes = classes;
+      await saveJSON('classes.json', { classes: classes });
+
+      status.textContent = `✓ Klass skapad — kod: ${newKlass.code}`;
+      status.style.color = 'var(--green)';
+      document.getElementById('kl-name').value = '';
+      document.getElementById('kl-contact').value = '';
+      setTimeout(() => renderView('klasser'), 500);
+    }
+
+    function openKlass(klassId) {
+      CURRENT_KLASS_ID = klassId;
+      // Update sidebar+mobile to no active item (custom view)
+      document.querySelectorAll('#sidebar-nav a').forEach(x => x.classList.remove('active'));
+      const k = document.querySelector('#sidebar-nav a[data-view="klasser"]');
+      if (k) k.classList.add('active');
+      renderView('klass-detail');
+    }
+
+    async function renderKlassDetail(main) {
+      const klass = (DATA.classes || []).find(c => c.id === CURRENT_KLASS_ID);
+      if (!klass) {
+        main.insertAdjacentHTML('beforeend', '<div class="section"><p>Klass hittades inte.</p><button onclick="renderView(\'klasser\')">Tillbaka</button></div>');
+        return;
+      }
+      const allBookings = await loadSaljareBookings();
+      const stats = classStatsFor(klass, allBookings);
+      const joinUrl = `${window.location.origin}/admin/join.html?code=${klass.code}`;
+
+      // Leaderboard per medlem
+      const memberStats = stats.members.map(m => {
+        const myBookings = stats.allBookings.filter(b => b.seller_id === m.id);
+        const myOrders = (DATA.orders || []).filter(o => o.seller_id === m.id && o.status === 'completed');
+        const actualKnives = myOrders.reduce((s, o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
+        const earned = actualKnives * (klass.commission_per_knife || 0);
+        const pendingKnives = myBookings.filter(b => b.status === 'pending').reduce((s, b) => s + knivesFromBooking(b), 0);
+        return { user: m, bookings: myBookings.length, actualKnives, earned, pendingKnives };
+      }).sort((a, b) => b.actualKnives - a.actualKnives || b.bookings - a.bookings);
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <button onclick="renderView('klasser')" style="background:none;border:1px solid var(--gray-300);padding:0.4rem 0.8rem;border-radius:var(--radius);cursor:pointer;margin-bottom:1rem;">← Alla klasser</button>
+
+          <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+              <div style="flex:1;min-width:240px;">
+                <h2 style="margin:0 0 0.5rem 0;">${klass.name}</h2>
+                <div style="font-size:0.9rem;color:var(--gray-500);">${klass.commission_per_knife} kr/kniv${klass.contact ? ' · Kontakt: ' + klass.contact : ''}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;margin-bottom:0.25rem;">Klasskod</div>
+                <div style="font-family:monospace;font-size:1.6rem;font-weight:800;letter-spacing:0.2em;color:var(--accent);">${klass.code}</div>
+              </div>
+            </div>
+
+            <div style="background:var(--gray-100);padding:0.75rem;border-radius:var(--radius);margin-top:1rem;font-size:0.85rem;">
+              <div style="color:var(--gray-500);margin-bottom:0.25rem;">Dela denna länk med klassen — de registrerar sig själva:</div>
+              <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                <code style="background:var(--white);padding:0.4rem 0.6rem;border-radius:4px;border:1px solid var(--gray-300);flex:1;min-width:200px;font-size:0.8rem;word-break:break-all;">${joinUrl}</code>
+                <button onclick="navigator.clipboard.writeText('${joinUrl}').then(()=>{this.textContent='✓ Kopierad'})" style="padding:0.4rem 0.8rem;background:var(--accent);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">Kopiera</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:1.5rem;">
+            <div class="card" style="padding:1rem;text-align:center;"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Elever</div><div style="font-size:1.8rem;font-weight:800;">${stats.memberCount}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Bokningar</div><div style="font-size:1.8rem;font-weight:800;">${stats.totalBookings}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--green);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Knivar slipade</div><div style="font-size:1.8rem;font-weight:800;color:var(--green);">${stats.actualKnives}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--accent);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Provision intjänad</div><div style="font-size:1.8rem;font-weight:800;color:var(--accent);">${stats.earnedCommission} kr</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--gray-500);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Potentiellt (väntar)</div><div style="font-size:1.4rem;font-weight:800;color:var(--gray-500);">+${stats.pendingCommission} kr</div></div>
+          </div>
+
+          <h3 style="margin-bottom:0.75rem;">Topplista</h3>
+          <div id="klass-leaderboard"></div>
+
+          <h3 style="margin:1.5rem 0 0.75rem 0;">Justera klassen</h3>
+          <div class="card" style="padding:1rem;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;align-items:end;">
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Namn</label>
+                <input type="text" id="kl-edit-name" value="${klass.name}" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Provision (kr/kniv)</label>
+                <input type="number" id="kl-edit-commission" value="${klass.commission_per_knife}" min="1" max="200" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
+              <div><label style="font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;">Kontakt</label>
+                <input type="text" id="kl-edit-contact" value="${klass.contact || ''}" style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;"></div>
+              <button class="log-submit" onclick="saveKlassEdit('${klass.id}')" style="padding:0.6rem 1.2rem;">Spara</button>
+              <button onclick="deleteKlass('${klass.id}')" style="padding:0.6rem 1.2rem;background:var(--red);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">Ta bort klass</button>
+            </div>
+            <div id="kl-edit-status" style="font-size:0.85rem;margin-top:0.5rem;"></div>
+          </div>
+        </div>
+      `);
+
+      renderKlassLeaderboard(memberStats, klass);
+    }
+
+    function renderKlassLeaderboard(memberStats, klass) {
+      const container = document.getElementById('klass-leaderboard');
+      if (!container) return;
+      if (!memberStats.length) {
+        container.innerHTML = `<div class="card" style="padding:1.5rem;text-align:center;color:var(--gray-400);">Inga elever ännu. Dela klasskoden <strong style="color:var(--accent);">${klass.code}</strong> så kan de registrera sig.</div>`;
+        return;
+      }
+      container.innerHTML = memberStats.map((s, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+        return `
+          <div class="card" style="padding:0.75rem 1rem;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;display:flex;align-items:center;gap:0.75rem;">
+              <span style="font-size:1.3rem;width:36px;text-align:center;">${medal}</span>
+              <div>
+                <div style="font-weight:700;">${s.user.name}</div>
+                <div style="font-size:0.75rem;color:var(--gray-500);">PIN: ${s.user.pin} · ${s.bookings} bokningar${s.pendingKnives > 0 ? ' · ' + s.pendingKnives + ' knivar väntar' : ''}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:1.5rem;text-align:center;">
+              <div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Knivar</div><div style="font-size:1.2rem;font-weight:800;color:var(--green);">${s.actualKnives}</div></div>
+              <div><div style="font-size:0.7rem;color:var(--gray-500);text-transform:uppercase;">Tjänat</div><div style="font-size:1.2rem;font-weight:800;color:var(--accent);">${s.earned} kr</div></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function saveKlassEdit(klassId) {
+      const status = document.getElementById('kl-edit-status');
+      const klass = (DATA.classes || []).find(c => c.id === klassId);
+      if (!klass) return;
+      const name = document.getElementById('kl-edit-name').value.trim();
+      const commission = parseInt(document.getElementById('kl-edit-commission').value) || 0;
+      const contact = document.getElementById('kl-edit-contact').value.trim();
+      if (!name || commission <= 0) {
+        status.textContent = 'Namn och provision krävs';
+        status.style.color = 'var(--red)';
+        return;
+      }
+      klass.name = name;
+      klass.commission_per_knife = commission;
+      klass.contact = contact || null;
+      await saveJSON('classes.json', { classes: DATA.classes });
+      status.textContent = '✓ Sparat';
+      status.style.color = 'var(--green)';
+    }
+
+    async function deleteKlass(klassId) {
+      const klass = (DATA.classes || []).find(c => c.id === klassId);
+      if (!klass) return;
+      const members = USERS.filter(u => u.class_id === klassId);
+      const msg = members.length > 0
+        ? `Ta bort klass "${klass.name}"?\n\n${members.length} elever förlorar sin koppling till klassen (men deras konton finns kvar). Bokningar och provisionshistorik bevaras.`
+        : `Ta bort klass "${klass.name}"?`;
+      if (!confirm(msg)) return;
+      DATA.classes = (DATA.classes || []).filter(c => c.id !== klassId);
+      // Nolla class_id pa medlemmar
+      let usersChanged = false;
+      USERS.forEach(u => {
+        if (u.class_id === klassId) { u.class_id = null; usersChanged = true; }
+      });
+      await saveJSON('classes.json', { classes: DATA.classes });
+      if (usersChanged) await saveJSON('users.json', { users: USERS });
+      renderView('klasser');
     }
 
     function markStop(index) {

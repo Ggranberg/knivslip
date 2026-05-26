@@ -17,7 +17,8 @@ APP_DIR = os.path.join(BASE_DIR, 'app')
 ALLOWED_FILES = ['users.json', 'timelog.json', 'customers.json', 'orders.json',
                  'knives.json', 'invoices.json', 'transactions.json', 'schedule.json',
                  'pricing.json', 'areas.json', 'legal.json', 'bookings.json',
-                 'reviews.json', 'salary_payments.json', 'companies.json']
+                 'reviews.json', 'salary_payments.json', 'companies.json',
+                 'classes.json']
 
 # Template for empty data files (created on first run if missing)
 DATA_TEMPLATES = {
@@ -32,6 +33,7 @@ DATA_TEMPLATES = {
     'reviews.json': {'reviews': []},
     'salary_payments.json': {'payments': []},
     'companies.json': {'companies': [], 'settings': {'bank_account': '', 'swish_number': '', 'next_invoice_number': 1001}},
+    'classes.json': {'classes': []},
     'pricing.json': {'pricing': {'currency': 'SEK', 'vat_rate': 0.25, 'last_updated': '2026-04-06', 'price_tiers': [{'min_knives': 1, 'max_knives': 2, 'price_incl_vat': 170, 'price_excl_vat': 136, 'description': '1-2 knivar: 170 kr/st'}, {'min_knives': 3, 'max_knives': 5, 'price_incl_vat': 140, 'price_excl_vat': 112, 'description': '3-5 knivar: 140 kr/st'}, {'min_knives': 6, 'max_knives': 999, 'price_incl_vat': 120, 'price_excl_vat': 96, 'description': '6+ knivar: 120 kr/st'}], 'minimum_order': 0, 'pickup_fee': 0}},
     'areas.json': {'areas': [{'id': 'AREA-NACKA-C', 'name': 'Nacka centrum/Sickla', 'postnummer_prefix': ['131']}, {'id': 'AREA-NACKA-SALTSJOBADEN', 'name': 'Saltsjobaden/Fisksatra', 'postnummer_prefix': ['133']}, {'id': 'AREA-NACKA-BOO', 'name': 'Boo/Orminge', 'postnummer_prefix': ['132']}, {'id': 'AREA-VARMDO-C', 'name': 'Gustavsberg', 'postnummer_prefix': ['134']}], 'home_base': 'AREA-NACKA-C'},
     'users.json': {'users': [
@@ -597,6 +599,7 @@ def approve_booking(booking_id):
             {'status': 'booked', 'timestamp': now_str, 'by': booking.get('source', 'hemsida')}
         ],
         'source': booking.get('source', 'hemsida'), 'estimated_knife_count': knife_count, 'actual_knife_count': None,
+        'seller_id': booking.get('seller_id'), 'seller_name': booking.get('seller_name'),
         'pickup': {'date': pickup_date, 'time_window': time_window or None, 'assigned_to': None, 'completed_at': None},
         'delivery': {'date': None, 'time_window': None, 'assigned_to': None, 'completed_at': None},
         'quality_check': {'passed': None, 'checked_by': None, 'timestamp': None, 'notes': None},
@@ -614,6 +617,44 @@ def approve_booking(booking_id):
     print(f'[GODKAND] Order: {order_id} for {name}, {knife_count} knivar')
 
     return {'ok': True, 'customer_id': customer_id, 'order_id': order_id}
+
+
+def class_join(data):
+    """Elev går med i klass via klasskod. Skapar saljare-user med class_id."""
+    code = (data.get('class_code') or '').strip().upper()
+    name = (data.get('name') or '').strip()
+    pin = (data.get('pin') or '').strip()
+
+    if not code or not name or not pin:
+        return {'ok': False, 'error': 'Klasskod, namn och PIN kravs'}
+    if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
+        return {'ok': False, 'error': 'PIN maste vara 4-6 siffror'}
+
+    classes_data = load_json('classes.json')
+    classes = classes_data.get('classes', [])
+    klass = next((c for c in classes if (c.get('code') or '').upper() == code and c.get('active', True)), None)
+    if not klass:
+        return {'ok': False, 'error': 'Ogiltig klasskod'}
+
+    users_data = load_json('users.json')
+    users = users_data.get('users', [])
+    if any(u.get('pin') == pin for u in users):
+        return {'ok': False, 'error': 'PIN-koden ar redan tagen, valj en annan'}
+
+    now_str = datetime.now().isoformat()
+    user_id = generate_id('USR', [u['id'] for u in users])
+    new_user = {
+        'id': user_id, 'name': name, 'pin': pin,
+        'role': 'saljare', 'roles': ['saljare'],
+        'active': True, 'pay_type': None, 'pay_rate': None, 'pays': [],
+        'class_id': klass['id'],
+        'created_at': now_str,
+    }
+    users.append(new_user)
+    save_json('users.json', {'users': users})
+    print(f'[KLASS] Ny elev: {name} ({user_id}) i klass {klass["name"]}')
+
+    return {'ok': True, 'user_id': user_id, 'class_name': klass['name']}
 
 
 def create_order_for_customer(data):
@@ -773,6 +814,13 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
+
+        elif path == '/api/class/join':
+            result = class_join(data)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
 
         elif path == '/api/create-order':
             result = create_order_for_customer(data)
