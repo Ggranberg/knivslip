@@ -1969,7 +1969,7 @@
       address: 'c/o Philip Zetterlund, Sjöfärarvägen 18',
       postnummer: '132 46',
       stad: 'Saltsjö-Boo',
-      email: 'Faktura@knivkillarna.se',
+      email: 'faktura@knivkillarna.se',
       phone: '',
       f_skatt: true
     };
@@ -2445,6 +2445,15 @@
       const pi = inv.payment_info || {};
       const fmtDate = d => d ? new Date(d).toLocaleDateString('sv-SE') : '';
       const fmtKr = n => Math.round(n).toLocaleString('sv-SE') + ' kr';
+      const fmtPostnr = pn => {
+        const d = String(pn || '').replace(/\D/g, '');
+        return d.length === 5 ? d.slice(0,3) + ' ' + d.slice(3) : (pn || '');
+      };
+      const deriveVat = orgnr => {
+        const d = String(orgnr || '').replace(/\D/g, '');
+        return d.length === 10 ? 'SE' + d + '01' : '';
+      };
+      const buyerVat = b.vat_number || deriveVat(b.org_number);
       const html = `<!DOCTYPE html>
 <html lang="sv">
 <head>
@@ -2515,7 +2524,7 @@
       <h3>Säljare</h3>
       <div class="name">${escapeHtml(s.name)} <span style="font-weight:400;color:#888;">(${escapeHtml(s.brand)})</span></div>
       <div>${escapeHtml(s.address)}</div>
-      <div>${escapeHtml(s.postnummer)} ${escapeHtml(s.stad)}</div>
+      <div>${escapeHtml(fmtPostnr(s.postnummer))} ${escapeHtml(s.stad)}</div>
       <div>Org.nr: ${escapeHtml(s.org_number)}</div>
       <div>Momsregnr: ${escapeHtml(s.vat_number)}</div>
       ${s.email ? `<div>${escapeHtml(s.email)}</div>` : ''}
@@ -2526,8 +2535,9 @@
       <h3>Fakturamottagare</h3>
       <div class="name">${escapeHtml(b.name)}</div>
       ${b.address ? `<div>${escapeHtml(b.address)}</div>` : ''}
-      ${(b.postnummer || b.stad) ? `<div>${escapeHtml(b.postnummer||'')} ${escapeHtml(b.stad||'')}</div>` : ''}
+      ${(b.postnummer || b.stad) ? `<div>${escapeHtml(fmtPostnr(b.postnummer))} ${escapeHtml(b.stad||'')}</div>` : ''}
       ${b.org_number ? `<div>Org.nr: ${escapeHtml(b.org_number)}</div>` : ''}
+      ${buyerVat ? `<div>Momsregnr: ${escapeHtml(buyerVat)}</div>` : ''}
       ${b.contact_person ? `<div style="margin-top:0.4rem;">Att: ${escapeHtml(b.contact_person)}</div>` : ''}
       ${b.reference ? `<div>Referens: ${escapeHtml(b.reference)}</div>` : ''}
       ${b.email ? `<div>${escapeHtml(b.email)}</div>` : ''}
@@ -2581,7 +2591,7 @@
   </div>
 
   <div class="footer">
-    <div><strong>${escapeHtml(s.name)}</strong>${escapeHtml(s.address)}<br>${escapeHtml(s.postnummer)} ${escapeHtml(s.stad)}</div>
+    <div><strong>${escapeHtml(s.name)}</strong>${escapeHtml(s.address)}<br>${escapeHtml(fmtPostnr(s.postnummer))} ${escapeHtml(s.stad)}</div>
     <div><strong>Org.nr</strong>${escapeHtml(s.org_number)}<br><strong>Momsregnr</strong>${escapeHtml(s.vat_number)}</div>
     <div><strong>F-skatt</strong>Innehar F-skattsedel<br><strong>Moms</strong>25%</div>
   </div>
