@@ -1775,11 +1775,12 @@
         case 'saljare': main.innerHTML = header; renderSaljare(main); break;
         case 'klasser': main.innerHTML = header; renderKlasser(main); break;
         case 'klass-detail': main.innerHTML = header; renderKlassDetail(main); break;
+        case 'student-detail': main.innerHTML = header; renderStudentDetail(main); break;
       }
     }
 
     function getViewTitle(v) {
-      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', reviews:'Recensioner', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', foretag:'Företag', reminders:'Påminnelser', finance:'Ekonomi', arbete:'Arbete & Lön', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt', saljare:'Säljare', klasser:'Klasser', 'klass-detail':'Klassdetalj' };
+      const t = { dashboard:'Dashboard', bookings:'Nya bokningar', reviews:'Recensioner', pipeline:'Pipeline', schedule:'Schema', routes:'Ruttkarta', customers:'Kunder', foretag:'Företag', reminders:'Påminnelser', finance:'Ekonomi', arbete:'Arbete & Lön', 'admin-log':'Logga arbete', team:'Team', 'slipare-home':'Min dag', 'forare-home':'Min dag', 'forare-route':'Leveranser & Rutt', saljare:'Säljare', klasser:'Klasser', 'klass-detail':'Klassdetalj', 'student-detail':'Elev' };
       return t[v] || v;
     }
 
@@ -4815,6 +4816,8 @@
 
     // === KLASSER ===
     let CURRENT_KLASS_ID = null;
+    let CURRENT_STUDENT_KEY = null;
+    let CURRENT_STUDENT_DISPLAY = null;
 
     function generateKlassCode() {
       // Undvik forvxlbara: 0/O, 1/I, L. Format: 6 tecken
@@ -5080,12 +5083,14 @@
       }
       container.innerHTML = memberStats.map((s, i) => {
         const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+        const key = s.displayName.trim().toLowerCase();
+        const safeDisplay = s.displayName.replace(/'/g, "\\'");
         return `
-          <div class="card" style="padding:0.75rem 1rem;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div class="card" style="padding:0.75rem 1rem;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)';" onmouseout="this.style.transform='';this.style.boxShadow='';" onclick="openStudent('${key}','${safeDisplay}')">
             <div style="flex:1;min-width:160px;display:flex;align-items:center;gap:0.75rem;">
               <span style="font-size:1.3rem;width:36px;text-align:center;">${medal}</span>
               <div>
-                <div style="font-weight:700;">${s.displayName}</div>
+                <div style="font-weight:700;">${s.displayName} <span style="font-size:0.75rem;color:var(--gray-400);font-weight:400;">→</span></div>
                 <div style="font-size:0.75rem;color:var(--gray-500);">${s.bookings} bokningar${s.pendingKnives > 0 ? ' · ' + s.pendingKnives + ' knivar väntar' : ''}</div>
               </div>
             </div>
@@ -5096,6 +5101,197 @@
           </div>
         `;
       }).join('');
+    }
+
+    function openStudent(studentKey, studentDisplay) {
+      CURRENT_STUDENT_KEY = studentKey;
+      CURRENT_STUDENT_DISPLAY = studentDisplay;
+      document.querySelectorAll('#sidebar-nav a').forEach(x => x.classList.remove('active'));
+      const k = document.querySelector('#sidebar-nav a[data-view="klasser"]');
+      if (k) k.classList.add('active');
+      renderView('student-detail');
+    }
+
+    async function renderStudentDetail(main) {
+      const klass = (DATA.classes || []).find(c => c.id === CURRENT_KLASS_ID);
+      if (!klass || !CURRENT_STUDENT_KEY) {
+        main.insertAdjacentHTML('beforeend', '<div class="section"><p>Elev hittades inte.</p><button onclick="renderView(\'klasser\')">Tillbaka</button></div>');
+        return;
+      }
+
+      const allBookings = await loadSaljareBookings();
+      const studentBookings = allBookings
+        .filter(b => b.class_id === klass.id && (b.seller_name || '').trim().toLowerCase() === CURRENT_STUDENT_KEY)
+        .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+
+      const completedOrders = (DATA.orders || [])
+        .filter(o => o.class_id === klass.id && (o.seller_name || '').trim().toLowerCase() === CURRENT_STUDENT_KEY && o.status === 'completed');
+      const actualKnives = completedOrders.reduce((s, o) => s + (o.actual_knife_count || o.estimated_knife_count || 0), 0);
+      const earned = actualKnives * (klass.commission_per_knife || 0);
+      const pending = studentBookings.filter(b => b.status === 'pending').length;
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <button onclick="renderView('klass-detail')" style="background:none;border:1px solid var(--gray-300);padding:0.4rem 0.8rem;border-radius:var(--radius);cursor:pointer;margin-bottom:1rem;">← Tillbaka till ${klass.name}</button>
+
+          <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
+            <h2 style="margin:0 0 0.25rem 0;">${CURRENT_STUDENT_DISPLAY}</h2>
+            <div style="font-size:0.85rem;color:var(--gray-500);">Elev i ${klass.name}</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:1.5rem;">
+            <div class="card" style="padding:1rem;text-align:center;"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Bokningar</div><div style="font-size:1.8rem;font-weight:800;">${studentBookings.length}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--red);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Väntar</div><div style="font-size:1.8rem;font-weight:800;color:var(--red);">${pending}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--green);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Knivar slipade</div><div style="font-size:1.8rem;font-weight:800;color:var(--green);">${actualKnives}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--accent);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Tjänat</div><div style="font-size:1.8rem;font-weight:800;color:var(--accent);">${earned} kr</div></div>
+          </div>
+
+          <h3 style="margin-bottom:0.75rem;">Kunder & bokningar</h3>
+          <div id="student-bookings-list"></div>
+        </div>
+      `);
+
+      renderStudentBookingsList(studentBookings);
+    }
+
+    function renderStudentBookingsList(studentBookings) {
+      const list = document.getElementById('student-bookings-list');
+      if (!list) return;
+      if (!studentBookings.length) {
+        list.innerHTML = '<div class="card" style="padding:1.5rem;text-align:center;color:var(--gray-400);">Inga bokningar registrerade ännu.</div>';
+        return;
+      }
+      const statusColor = { pending: 'var(--red)', approved: 'var(--accent)', rejected: 'var(--gray-400)' };
+      const statusLabel = { pending: 'Väntar', approved: 'Godkänd', rejected: 'Avvisad' };
+      list.innerHTML = studentBookings.map(b => {
+        const color = statusColor[b.status] || 'var(--gray-400)';
+        const label = statusLabel[b.status] || b.status;
+        const knivar = knivesFromBooking(b);
+        return `
+          <div class="card" data-student-booking-id="${b.id}" style="padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${color};">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+              <div style="font-weight:700;font-size:1.05rem;">${b.name}</div>
+              <span style="background:${color};color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;text-transform:uppercase;">${label}</span>
+            </div>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;font-size:0.85rem;color:var(--gray-600);">
+              <span>📞 ${b.phone || '—'}</span>
+              <span>🏠 ${b.address || '—'}${b.postnummer ? ', ' + b.postnummer : ''} ${b.stad || ''}</span>
+              <span>🔪 ${knivar} knivar</span>
+            </div>
+            ${b.message ? `<div style="font-size:0.85rem;color:var(--gray-500);margin-top:0.4rem;font-style:italic;">"${b.message}"</div>` : ''}
+            <div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.4rem;">Registrerad: ${b.created_at ? new Date(b.created_at).toLocaleString('sv-SE') : '?'}</div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
+              <button onclick="editStudentBooking('${b.id}')" style="padding:0.4rem 0.9rem;background:var(--gray-700);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ändra</button>
+              <button onclick="deleteStudentBooking('${b.id}')" style="padding:0.4rem 0.9rem;background:var(--red);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;font-size:0.85rem;">Ta bort</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function editStudentBooking(bookingId) {
+      const d = await fetchJSON('bookings.json');
+      const b = (d.bookings || []).find(x => x.id === bookingId);
+      if (!b) { alert('Bokningen hittades inte'); return; }
+      const card = document.querySelector(`[data-student-booking-id="${bookingId}"]`);
+      if (!card) return;
+      const inp = 'width:100%;padding:0.4rem 0.6rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:0.9rem;';
+      card.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+            <div><label style="font-size:0.75rem;color:var(--gray-500);">Namn</label><input id="sb-name" value="${(b.name||'').replace(/"/g,'&quot;')}" style="${inp}"></div>
+            <div><label style="font-size:0.75rem;color:var(--gray-500);">Telefon</label><input id="sb-phone" value="${(b.phone||'').replace(/"/g,'&quot;')}" style="${inp}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0.5rem;">
+            <div><label style="font-size:0.75rem;color:var(--gray-500);">Adress</label><input id="sb-address" value="${(b.address||'').replace(/"/g,'&quot;')}" style="${inp}"></div>
+            <div><label style="font-size:0.75rem;color:var(--gray-500);">Postnummer</label><input id="sb-zip" value="${(b.postnummer||'').replace(/"/g,'&quot;')}" style="${inp}"></div>
+            <div><label style="font-size:0.75rem;color:var(--gray-500);">Knivar</label><input id="sb-knives" value="${b.knives||''}" style="${inp}"></div>
+          </div>
+          <div><label style="font-size:0.75rem;color:var(--gray-500);">Notering</label><input id="sb-msg" value="${(b.message||'').replace(/"/g,'&quot;')}" style="${inp}"></div>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.25rem;">
+            <button onclick="saveStudentBookingEdit('${bookingId}')" class="log-submit" style="padding:0.4rem 1rem;font-size:0.85rem;">Spara</button>
+            <button onclick="renderView('student-detail')" style="padding:0.4rem 1rem;font-size:0.85rem;background:var(--gray-500);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;">Avbryt</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function saveStudentBookingEdit(bookingId) {
+      const d = await fetchJSON('bookings.json');
+      const b = (d.bookings || []).find(x => x.id === bookingId);
+      if (!b) return;
+      const newName = document.getElementById('sb-name').value.trim() || b.name;
+      const newPhone = document.getElementById('sb-phone').value.trim() || b.phone;
+      const newAddress = document.getElementById('sb-address').value.trim() || b.address;
+      const newZip = document.getElementById('sb-zip').value.trim() || b.postnummer;
+      const newKnives = document.getElementById('sb-knives').value.trim() || b.knives;
+      const newMsg = document.getElementById('sb-msg').value.trim();
+
+      const oldName = b.name, oldPhone = b.phone;
+      b.name = newName; b.phone = newPhone; b.address = newAddress;
+      b.postnummer = newZip; b.knives = newKnives; b.message = newMsg;
+      await saveJSON('bookings.json', d);
+
+      // Om bokningen redan blivit godkänd: uppdatera kunden också
+      if (b.status === 'approved' && oldPhone) {
+        const cust = (DATA.customers || []).find(c => c.phone === oldPhone && (c.name || '').toLowerCase().trim() === (oldName || '').toLowerCase().trim() && !c.is_deleted);
+        if (cust) {
+          cust.name = newName; cust.phone = newPhone; cust.address = newAddress;
+          cust.postnummer = newZip; cust.notes = newMsg; cust.updated_at = new Date().toISOString();
+          await saveJSON('customers.json', { customers: DATA.customers });
+        }
+      }
+
+      renderView('student-detail');
+    }
+
+    async function deleteStudentBooking(bookingId) {
+      const d = await fetchJSON('bookings.json');
+      const b = (d.bookings || []).find(x => x.id === bookingId);
+      if (!b) return;
+
+      if (b.status === 'pending') {
+        if (!confirm(`Ta bort bokning från ${b.name}?\n\nBokningen har inte godkänts än — den försvinner helt.`)) return;
+        d.bookings = (d.bookings || []).filter(x => x.id !== bookingId);
+        await saveJSON('bookings.json', d);
+        renderView('student-detail');
+        return;
+      }
+
+      // Godkänd bokning → kund och order finns. Anonymisera enligt GDPR.
+      const cust = (DATA.customers || []).find(c => c.phone === b.phone && (c.name || '').toLowerCase().trim() === (b.name || '').toLowerCase().trim() && !c.is_deleted);
+
+      const msg = `Ta bort ${b.name}?\n\nDenna bokning är redan godkänd. Om du fortsätter:\n• Bokningen markeras som borttagen\n• Kunden anonymiseras (GDPR)\n• Aktiva ordrar avbokas\n• Slutförda ordrar behålls för bokföringen (lag)\n\nVill du fortsätta?`;
+      if (!confirm(msg)) return;
+
+      // Markera bokningen som borttagen (behåll för spårbarhet)
+      b.status = 'rejected';
+      b.deleted_at = new Date().toISOString();
+      await saveJSON('bookings.json', d);
+
+      if (cust) {
+        cust.name = 'Raderad kund';
+        cust.phone = null; cust.email = null; cust.address = null;
+        cust.postnummer = null; cust.notes = null;
+        cust.is_deleted = true;
+        cust.updated_at = new Date().toISOString();
+
+        (DATA.orders || []).forEach(o => {
+          if (o.customer_id === cust.id && !['completed','cancelled'].includes(o.status)) {
+            o.status = 'cancelled';
+            o.status_history = o.status_history || [];
+            o.status_history.push({ status: 'cancelled', timestamp: new Date().toISOString(), by: 'admin' });
+            o.notes = (o.notes || '') + ' Avbokad: borttagen via klassvy.';
+          }
+        });
+        DATA.schedule = (DATA.schedule || []).map(s => ({ ...s, stops: (s.stops || []).filter(st => st.customer_id !== cust.id) })).filter(s => (s.stops || []).length > 0);
+
+        await saveJSON('customers.json', { customers: DATA.customers });
+        await saveJSON('orders.json', { orders: DATA.orders });
+        await saveJSON('schedule.json', { schedule: DATA.schedule });
+      }
+
+      renderView('student-detail');
     }
 
     async function saveKlassEdit(klassId) {
