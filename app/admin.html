@@ -2688,7 +2688,7 @@
     };
     const CALL_FOLLOWUP_DAYS = 3;
 
-    // En kund "ska ringas" om: aldrig kontaktad, eller schemalagt återkall passerat.
+    // Ett företag "ska ringas" om: aldrig kontaktat, eller schemalagt återkall passerat.
     // Ej intresserade och bokade plockas bort från listan.
     function callDue(c) {
       if (c.last_contact_status === 'ej_intresserad' || c.last_contact_status === 'bokad') return false;
@@ -2699,14 +2699,14 @@
     function renderRinglista(main) {
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
+          <p style="color:var(--gray-500);font-size:0.85rem;margin:-0.25rem 0 0.75rem;">Ringlista för företag (B2B). Privatkunder som ska följas upp hittar du under <a href="#" onclick="renderView('reminders');document.querySelectorAll('#sidebar-nav a').forEach(x=>x.classList.remove('active'));document.querySelector('#sidebar-nav a[data-view=reminders]')?.classList.add('active');return false;" style="color:var(--accent);font-weight:600;">Påminnelser</a>.</p>
           <div class="table-controls">
-            <input type="text" class="search-input" id="rl-search" placeholder="Sök på namn, telefon, adress...">
+            <input type="text" class="search-input" id="rl-search" placeholder="Sök på företag, kontaktperson, telefon...">
             <select class="filter-select" id="rl-filter">
               <option value="att_ringa">Att ringa nu</option>
               <option value="intresserade">Intresserade</option>
               <option value="alla">Alla</option>
             </select>
-            <select class="filter-select" id="rl-source"><option value="">Alla källor</option><option value="dorr">Dörr</option><option value="facebook">Facebook</option><option value="telefon">Telefon</option><option value="referral">Referral</option><option value="hemsida">Hemsida</option><option value="annat">Annat</option></select>
           </div>
           <div id="rl-list"></div>
         </div>
@@ -2715,28 +2715,30 @@
       function render() {
         const s = document.getElementById('rl-search').value.toLowerCase();
         const f = document.getElementById('rl-filter').value;
-        const src = document.getElementById('rl-source').value;
-        let custs = DATA.customers.filter(c => !c.is_deleted);
-        if (s) custs = custs.filter(c => (c.name||'').toLowerCase().includes(s) || (c.phone&&c.phone.includes(s)) || (c.address&&(c.address.toLowerCase().includes(s))));
-        if (src) custs = custs.filter(c => c.source === src);
-        if (f === 'att_ringa') custs = custs.filter(callDue);
-        else if (f === 'intresserade') custs = custs.filter(c => c.last_contact_status === 'intresserad');
+        let comps = (DATA.companies || []).filter(c => !c.is_deleted);
+        if (s) comps = comps.filter(c => (c.name||'').toLowerCase().includes(s) || (c.contact_person||'').toLowerCase().includes(s) || (c.phone&&c.phone.includes(s)));
+        if (f === 'att_ringa') comps = comps.filter(callDue);
+        else if (f === 'intresserade') comps = comps.filter(c => c.last_contact_status === 'intresserad');
 
         // Sortera: aldrig kontaktade först, sedan tidigast schemalagt återkall.
-        custs.sort((a,b) => {
+        comps.sort((a,b) => {
           const an = a.next_call_at || (a.last_contact_at ? '9999' : ''); // tomt = aldrig kontaktad = högst prio
           const bn = b.next_call_at || (b.last_contact_at ? '9999' : '');
           return an.localeCompare(bn);
         });
 
         const el = document.getElementById('rl-list');
-        if (!custs.length) {
-          el.innerHTML = '<div class="card" style="padding:1.5rem;color:var(--gray-400);font-style:italic;">Inga kunder att ringa just nu. Bra jobbat! 📞</div>';
+        if (!comps.length) {
+          el.innerHTML = '<div class="card" style="padding:1.5rem;color:var(--gray-400);font-style:italic;">Inga företag att ringa just nu. Bra jobbat! 📞</div>';
           return;
         }
-        el.innerHTML = custs.map(c => {
+        el.innerHTML = comps.map(c => {
           const st = CALL_STATUS[c.last_contact_status];
-          let contactLine = '<span style="color:var(--gray-400);">Aldrig kontaktad</span>';
+          const hasJobs = (c.jobs || []).length > 0;
+          const tag = hasJobs
+            ? '<span class="source-tag" style="background:var(--green-light);color:var(--green);">Befintlig kund</span>'
+            : '<span class="source-tag" style="background:var(--blue-light);color:var(--blue);">Prospekt</span>';
+          let contactLine = '<span style="color:var(--gray-400);">Aldrig kontaktat</span>';
           if (c.last_contact_at) {
             const dagar = daysBetween(c.last_contact_at, now());
             const nar = dagar === 0 ? 'idag' : dagar === 1 ? 'igår' : `${dagar} dagar sedan`;
@@ -2749,16 +2751,17 @@
             const txt = due ? 'Ring nu!' : (d === 1 ? 'om 1 dag' : `om ${d} dagar`);
             nextLine = `<div style="font-size:0.8rem;color:${due?'var(--accent)':'var(--gray-500)'};font-weight:${due?'700':'500'};margin-top:0.15rem;">⏰ Ring igen: ${formatDate(c.next_call_at)} (${txt})</div>`;
           }
+          const contactPerson = c.contact_person ? `<span style="color:var(--gray-500);font-size:0.85rem;">${c.contact_person}</span>` : '';
           const phone = c.phone ? `<a href="tel:${c.phone.replace(/\s/g,'')}" style="color:var(--accent);font-weight:700;text-decoration:none;">${c.phone}</a>` : '<span class="missing">Telefon saknas</span>';
           return `
             <div class="card" style="padding:1rem 1.25rem;margin-bottom:0.75rem;">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
                 <div style="flex:1;min-width:200px;">
                   <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                    <a class="clickable-name" onclick="openCustomer('${c.id}')"><strong style="font-size:1.05rem;">${c.name}</strong></a>
-                    <span class="source-tag ${c.source}">${c.source}</span>
+                    <a class="clickable-name" onclick="openCompany('${c.id}')"><strong style="font-size:1.05rem;">${c.name}</strong></a>
+                    ${tag}
                   </div>
-                  <div style="font-size:1.1rem;margin:0.35rem 0;">${phone}</div>
+                  <div style="font-size:1.1rem;margin:0.35rem 0;display:flex;gap:0.75rem;align-items:baseline;flex-wrap:wrap;">${phone} ${contactPerson}</div>
                   <div style="font-size:0.82rem;color:var(--gray-500);">${contactLine}</div>
                   ${nextLine}
                 </div>
@@ -2776,12 +2779,11 @@
 
       document.getElementById('rl-search').addEventListener('input', render);
       document.getElementById('rl-filter').addEventListener('change', render);
-      document.getElementById('rl-source').addEventListener('change', render);
       render();
     }
 
-    async function recordCall(customerId, status) {
-      const c = DATA.customers.find(c => c.id === customerId);
+    async function recordCall(companyId, status) {
+      const c = (DATA.companies || []).find(c => c.id === companyId);
       if (!c) return;
       const def = CALL_STATUS[status];
       if (!def) return;
@@ -2794,7 +2796,7 @@
         ? new Date(Date.now() + CALL_FOLLOWUP_DAYS*86400000).toISOString()
         : null;
       c.updated_at = at;
-      await saveJSON('customers.json', { customers: DATA.customers });
+      await saveCompanies();
       const msg = def.reschedule
         ? `${def.label} — ringer igen om ${CALL_FOLLOWUP_DAYS} dagar`
         : `${def.label} sparat`;
@@ -2806,7 +2808,7 @@
     function updateRinglistaBadge() {
       const badge = document.getElementById('ringlista-badge');
       if (!badge) return;
-      const n = (DATA.customers || []).filter(c => !c.is_deleted && callDue(c)).length;
+      const n = (DATA.companies || []).filter(c => !c.is_deleted && callDue(c)).length;
       badge.textContent = n;
       badge.style.display = n > 0 ? '' : 'none';
     }
