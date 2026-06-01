@@ -2034,7 +2034,9 @@
       `);
       function render() {
         const s = (document.getElementById('comp-search').value || '').toLowerCase();
-        let list = (DATA.companies || []).filter(c => !c.is_deleted);
+        // Prospekt (ej ringda/ej kunder än) hör hemma i Ringlistan, inte här.
+        // Visas på Företag-sidan först när de blivit kund (bokade eller fått ett jobb).
+        let list = (DATA.companies || []).filter(c => !c.is_deleted && (!c.is_prospect || (c.jobs||[]).length > 0));
         if (s) list = list.filter(c =>
           (c.name||'').toLowerCase().includes(s) ||
           (c.org_number||'').toLowerCase().includes(s) ||
@@ -2283,6 +2285,7 @@
         created_at: now(),
         created_by: CURRENT_USER?.name || ''
       });
+      c.is_prospect = false; // har ett jobb → riktig kund
       c.updated_at = now();
       await saveCompanies();
       document.querySelector('.modal-overlay')?.remove();
@@ -2804,6 +2807,8 @@
       c.next_call_at = def.reschedule
         ? new Date(Date.now() + CALL_FOLLOWUP_DAYS*86400000).toISOString()
         : null;
+      // Bokat samtal → de blir kund och flyttas till Företag-sidan.
+      if (status === 'bokad') c.is_prospect = false;
       c.updated_at = at;
       await saveCompanies();
       const msg = def.reschedule
@@ -2826,7 +2831,7 @@
         org_number: '', email: '', reference: '',
         billing_address: '', billing_postnummer: '', billing_stad: '',
         payment_terms_days: 30, default_price_per_knife_excl_vat: 100,
-        notes: '', jobs: [], created_at: now(), updated_at: now()
+        notes: '', jobs: [], is_prospect: true, created_at: now(), updated_at: now()
       });
       await saveCompanies();
       showToast('Prospekt tillagt — redo att ringa', 'success');
