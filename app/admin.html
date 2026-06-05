@@ -2722,7 +2722,12 @@
     let RL_TAB = 'foretag';
     function setRinglistaTab(t) { RL_TAB = t; renderView('ringlista'); }
 
+    // Markerade kunder + pågående ringsession.
+    let RL_SELECTED = new Set();
+    let RL_SESSION = null; // { ids: [...], index: 0 }
+
     function renderRinglista(main) {
+      if (RL_SESSION) { renderCallSession(main); return; }
       const tab = (t, label, count) => {
         const active = RL_TAB === t;
         const badge = count > 0 ? `<span style="background:${active?'rgba(255,255,255,0.25)':'var(--accent)'};color:${active?'#fff':'#fff'};padding:0.05rem 0.45rem;border-radius:10px;font-size:0.72rem;font-weight:700;margin-left:0.4rem;">${count}</span>` : '';
@@ -2898,7 +2903,7 @@
     function renderRLKunder(main) {
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
-          <p style="color:var(--gray-500);font-size:0.85rem;margin:-0.25rem 0 0.75rem;">Ring upp gamla privatkunder och fråga om de vill slipa igen. Sorterat med <strong>äldsta kunderna först</strong>. Logga svaret och lägg en kommentar för varje samtal.</p>
+          <p style="color:var(--gray-500);font-size:0.85rem;margin:-0.25rem 0 0.75rem;">Ring upp gamla privatkunder och fråga om de vill slipa igen. Sorterat med <strong>äldsta kunderna först</strong>. Bocka för kunderna du vill ringa och starta en <strong>ringsession</strong> — då går du igenom dem en i taget.</p>
           <div class="table-controls">
             <input type="text" class="search-input" id="rlk-search" placeholder="Sök på namn, telefon...">
             <select class="filter-select" id="rlk-filter">
@@ -2908,6 +2913,12 @@
               <option value="klara">Klara (bokade/ej intr.)</option>
               <option value="alla">Alla</option>
             </select>
+          </div>
+          <div id="rlk-actionbar" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;background:var(--gray-50,#f7f7f7);border:1px solid var(--gray-200);border-radius:var(--radius);padding:0.5rem 0.75rem;margin-bottom:0.75rem;">
+            <span id="rlk-selcount" style="font-weight:700;font-size:0.9rem;">0 markerade</span>
+            <button onclick="rlkSelectAllVisible()" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-600);">Markera alla synliga</button>
+            <button onclick="rlkClearSelection()" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-600);">Avmarkera</button>
+            <button onclick="startCallSession()" style="margin-left:auto;padding:0.55rem 1.1rem;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap;">📞 Ring valda <span id="rlk-selcount2">(0)</span> →</button>
           </div>
           <div id="rlk-list"></div>
         </div>
@@ -2933,6 +2944,7 @@
 
         const el = document.getElementById('rlk-list');
         if (!cust.length) {
+          rlkUpdateSelBar();
           el.innerHTML = '<div class="card" style="padding:1.5rem;color:var(--gray-400);font-style:italic;">Inga kunder att visa här. 📞</div>';
           return;
         }
@@ -2977,7 +2989,9 @@
           return `
             <div class="card" style="padding:1rem 1.25rem;margin-bottom:0.75rem;">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
-                <div style="flex:1;min-width:200px;">
+                <div style="flex:1;min-width:200px;display:flex;gap:0.6rem;align-items:flex-start;">
+                  <input type="checkbox" class="rlk-check" data-id="${c.id}" onchange="toggleRlkSelect('${c.id}')" ${RL_SELECTED.has(c.id)?'checked':''} style="margin-top:0.35rem;width:1.1rem;height:1.1rem;cursor:pointer;flex-shrink:0;">
+                  <div style="flex:1;">
                   <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                     <a class="clickable-name" onclick="openCustomer('${c.id}')"><strong style="font-size:1.05rem;">${namn}</strong></a>
                     ${spend} ${period} ${ordTag}
@@ -2986,6 +3000,7 @@
                   <div style="font-size:0.82rem;color:var(--gray-500);">${contactLine}</div>
                   ${nextLine}
                   ${logHtml}
+                  </div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:flex-end;min-width:240px;">
                   <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end;">
@@ -3004,11 +3019,209 @@
               </div>
             </div>`;
         }).join('');
+        rlkUpdateSelBar();
       }
 
       document.getElementById('rlk-search').addEventListener('input', render);
       document.getElementById('rlk-filter').addEventListener('change', render);
       render();
+    }
+
+    function rlkUpdateSelBar() {
+      const n = RL_SELECTED.size;
+      const a = document.getElementById('rlk-selcount');
+      const b = document.getElementById('rlk-selcount2');
+      if (a) a.textContent = n === 1 ? '1 markerad' : `${n} markerade`;
+      if (b) b.textContent = `(${n})`;
+    }
+
+    function toggleRlkSelect(id) {
+      if (RL_SELECTED.has(id)) RL_SELECTED.delete(id); else RL_SELECTED.add(id);
+      rlkUpdateSelBar();
+    }
+
+    function rlkSelectAllVisible() {
+      document.querySelectorAll('.rlk-check').forEach(cb => { RL_SELECTED.add(cb.dataset.id); cb.checked = true; });
+      rlkUpdateSelBar();
+    }
+
+    function rlkClearSelection() {
+      RL_SELECTED.clear();
+      document.querySelectorAll('.rlk-check').forEach(cb => cb.checked = false);
+      rlkUpdateSelBar();
+    }
+
+    function startCallSession() {
+      // Behåll listans ordning (äldst först), bara de markerade.
+      const visibleOrder = [...document.querySelectorAll('.rlk-check')].map(cb => cb.dataset.id).filter(id => RL_SELECTED.has(id));
+      const ids = visibleOrder.length ? visibleOrder : [...RL_SELECTED];
+      if (!ids.length) { showToast('Bocka för minst en kund att ringa', 'error'); return; }
+      RL_SESSION = { ids, index: 0 };
+      renderView('ringlista');
+    }
+
+    // === RINGSESSION: en kund i taget ===
+    function renderCallSession(main) {
+      const sess = RL_SESSION;
+      const total = sess.ids.length;
+      // Hoppa förbi raderade kunder.
+      let c = (DATA.customers || []).find(x => x.id === sess.ids[sess.index]);
+      if (sess.index >= total) { renderSessionDone(main); return; }
+      if (!c) { sess.index++; renderCallSession(main); return; }
+
+      const st = CUST_CALL_STATUS[c.last_contact_status];
+      const namn = c.name ? c.name : 'Okänt namn';
+      const spend = c.legacy_total ? `<span class="source-tag" style="background:var(--green-light);color:var(--green);">Tidigare: ${c.legacy_total} kr</span>` : '';
+      const period = c.legacy_period ? `<span class="source-tag" style="background:var(--gray-100);color:var(--gray-500);">${c.legacy_period}</span>` : '';
+      const phone = c.phone
+        ? `<a href="tel:${c.phone.replace(/\s/g,'')}" style="color:var(--accent);font-weight:800;text-decoration:none;">${c.phone}</a>`
+        : `<span style="display:inline-flex;gap:0.4rem;align-items:center;"><input id="rlk-ph-${c.id}" placeholder="Lägg till nummer" style="padding:0.4rem 0.55rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:1rem;width:180px;"><button onclick="setCustomerPhone('${c.id}')" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-600);">Spara</button></span>`;
+
+      let contactLine = '<span style="color:var(--gray-400);">Aldrig kontaktad</span>';
+      if (c.last_contact_at) {
+        const dagar = daysBetween(c.last_contact_at, now());
+        const nar = dagar === 0 ? 'idag' : dagar === 1 ? 'igår' : `${dagar} dagar sedan`;
+        contactLine = `Senast: ${formatDate(c.last_contact_at)} (${nar})${st ? ` — <strong style="color:${st.color};">${st.label}</strong>` : ''}`;
+      }
+
+      let logHtml = '';
+      if (Array.isArray(c.call_log) && c.call_log.length) {
+        const items = c.call_log.slice().reverse().map(l => {
+          const ls = CUST_CALL_STATUS[l.status];
+          const label = ls ? `<strong style="color:${ls.color};">${ls.label}</strong>` : (l.status === 'note' ? '<em>Anteckning</em>' : l.status);
+          const note = l.note ? ` — ${l.note}` : '';
+          return `<div style="font-size:0.8rem;color:var(--gray-500);padding:0.12rem 0;">${formatDate(l.at)} · ${label}${note} <span style="color:var(--gray-400);">(${l.by||''})</span></div>`;
+        }).join('');
+        logHtml = `<div style="margin-top:0.75rem;border-top:1px solid var(--gray-200);padding-top:0.5rem;"><div style="font-size:0.78rem;font-weight:700;color:var(--gray-500);margin-bottom:0.25rem;">Historik</div>${items}</div>`;
+      }
+
+      const pct = Math.round((sess.index) / total * 100);
+      const sbtn = (status, label, color) => `<button onclick="sessionRecordCall('${status}')" style="padding:0.7rem 0.9rem;border:2px solid ${color};color:${color};background:#fff;border-radius:var(--radius);font-family:inherit;font-weight:700;font-size:0.95rem;cursor:pointer;">${label}</button>`;
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section" style="max-width:680px;margin:0 auto;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+            <button onclick="sessionEnd()" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-600);">✕ Avsluta session</button>
+            <div style="font-weight:700;color:var(--gray-600);">Kund ${sess.index + 1} av ${total}</div>
+          </div>
+          <div style="height:6px;background:var(--gray-200);border-radius:3px;margin-bottom:1rem;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--accent);transition:width .2s;"></div></div>
+
+          <div class="card" style="padding:1.5rem;">
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.4rem;">
+              <a class="clickable-name" onclick="openCustomer('${c.id}')"><strong style="font-size:1.4rem;">${namn}</strong></a>
+              ${spend} ${period}
+            </div>
+            <div style="font-size:1.9rem;margin:0.5rem 0;">${phone}</div>
+            <div style="font-size:0.85rem;color:var(--gray-500);">${contactLine}</div>
+            ${c.notes ? `<div style="font-size:0.82rem;color:var(--gray-500);margin-top:0.35rem;font-style:italic;">${c.notes}</div>` : ''}
+
+            <div style="margin-top:1rem;font-size:0.8rem;font-weight:700;color:var(--gray-500);">Vad sa kunden?</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem;margin-top:0.4rem;">
+              ${sbtn('vill_boka','📅 Vill boka','var(--accent)')}
+              ${sbtn('intresserad','✓ Intresserad','var(--green)')}
+              ${sbtn('ej_svar','📵 Svarade inte','#d99100')}
+              ${sbtn('ring_senare','⏰ Ring senare','var(--blue)')}
+              ${sbtn('ej_intresserad','✕ Ej intresserad','var(--gray-500)')}
+              ${sbtn('fel_nummer','⚠ Fel nummer','var(--red)')}
+            </div>
+
+            <div style="margin-top:0.9rem;">
+              <label style="font-size:0.8rem;font-weight:700;color:var(--gray-500);">Anteckning</label>
+              <textarea id="rlk-sess-note" placeholder="Skriv vad ni pratade om..." style="width:100%;margin-top:0.25rem;min-height:64px;padding:0.6rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.9rem;resize:vertical;"></textarea>
+              <button onclick="sessionSaveNote()" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-600);margin-top:0.35rem;">💬 Spara bara anteckning</button>
+            </div>
+            ${logHtml}
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-top:1rem;">
+            <button onclick="sessionPrev()" ${sess.index === 0 ? 'disabled' : ''} class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-600);${sess.index===0?'opacity:0.4;cursor:not-allowed;':''}">← Föregående</button>
+            <button onclick="sessionNext()" style="padding:0.7rem 1.4rem;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:inherit;font-weight:800;font-size:1rem;cursor:pointer;">${sess.index === total - 1 ? 'Avsluta ✓' : 'Nästa kund →'}</button>
+          </div>
+        </div>
+      `);
+    }
+
+    function renderSessionDone(main) {
+      const ids = RL_SESSION ? RL_SESSION.ids : [];
+      const cust = (DATA.customers || []);
+      let bokade = 0, intr = 0, ejsvar = 0;
+      ids.forEach(id => {
+        const c = cust.find(x => x.id === id);
+        if (!c) return;
+        if (c.last_contact_status === 'vill_boka') bokade++;
+        else if (c.last_contact_status === 'intresserad') intr++;
+        else if (c.last_contact_status === 'ej_svar') ejsvar++;
+      });
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section" style="max-width:560px;margin:2rem auto;text-align:center;">
+          <div style="font-size:3rem;">🎉</div>
+          <h2 style="margin:0.5rem 0;">Session klar!</h2>
+          <p style="color:var(--gray-500);">Du gick igenom ${ids.length} kunder.</p>
+          <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;margin:1rem 0;">
+            <div class="card" style="padding:0.9rem 1.2rem;"><div style="font-size:1.6rem;font-weight:800;color:var(--accent);">${bokade}</div><div style="font-size:0.8rem;color:var(--gray-500);">vill boka</div></div>
+            <div class="card" style="padding:0.9rem 1.2rem;"><div style="font-size:1.6rem;font-weight:800;color:var(--green);">${intr}</div><div style="font-size:0.8rem;color:var(--gray-500);">intresserade</div></div>
+            <div class="card" style="padding:0.9rem 1.2rem;"><div style="font-size:1.6rem;font-weight:800;color:#d99100;">${ejsvar}</div><div style="font-size:0.8rem;color:var(--gray-500);">svarade inte</div></div>
+          </div>
+          <button onclick="sessionEnd()" style="padding:0.7rem 1.4rem;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:inherit;font-weight:700;cursor:pointer;">Tillbaka till listan</button>
+        </div>
+      `);
+    }
+
+    function _sessCurrent() {
+      if (!RL_SESSION) return null;
+      return (DATA.customers || []).find(x => x.id === RL_SESSION.ids[RL_SESSION.index]);
+    }
+
+    async function sessionRecordCall(status) {
+      const c = _sessCurrent();
+      if (!c) return;
+      const def = CUST_CALL_STATUS[status];
+      if (!def) return;
+      if (!Array.isArray(c.call_log)) c.call_log = [];
+      const at = now();
+      const noteEl = document.getElementById('rlk-sess-note');
+      const note = noteEl ? noteEl.value.trim() : '';
+      c.call_log.push({ at, status, note, by: CURRENT_USER.name });
+      c.last_contact_at = at;
+      c.last_contact_status = status;
+      c.next_call_at = def.reschedule ? new Date(Date.now() + CALL_FOLLOWUP_DAYS*86400000).toISOString() : null;
+      c.updated_at = at;
+      await saveJSON('customers.json', { customers: DATA.customers });
+      updateRinglistaBadge();
+      showToast(`${def.label} sparat — klicka Nästa kund`, 'success');
+      renderView('ringlista');
+    }
+
+    async function sessionSaveNote() {
+      const c = _sessCurrent();
+      if (!c) return;
+      const noteEl = document.getElementById('rlk-sess-note');
+      const note = noteEl ? noteEl.value.trim() : '';
+      if (!note) { showToast('Skriv en anteckning först', 'error'); return; }
+      if (!Array.isArray(c.call_log)) c.call_log = [];
+      c.call_log.push({ at: now(), status: 'note', note, by: CURRENT_USER.name });
+      c.updated_at = now();
+      await saveJSON('customers.json', { customers: DATA.customers });
+      showToast('Anteckning sparad', 'success');
+      renderView('ringlista');
+    }
+
+    function sessionNext() {
+      if (!RL_SESSION) return;
+      RL_SESSION.index++;
+      renderView('ringlista');
+    }
+
+    function sessionPrev() {
+      if (!RL_SESSION || RL_SESSION.index === 0) return;
+      RL_SESSION.index--;
+      renderView('ringlista');
+    }
+
+    function sessionEnd() {
+      RL_SESSION = null;
+      RL_SELECTED.clear();
+      renderView('ringlista');
     }
 
     function _custNoteVal(customerId) {
