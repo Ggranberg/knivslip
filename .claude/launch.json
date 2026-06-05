@@ -6,7 +6,7 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["server.py"],
       "autoPort": true,
-      "port": 8080
+      "port": 8092
     }
   ]
 }

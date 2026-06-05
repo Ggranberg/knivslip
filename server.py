@@ -142,6 +142,8 @@ def save_json(filename, data):
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 def coords_for_address(addr):
+    if not addr:
+        return list(HOME_BASE)
     clean = addr.lower().replace('å','a').replace('ä','a').replace('ö','o').replace('é','e')
     # Matcha längsta nycklar först så "lonnlovsvagen 4" träffar före "nacka"
     for key, val in sorted(COORD_MAP.items(), key=lambda kv: -len(kv[0])):
@@ -168,6 +170,8 @@ def nearest_neighbor_sort(stops, home):
     return result
 
 def detect_area(address, areas_data):
+    if not address:
+        return None
     clean = address.lower().replace('å','a').replace('ä','a').replace('ö','o')
     for area in areas_data.get('areas', []):
         for prefix in area.get('postnummer_prefix', []):

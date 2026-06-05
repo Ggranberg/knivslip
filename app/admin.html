@@ -2701,7 +2701,7 @@
 
     // Statusalternativ för privatkunder (återuppringning av gamla kunder).
     const CUST_CALL_STATUS = {
-      vill_boka:      { label: 'Vill boka',      color: 'var(--accent)',  reschedule: false, done: true },
+      bokad:          { label: 'Bokad',          color: 'var(--accent)',  reschedule: false, done: true, booking: true },
       intresserad:    { label: 'Intresserad',    color: 'var(--green)',   reschedule: true },
       ej_svar:        { label: 'Svarade inte',   color: '#d99100',        reschedule: true },
       ring_senare:    { label: 'Ring senare',    color: 'var(--blue)',    reschedule: true },
@@ -2908,12 +2908,17 @@
             <input type="text" class="search-input" id="rlk-search" placeholder="Sök på namn, telefon...">
             <select class="filter-select" id="rlk-filter">
               <option value="att_ringa">Att ringa nu</option>
-              <option value="intresserade">Intresserade</option>
+              <option value="intresserad">Intresserade</option>
+              <option value="ring_senare">Ring senare</option>
+              <option value="ej_svar">Svarade inte</option>
+              <option value="bokad">Bokade</option>
+              <option value="ej_intresserad">Ej intresserade</option>
+              <option value="fel_nummer">Fel nummer</option>
               <option value="saknar_nr">Saknar nummer</option>
-              <option value="klara">Klara (bokade/ej intr.)</option>
               <option value="alla">Alla</option>
             </select>
           </div>
+          <div id="rlk-buckets" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.75rem;"></div>
           <div id="rlk-actionbar" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;background:var(--gray-50,#f7f7f7);border:1px solid var(--gray-200);border-radius:var(--radius);padding:0.5rem 0.75rem;margin-bottom:0.75rem;">
             <span id="rlk-selcount" style="font-weight:700;font-size:0.9rem;">0 markerade</span>
             <button onclick="rlkSelectAllVisible()" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-600);">Markera alla synliga</button>
@@ -2927,12 +2932,16 @@
       function render() {
         const s = document.getElementById('rlk-search').value.toLowerCase();
         const f = document.getElementById('rlk-filter').value;
-        let cust = (DATA.customers || []).filter(c => !c.is_deleted);
+        const all = (DATA.customers || []).filter(c => !c.is_deleted);
+        let cust = all;
         if (s) cust = cust.filter(c => (c.name||'').toLowerCase().includes(s) || (c.phone&&c.phone.replace(/\s/g,'').includes(s.replace(/\s/g,''))));
         if (f === 'att_ringa') cust = cust.filter(custCallDue);
-        else if (f === 'intresserade') cust = cust.filter(c => c.last_contact_status === 'intresserad');
         else if (f === 'saknar_nr') cust = cust.filter(c => !c.phone);
-        else if (f === 'klara') cust = cust.filter(c => CUST_CALL_STATUS[c.last_contact_status]?.done);
+        else if (f === 'alla') { /* visa alla */ }
+        else if (CUST_CALL_STATUS[f]) cust = cust.filter(c => c.last_contact_status === f);
+
+        // Fack-rad med antal per status (klickbar).
+        renderRlkBuckets(all, f);
 
         // Aldrig kontaktade: äldsta kund först. Sedan schemalagda återkall (tidigast först).
         cust.sort((a,b) => {
@@ -3004,7 +3013,7 @@
                 </div>
                 <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:flex-end;min-width:240px;">
                   <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end;">
-                    <button onclick="recordCustomerCall('${c.id}','vill_boka')" class="rl-btn" style="border-color:var(--accent);color:var(--accent);">📅 Vill boka</button>
+                    <button onclick="bookFromCall('${c.id}',false)" class="rl-btn" style="border-color:var(--accent);color:var(--accent);">📅 Boka</button>
                     <button onclick="recordCustomerCall('${c.id}','intresserad')" class="rl-btn" style="border-color:var(--green);color:var(--green);">✓ Intresserad</button>
                     <button onclick="recordCustomerCall('${c.id}','ej_svar')" class="rl-btn" style="border-color:#d99100;color:#d99100;">📵 Svarade inte</button>
                     <button onclick="recordCustomerCall('${c.id}','ring_senare')" class="rl-btn" style="border-color:var(--blue);color:var(--blue);">⏰ Ring senare</button>
@@ -3096,7 +3105,10 @@
       }
 
       const pct = Math.round((sess.index) / total * 100);
-      const sbtn = (status, label, color) => `<button onclick="sessionRecordCall('${status}')" style="padding:0.7rem 0.9rem;border:2px solid ${color};color:${color};background:#fff;border-radius:var(--radius);font-family:inherit;font-weight:700;font-size:0.95rem;cursor:pointer;">${label}</button>`;
+      const sbtn = (status, label, color) => {
+        const action = status === 'bokad' ? `bookFromCall('${c.id}',true)` : `sessionRecordCall('${status}')`;
+        return `<button onclick="${action}" style="padding:0.7rem 0.9rem;border:2px solid ${color};color:${color};background:#fff;border-radius:var(--radius);font-family:inherit;font-weight:700;font-size:0.95rem;cursor:pointer;">${label}</button>`;
+      };
 
       main.insertAdjacentHTML('beforeend', `
         <div class="section" style="max-width:680px;margin:0 auto;">
@@ -3117,7 +3129,7 @@
 
             <div style="margin-top:1rem;font-size:0.8rem;font-weight:700;color:var(--gray-500);">Vad sa kunden?</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem;margin-top:0.4rem;">
-              ${sbtn('vill_boka','📅 Vill boka','var(--accent)')}
+              ${sbtn('bokad','📅 Boka','var(--accent)')}
               ${sbtn('intresserad','✓ Intresserad','var(--green)')}
               ${sbtn('ej_svar','📵 Svarade inte','#d99100')}
               ${sbtn('ring_senare','⏰ Ring senare','var(--blue)')}
@@ -3148,7 +3160,7 @@
       ids.forEach(id => {
         const c = cust.find(x => x.id === id);
         if (!c) return;
-        if (c.last_contact_status === 'vill_boka') bokade++;
+        if (c.last_contact_status === 'bokad') bokade++;
         else if (c.last_contact_status === 'intresserad') intr++;
         else if (c.last_contact_status === 'ej_svar') ejsvar++;
       });
@@ -3158,7 +3170,7 @@
           <h2 style="margin:0.5rem 0;">Session klar!</h2>
           <p style="color:var(--gray-500);">Du gick igenom ${ids.length} kunder.</p>
           <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;margin:1rem 0;">
-            <div class="card" style="padding:0.9rem 1.2rem;"><div style="font-size:1.6rem;font-weight:800;color:var(--accent);">${bokade}</div><div style="font-size:0.8rem;color:var(--gray-500);">vill boka</div></div>
+            <div class="card" style="padding:0.9rem 1.2rem;"><div style="font-size:1.6rem;font-weight:800;color:var(--accent);">${bokade}</div><div style="font-size:0.8rem;color:var(--gray-500);">bokade</div></div>
             <div class="card" style="padding:0.9rem 1.2rem;"><div style="font-size:1.6rem;font-weight:800;color:var(--green);">${intr}</div><div style="font-size:0.8rem;color:var(--gray-500);">intresserade</div></div>
             <div class="card" style="padding:0.9rem 1.2rem;"><div style="font-size:1.6rem;font-weight:800;color:#d99100;">${ejsvar}</div><div style="font-size:0.8rem;color:var(--gray-500);">svarade inte</div></div>
           </div>
@@ -3222,6 +3234,116 @@
       RL_SESSION = null;
       RL_SELECTED.clear();
       renderView('ringlista');
+    }
+
+    // Fack-rad: klickbara chips med antal per status.
+    function renderRlkBuckets(all, active) {
+      const el = document.getElementById('rlk-buckets');
+      if (!el) return;
+      const cnt = {
+        att_ringa: all.filter(custCallDue).length,
+        intresserad: all.filter(c => c.last_contact_status === 'intresserad').length,
+        ring_senare: all.filter(c => c.last_contact_status === 'ring_senare').length,
+        ej_svar: all.filter(c => c.last_contact_status === 'ej_svar').length,
+        bokad: all.filter(c => c.last_contact_status === 'bokad').length,
+        ej_intresserad: all.filter(c => c.last_contact_status === 'ej_intresserad').length,
+        fel_nummer: all.filter(c => c.last_contact_status === 'fel_nummer').length,
+        saknar_nr: all.filter(c => !c.phone).length
+      };
+      const chips = [
+        ['att_ringa', '📞 Att ringa', 'var(--accent)'],
+        ['intresserad', '✓ Intresserade', 'var(--green)'],
+        ['ring_senare', '⏰ Ring senare', 'var(--blue)'],
+        ['ej_svar', '📵 Svarade inte', '#d99100'],
+        ['bokad', '📅 Bokade', 'var(--accent)'],
+        ['ej_intresserad', '✕ Ej intr.', 'var(--gray-500)'],
+        ['fel_nummer', '⚠ Fel nr', 'var(--red)'],
+        ['saknar_nr', '# Saknar nr', 'var(--gray-500)']
+      ];
+      el.innerHTML = chips.map(([val, label, color]) => {
+        const on = active === val;
+        return `<button onclick="rlkPickFilter('${val}')" style="padding:0.35rem 0.7rem;border:1.5px solid ${color};border-radius:999px;background:${on?color:'#fff'};color:${on?'#fff':color};font-family:inherit;font-weight:700;font-size:0.78rem;cursor:pointer;">${label} ${cnt[val]}</button>`;
+      }).join('');
+    }
+
+    function rlkPickFilter(val) {
+      const sel = document.getElementById('rlk-filter');
+      if (sel) { sel.value = val; sel.dispatchEvent(new Event('change')); }
+    }
+
+    // === BOKNING FRÅN RINGLISTAN: skapar riktig order som hamnar på dashboard ===
+    function bookFromCall(customerId, fromSession) {
+      const c = (DATA.customers || []).find(x => x.id === customerId);
+      if (!c) return;
+      const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:460px;">
+          <div class="modal-header">
+            <h2>Boka slipning — ${c.name || c.phone || 'kund'}</h2>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div style="margin-bottom:0.75rem;font-size:0.9rem;color:var(--gray-500);">${c.phone || 'Ingen telefon'}${c.address ? ' · ' + c.address : ''}</div>
+            <div class="profile-field" style="margin-bottom:0.75rem;"><label>Namn${c.name ? '' : ' (saknas — fyll i)'}</label><input id="cb-name" value="${c.name || ''}" placeholder="Kundens namn" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+            <div class="profile-row">
+              <div class="profile-field"><label>Antal knivar</label><input id="cb-knives" type="number" min="1" max="100" value="5" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+              <div class="profile-field"><label>Pris per kniv (kr, valfritt)</label><input id="cb-price" type="number" min="0" step="10" placeholder="Auto" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+            </div>
+            <div style="font-size:0.8rem;color:var(--gray-400);margin-top:0.25rem;">Standardpris: 1-2 st = 170 kr, 3-5 st = 140 kr, 6+ st = 120 kr</div>
+            <div class="profile-field" style="margin-top:0.75rem;"><label>Hämtdatum</label><input id="cb-date" type="date" value="${tomorrow}" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+            <div class="profile-field" style="margin-top:0.75rem;"><label>Adress (om saknas)</label><input id="cb-address" value="${c.address || ''}" placeholder="Gatuadress för hämtning" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+            <div class="profile-field" style="margin-top:0.75rem;"><label>Anteckning till bokningen</label><input id="cb-notes" placeholder="Valfritt" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;"></div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-save" onclick="submitCallBooking('${c.id}',${fromSession?'true':'false'})">Boka & lägg på dashboard</button>
+            <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    }
+
+    async function submitCallBooking(customerId, fromSession) {
+      const knifeCount = parseInt(document.getElementById('cb-knives').value) || 0;
+      if (knifeCount < 1) { showToast('Ange antal knivar', 'error'); return; }
+      const pricePerKnife = parseInt(document.getElementById('cb-price').value) || null;
+      const knives = knifeCount >= 6 ? '6+' : knifeCount >= 3 ? '3-5' : '1-2';
+      const preferred_date = document.getElementById('cb-date').value;
+      const address = document.getElementById('cb-address').value.trim();
+      const bookNotes = document.getElementById('cb-notes').value.trim();
+      const nameInput = document.getElementById('cb-name');
+      const newName = nameInput ? nameInput.value.trim() : '';
+      const c = (DATA.customers || []).find(x => x.id === customerId);
+      // Uppdatera namn/adress på kunden FÖRE ordern skapas, så schemat får rätt namn.
+      if (c) {
+        if (newName) c.name = newName;
+        if (address && !c.address) c.address = address;
+        if (newName || address) await saveJSON('customers.json', { customers: DATA.customers });
+      }
+      try {
+        const res = await fetch('/api/create-order', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ customer_id: customerId, knives, actual_knife_count: knifeCount, price_per_knife: pricePerKnife, preferred_date, notes: bookNotes }) });
+        const r = await res.json();
+        if (!r.ok) { showToast(r.error || 'Kunde inte skapa order', 'error'); return; }
+        // Logga samtalet som bokat.
+        if (c) {
+          if (!Array.isArray(c.call_log)) c.call_log = [];
+          const at = now();
+          const summary = `Bokade slipning (${knifeCount} knivar, hämtning ${preferred_date})` + (bookNotes ? ` — ${bookNotes}` : '');
+          c.call_log.push({ at, status: 'bokad', note: summary, by: CURRENT_USER.name, order_id: r.order_id });
+          c.last_contact_at = at;
+          c.last_contact_status = 'bokad';
+          c.next_call_at = null;
+          c.updated_at = at;
+          await saveJSON('customers.json', { customers: DATA.customers });
+        }
+        document.querySelectorAll('.modal-overlay').forEach(o => o.remove());
+        await loadAllData();
+        updateRinglistaBadge();
+        showToast('Bokat! Ordern ligger nu på dashboarden 📅', 'success');
+        renderView('ringlista');
+      } catch(e) { showToast('Kunde inte boka: ' + e.message, 'error'); }
     }
 
     function _custNoteVal(customerId) {
