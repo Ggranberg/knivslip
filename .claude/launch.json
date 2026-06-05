@@ -5,6 +5,7 @@
       "name": "website",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["server.py"],
+      "autoPort": true,
       "port": 8080
     }
   ]

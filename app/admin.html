@@ -2699,10 +2699,55 @@
       return new Date(c.next_call_at) <= new Date();
     }
 
+    // Statusalternativ för privatkunder (återuppringning av gamla kunder).
+    const CUST_CALL_STATUS = {
+      vill_boka:      { label: 'Vill boka',      color: 'var(--accent)',  reschedule: false, done: true },
+      intresserad:    { label: 'Intresserad',    color: 'var(--green)',   reschedule: true },
+      ej_svar:        { label: 'Svarade inte',   color: '#d99100',        reschedule: true },
+      ring_senare:    { label: 'Ring senare',    color: 'var(--blue)',    reschedule: true },
+      ej_intresserad: { label: 'Ej intresserad', color: 'var(--gray-500)',reschedule: false, done: true },
+      fel_nummer:     { label: 'Fel nummer',     color: 'var(--red)',     reschedule: false, done: true }
+    };
+
+    // En kund "ska ringas" om: aldrig kontaktad, eller schemalagt återkall passerat.
+    // Vill boka / ej intresserad / fel nummer plockas bort från listan.
+    function custCallDue(c) {
+      const done = CUST_CALL_STATUS[c.last_contact_status]?.done;
+      if (done) return false;
+      if (!c.next_call_at) return !c.last_contact_at;
+      return new Date(c.next_call_at) <= new Date();
+    }
+
+    // Vilken flik som visas i ringliste-centrumet ('foretag' | 'kunder').
+    let RL_TAB = 'foretag';
+    function setRinglistaTab(t) { RL_TAB = t; renderView('ringlista'); }
+
     function renderRinglista(main) {
+      const tab = (t, label, count) => {
+        const active = RL_TAB === t;
+        const badge = count > 0 ? `<span style="background:${active?'rgba(255,255,255,0.25)':'var(--accent)'};color:${active?'#fff':'#fff'};padding:0.05rem 0.45rem;border-radius:10px;font-size:0.72rem;font-weight:700;margin-left:0.4rem;">${count}</span>` : '';
+        return `<button onclick="setRinglistaTab('${t}')" style="padding:0.55rem 1.1rem;border:none;border-bottom:3px solid ${active?'var(--accent)':'transparent'};background:none;color:${active?'var(--accent)':'var(--gray-500)'};font-family:inherit;font-weight:700;font-size:0.95rem;cursor:pointer;">${label}${badge}</button>`;
+      };
+      const foretagDue = (DATA.companies || []).filter(c => !c.is_deleted && callDue(c)).length;
+      const kunderDue = (DATA.customers || []).filter(c => !c.is_deleted && custCallDue(c)).length;
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
-          <p style="color:var(--gray-500);font-size:0.85rem;margin:-0.25rem 0 0.75rem;">Ringlista för företag (B2B). Privatkunder som ska följas upp hittar du under <a href="#" onclick="renderView('reminders');document.querySelectorAll('#sidebar-nav a').forEach(x=>x.classList.remove('active'));document.querySelector('#sidebar-nav a[data-view=reminders]')?.classList.add('active');return false;" style="color:var(--accent);font-weight:600;">Påminnelser</a>.</p>
+          <div style="display:flex;gap:0.25rem;border-bottom:1px solid var(--gray-200);margin-bottom:1rem;">
+            ${tab('foretag', '🏢 Företag', foretagDue)}
+            ${tab('kunder', '👤 Kunder', kunderDue)}
+          </div>
+          <div id="rl-tab-content"></div>
+        </div>
+      `);
+      const container = document.getElementById('rl-tab-content');
+      if (RL_TAB === 'kunder') renderRLKunder(container);
+      else renderRLForetag(container);
+    }
+
+    function renderRLForetag(main) {
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <p style="color:var(--gray-500);font-size:0.85rem;margin:-0.25rem 0 0.75rem;">Ringlista för företag (B2B). Gamla privatkunder att ringa upp igen hittar du under <a href="#" onclick="setRinglistaTab('kunder');return false;" style="color:var(--accent);font-weight:600;">👤 Kunder</a>-fliken ovan.</p>
           <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
             <div style="font-weight:700;margin-bottom:0.6rem;font-size:0.95rem;">+ Lägg till nytt företag att ringa</div>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;">
@@ -2842,9 +2887,184 @@
     function updateRinglistaBadge() {
       const badge = document.getElementById('ringlista-badge');
       if (!badge) return;
-      const n = (DATA.companies || []).filter(c => !c.is_deleted && callDue(c)).length;
+      const nF = (DATA.companies || []).filter(c => !c.is_deleted && callDue(c)).length;
+      const nK = (DATA.customers || []).filter(c => !c.is_deleted && custCallDue(c)).length;
+      const n = nF + nK;
       badge.textContent = n;
       badge.style.display = n > 0 ? '' : 'none';
+    }
+
+    // === RINGLISTA: PRIVATKUNDER ===
+    function renderRLKunder(main) {
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <p style="color:var(--gray-500);font-size:0.85rem;margin:-0.25rem 0 0.75rem;">Ring upp gamla privatkunder och fråga om de vill slipa igen. Sorterat med <strong>äldsta kunderna först</strong>. Logga svaret och lägg en kommentar för varje samtal.</p>
+          <div class="table-controls">
+            <input type="text" class="search-input" id="rlk-search" placeholder="Sök på namn, telefon...">
+            <select class="filter-select" id="rlk-filter">
+              <option value="att_ringa">Att ringa nu</option>
+              <option value="intresserade">Intresserade</option>
+              <option value="saknar_nr">Saknar nummer</option>
+              <option value="klara">Klara (bokade/ej intr.)</option>
+              <option value="alla">Alla</option>
+            </select>
+          </div>
+          <div id="rlk-list"></div>
+        </div>
+      `);
+
+      function render() {
+        const s = document.getElementById('rlk-search').value.toLowerCase();
+        const f = document.getElementById('rlk-filter').value;
+        let cust = (DATA.customers || []).filter(c => !c.is_deleted);
+        if (s) cust = cust.filter(c => (c.name||'').toLowerCase().includes(s) || (c.phone&&c.phone.replace(/\s/g,'').includes(s.replace(/\s/g,''))));
+        if (f === 'att_ringa') cust = cust.filter(custCallDue);
+        else if (f === 'intresserade') cust = cust.filter(c => c.last_contact_status === 'intresserad');
+        else if (f === 'saknar_nr') cust = cust.filter(c => !c.phone);
+        else if (f === 'klara') cust = cust.filter(c => CUST_CALL_STATUS[c.last_contact_status]?.done);
+
+        // Aldrig kontaktade: äldsta kund först. Sedan schemalagda återkall (tidigast först).
+        cust.sort((a,b) => {
+          const aNever = !a.last_contact_at, bNever = !b.last_contact_at;
+          if (aNever !== bNever) return aNever ? -1 : 1;
+          if (aNever) return (a.created_at||'').localeCompare(b.created_at||'');
+          return (a.next_call_at||'9999').localeCompare(b.next_call_at||'9999');
+        });
+
+        const el = document.getElementById('rlk-list');
+        if (!cust.length) {
+          el.innerHTML = '<div class="card" style="padding:1.5rem;color:var(--gray-400);font-style:italic;">Inga kunder att visa här. 📞</div>';
+          return;
+        }
+        el.innerHTML = cust.map(c => {
+          const st = CUST_CALL_STATUS[c.last_contact_status];
+          const namn = c.name ? c.name : '<span style="color:var(--gray-400);">Okänt namn</span>';
+          // Tidigare omsättning (gamla kunder) om noterat.
+          const spend = c.legacy_total ? `<span class="source-tag" style="background:var(--green-light);color:var(--green);">Tidigare: ${c.legacy_total} kr</span>` : '';
+          const period = c.legacy_period ? `<span class="source-tag" style="background:var(--gray-100);color:var(--gray-500);">${c.legacy_period}</span>` : '';
+          const ordersCount = (DATA.orders || []).filter(o => o.customer_id === c.id).length;
+          const ordTag = ordersCount ? `<span class="source-tag" style="background:var(--blue-light);color:var(--blue);">${ordersCount} order</span>` : '';
+
+          let contactLine = '<span style="color:var(--gray-400);">Aldrig kontaktad</span>';
+          if (c.last_contact_at) {
+            const dagar = daysBetween(c.last_contact_at, now());
+            const nar = dagar === 0 ? 'idag' : dagar === 1 ? 'igår' : `${dagar} dagar sedan`;
+            contactLine = `Senast: ${formatDate(c.last_contact_at)} (${nar})${st ? ` — <strong style="color:${st.color};">${st.label}</strong>` : ''}`;
+          }
+          let nextLine = '';
+          if (c.next_call_at && !st?.done) {
+            const d = daysBetween(now(), c.next_call_at);
+            const due = new Date(c.next_call_at) <= new Date();
+            const txt = due ? 'Ring nu!' : (d === 1 ? 'om 1 dag' : `om ${d} dagar`);
+            nextLine = `<div style="font-size:0.8rem;color:${due?'var(--accent)':'var(--gray-500)'};font-weight:${due?'700':'500'};margin-top:0.15rem;">⏰ Ring igen: ${formatDate(c.next_call_at)} (${txt})</div>`;
+          }
+          const phone = c.phone
+            ? `<a href="tel:${c.phone.replace(/\s/g,'')}" style="color:var(--accent);font-weight:700;text-decoration:none;">${c.phone}</a>`
+            : `<span style="display:inline-flex;gap:0.3rem;align-items:center;"><input id="rlk-ph-${c.id}" placeholder="Lägg till nummer" style="padding:0.3rem 0.45rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.85rem;width:150px;"><button onclick="setCustomerPhone('${c.id}')" style="padding:0.3rem 0.6rem;background:var(--gray-100);border:none;border-radius:var(--radius);font-family:inherit;font-size:0.8rem;cursor:pointer;">Spara</button></span>`;
+
+          // Samtalshistorik (kommentarer).
+          let logHtml = '';
+          if (Array.isArray(c.call_log) && c.call_log.length) {
+            const items = c.call_log.slice().reverse().map(l => {
+              const ls = CUST_CALL_STATUS[l.status];
+              const label = ls ? `<strong style="color:${ls.color};">${ls.label}</strong>` : (l.status === 'note' ? '<em>Anteckning</em>' : l.status);
+              const note = l.note ? ` — ${l.note}` : '';
+              return `<div style="font-size:0.78rem;color:var(--gray-500);padding:0.1rem 0;">${formatDate(l.at)} · ${label}${note} <span style="color:var(--gray-400);">(${l.by||''})</span></div>`;
+            }).join('');
+            logHtml = `<details style="margin-top:0.4rem;"><summary style="font-size:0.78rem;color:var(--gray-500);cursor:pointer;">Historik (${c.call_log.length})</summary><div style="margin-top:0.25rem;">${items}</div></details>`;
+          }
+
+          return `
+            <div class="card" style="padding:1rem 1.25rem;margin-bottom:0.75rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                  <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                    <a class="clickable-name" onclick="openCustomer('${c.id}')"><strong style="font-size:1.05rem;">${namn}</strong></a>
+                    ${spend} ${period} ${ordTag}
+                  </div>
+                  <div style="font-size:1.1rem;margin:0.35rem 0;">${phone}</div>
+                  <div style="font-size:0.82rem;color:var(--gray-500);">${contactLine}</div>
+                  ${nextLine}
+                  ${logHtml}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:flex-end;min-width:240px;">
+                  <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end;">
+                    <button onclick="recordCustomerCall('${c.id}','vill_boka')" class="rl-btn" style="border-color:var(--accent);color:var(--accent);">📅 Vill boka</button>
+                    <button onclick="recordCustomerCall('${c.id}','intresserad')" class="rl-btn" style="border-color:var(--green);color:var(--green);">✓ Intresserad</button>
+                    <button onclick="recordCustomerCall('${c.id}','ej_svar')" class="rl-btn" style="border-color:#d99100;color:#d99100;">📵 Svarade inte</button>
+                    <button onclick="recordCustomerCall('${c.id}','ring_senare')" class="rl-btn" style="border-color:var(--blue);color:var(--blue);">⏰ Ring senare</button>
+                    <button onclick="recordCustomerCall('${c.id}','ej_intresserad')" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-500);">✕ Ej intr.</button>
+                    <button onclick="recordCustomerCall('${c.id}','fel_nummer')" class="rl-btn" style="border-color:var(--red);color:var(--red);">⚠ Fel nr</button>
+                  </div>
+                  <div style="display:flex;gap:0.4rem;width:100%;justify-content:flex-end;">
+                    <input id="rlk-note-${c.id}" placeholder="Kommentar till samtalet..." style="flex:1;padding:0.4rem 0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.82rem;">
+                    <button onclick="saveCustomerNote('${c.id}')" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-600);">💬 Spara</button>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      document.getElementById('rlk-search').addEventListener('input', render);
+      document.getElementById('rlk-filter').addEventListener('change', render);
+      render();
+    }
+
+    function _custNoteVal(customerId) {
+      const inp = document.getElementById('rlk-note-' + customerId);
+      const v = inp ? inp.value.trim() : '';
+      return v;
+    }
+
+    async function recordCustomerCall(customerId, status) {
+      const c = (DATA.customers || []).find(c => c.id === customerId);
+      if (!c) return;
+      const def = CUST_CALL_STATUS[status];
+      if (!def) return;
+      if (!Array.isArray(c.call_log)) c.call_log = [];
+      const at = now();
+      const note = _custNoteVal(customerId);
+      c.call_log.push({ at, status, note, by: CURRENT_USER.name });
+      c.last_contact_at = at;
+      c.last_contact_status = status;
+      c.next_call_at = def.reschedule
+        ? new Date(Date.now() + CALL_FOLLOWUP_DAYS*86400000).toISOString()
+        : null;
+      c.updated_at = at;
+      await saveJSON('customers.json', { customers: DATA.customers });
+      const msg = def.reschedule
+        ? `${def.label} — ringer igen om ${CALL_FOLLOWUP_DAYS} dagar`
+        : `${def.label} sparat`;
+      showToast(msg, 'success');
+      updateRinglistaBadge();
+      renderView('ringlista');
+    }
+
+    async function saveCustomerNote(customerId) {
+      const c = (DATA.customers || []).find(c => c.id === customerId);
+      if (!c) return;
+      const note = _custNoteVal(customerId);
+      if (!note) { showToast('Skriv en kommentar först', 'error'); return; }
+      if (!Array.isArray(c.call_log)) c.call_log = [];
+      c.call_log.push({ at: now(), status: 'note', note, by: CURRENT_USER.name });
+      c.updated_at = now();
+      await saveJSON('customers.json', { customers: DATA.customers });
+      showToast('Kommentar sparad', 'success');
+      renderView('ringlista');
+    }
+
+    async function setCustomerPhone(customerId) {
+      const c = (DATA.customers || []).find(c => c.id === customerId);
+      if (!c) return;
+      const inp = document.getElementById('rlk-ph-' + customerId);
+      const ph = inp ? inp.value.trim() : '';
+      if (!ph) { showToast('Skriv ett telefonnummer', 'error'); return; }
+      c.phone = ph;
+      c.updated_at = now();
+      await saveJSON('customers.json', { customers: DATA.customers });
+      showToast('Telefonnummer sparat', 'success');
+      renderView('ringlista');
     }
 
     function renderStats(main) {
