@@ -4,13 +4,26 @@
 import json
 import os
 import math
-from datetime import datetime, timedelta
+import threading
+import time as time_module
+from datetime import datetime, date, timedelta
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+try:
+    from zoneinfo import ZoneInfo
+    STHLM_TZ = ZoneInfo('Europe/Stockholm')
+except Exception:
+    STHLM_TZ = None
+
 PORT = int(os.environ.get('PORT', 8080))
 NTFY_TOPIC = os.environ.get('NTFY_TOPIC', 'knivslip-bok-a7x9m')
+# Separat ntfy-topic för morgonbriefingen (egen "chatt" i appen).
+BRIEF_TOPIC = os.environ.get('NTFY_BRIEF_TOPIC', 'knivkillarna-morgonbrief-h7k2qm')
+BRIEF_HOUR = int(os.environ.get('BRIEF_HOUR', 9))
+BRIEF_LAT, BRIEF_LON = 59.3026, 18.1631  # Nacka
+BRIEF_CAPACITY = 70  # ~60-80 knivar/dag med 2x T-4
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 APP_DIR = os.path.join(BASE_DIR, 'app')
@@ -546,6 +559,236 @@ def send_notification(booking):
         print(f'[NTFY] Kunde inte skicka notis: {e}')
 
 
+# ───────────────────────── Morgonbriefing ─────────────────────────
+BRIEF_WD = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag']
+BRIEF_MO = ['januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli',
+            'augusti', 'september', 'oktober', 'november', 'december']
+BRIEF_WMO = {0: ('Klart', '☀️'), 1: ('Mest klart', '🌤️'), 2: ('Halvklart', '⛅'),
+             3: ('Mulet', '☁️'), 45: ('Dimma', '🌫️'), 48: ('Dimma', '🌫️'),
+             51: ('Duggregn', '🌦️'), 53: ('Duggregn', '🌦️'), 55: ('Duggregn', '🌦️'),
+             61: ('Regn', '🌧️'), 63: ('Regn', '🌧️'), 65: ('Kraftigt regn', '🌧️'),
+             71: ('Snö', '🌨️'), 73: ('Snö', '🌨️'), 75: ('Kraftig snö', '🌨️'),
+             80: ('Regnskurar', '🌦️'), 81: ('Regnskurar', '🌧️'), 82: ('Kraftiga skurar', '⛈️'),
+             95: ('Åska', '⛈️'), 96: ('Åska', '⛈️'), 99: ('Åska', '⛈️')}
+
+
+def _brief_pdate(s):
+    if not s:
+        return None
+    try:
+        return date.fromisoformat(str(s)[:10])
+    except Exception:
+        return None
+
+
+def _brief_knives(orders):
+    return sum((o.get('actual_knife_count') or o.get('estimated_knife_count') or 0) for o in orders)
+
+
+def _brief_weather():
+    try:
+        url = (f'https://api.open-meteo.com/v1/forecast?latitude={BRIEF_LAT}&longitude={BRIEF_LON}'
+               '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode'
+               '&timezone=Europe%2FStockholm&forecast_days=1')
+        d = json.loads(urlopen(url, timeout=10).read().decode('utf-8'))['daily']
+        txt, emoji = BRIEF_WMO.get(d['weathercode'][0], ('', '🌡️'))
+        lo, hi = round(d['temperature_2m_min'][0]), round(d['temperature_2m_max'][0])
+        nb = d['precipitation_sum'][0]
+        line = f"{emoji} {txt} {lo}–{hi}°C"
+        if nb and nb >= 0.2:
+            line += f", {nb:.1f} mm nederbörd"
+        return line
+    except Exception:
+        return None
+
+
+def build_morning_briefing():
+    """Bygg fullständig morgonbriefing från lokal data + väder. Returnerar (datumtext, body)."""
+    now = datetime.now(STHLM_TZ) if STHLM_TZ else datetime.now()
+    today = now.date()
+    today_str = today.isoformat()
+    yest = today - timedelta(days=1)
+    datum = f"{BRIEF_WD[now.weekday()]} {now.day} {BRIEF_MO[now.month - 1]}"
+
+    sched = load_json('schedule.json').get('schedule', [])
+    books = load_json('bookings.json').get('bookings', [])
+    orders = load_json('orders.json').get('orders', [])
+    customers = load_json('customers.json').get('customers', [])
+    reviews = load_json('reviews.json').get('reviews', [])
+    invoices = load_json('invoices.json').get('invoices', [])
+    txns = load_json('transactions.json').get('transactions', [])
+
+    L = [f"God morgon! Här är läget {datum}."]
+    w = _brief_weather()
+    if w:
+        L.append(w)
+    L.append("")
+
+    # Dagens rutt
+    todays = [s for s in sched if s.get('date') == today_str]
+    rl, dels = [], []
+    for s in sorted(todays, key=lambda x: x.get('assigned_to', '')):
+        st = [x for x in s.get('stops', []) if not x.get('completed')]
+        if not st:
+            continue
+        d = (s.get('assigned_to') or 'Ej tilldelad').capitalize()
+        h = sum(1 for x in st if x.get('type') == 'pickup')
+        v = sum(1 for x in st if x.get('type') == 'delivery')
+        tid = ''
+        if s.get('estimated_start') and s.get('estimated_end'):
+            tid = f", {s['estimated_start']}–{s['estimated_end']}"
+        elif s.get('estimated_total_time_min'):
+            tid = f", ~{s['estimated_total_time_min']} min"
+        rl.append(f"  {d}: {len(st)} stopp ({h} hämt, {v} lev){tid}")
+        dels += [x for x in st if x.get('type') == 'delivery']
+    if rl:
+        L.append("📋 Dagens rutt:")
+        L += rl
+    else:
+        L.append("📋 Dagens rutt: inga stopp planerade.")
+    L.append("")
+
+    # Måste levereras idag
+    if dels:
+        L.append(f"🚨 Måste levereras idag: {len(dels)}")
+        for x in dels[:6]:
+            L.append(f"  • {x.get('customer_name', '?')} — {x.get('notes', '')}")
+        L.append("")
+
+    # Knivar nära/över 2-dagars-deadline
+    cust = {c['id']: c for c in customers}
+    risky = []
+    for o in [o for o in orders if o.get('status') not in ('completed', 'cancelled', 'lead', 'booked')]:
+        if (o.get('delivery') or {}).get('completed_at'):
+            continue
+        p = _brief_pdate((o.get('pickup') or {}).get('completed_at') or (o.get('pickup') or {}).get('date'))
+        if not p:
+            continue
+        days = (today - p).days
+        if days >= 1:
+            risky.append((days, o))
+    if risky:
+        risky.sort(key=lambda t: -t[0])
+        L.append(f"⏰ Nära/över deadline: {len(risky)}")
+        for days, o in risky[:6]:
+            namn = cust.get(o.get('customer_id'), {}).get('name', o.get('id'))
+            fl = '🔴 ÖVER' if days >= 2 else '🟡 dag 2'
+            L.append(f"  • {namn} ({_brief_knives([o])} kn) — {fl} ({days} dgr)")
+        L.append("")
+
+    # Nya bokningar + obekräftade
+    nya = [b for b in books if _brief_pdate(b.get('created_at')) and _brief_pdate(b.get('created_at')) >= yest]
+    pend = [b for b in books if b.get('status') == 'pending']
+    if nya:
+        L.append(f"🆕 Nya bokningar sedan igår: {len(nya)}")
+    if pend:
+        L.append(f"📥 Obekräftade att godkänna: {len(pend)}")
+    if nya or pend:
+        L.append("")
+
+    # Omdömen
+    nyrev = [r for r in reviews if _brief_pdate(r.get('created_at')) and _brief_pdate(r.get('created_at')) >= yest]
+    appr = [r for r in reviews if r.get('approved') and r.get('rating')]
+    if nyrev:
+        L.append(f"⭐ Nya omdömen sedan igår: {len(nyrev)}")
+        for r in nyrev[:3]:
+            L.append(f"  • {'★' * int(r.get('rating', 0))} {r.get('name', '?')}")
+    if appr:
+        L.append(f"   Snittbetyg: {sum(r['rating'] for r in appr) / len(appr):.1f} ({len(appr)} omdömen)")
+    if nyrev or appr:
+        L.append("")
+
+    # Leads att ringa
+    leads = [c for c in customers if not c.get('is_deleted')
+             and _brief_pdate(c.get('next_call_at')) and _brief_pdate(c.get('next_call_at')) <= today]
+    if leads:
+        L.append(f"📞 Leads att ringa idag: {len(leads)}")
+        for c in leads[:5]:
+            L.append(f"  • {c.get('name', '?')} ({c.get('phone', '')})")
+        L.append("")
+
+    # Kapacitet
+    in_shop = [o for o in orders if o.get('status') in ('picked_up', 'registered', 'sharpening')]
+    ready = [o for o in orders if o.get('status') in ('quality_check', 'ready', 'out_for_delivery')]
+    if in_shop:
+        qk = _brief_knives(in_shop)
+        L.append(f"🔪 Att slipa: {qk} knivar ({len(in_shop)} ordrar) — ~{round(qk / BRIEF_CAPACITY * 100)}% av dagskapacitet")
+    if ready:
+        L.append(f"✅ Redo att leverera: {_brief_knives(ready)} knivar ({len(ready)} ordrar)")
+    active = [o for o in orders if o.get('status') not in ('completed', 'cancelled', 'lead')]
+    L.append(f"📦 Aktiva ordrar totalt: {len(active)}")
+    L.append("")
+
+    # Ekonomi
+    obet = [i for i in invoices if i.get('status') not in ('paid', 'cancelled', 'draft')]
+    if obet:
+        summa = sum(i.get('total_incl_vat', 0) for i in obet)
+        forf = [i for i in obet if _brief_pdate(i.get('due_date')) and _brief_pdate(i.get('due_date')) < today]
+        rad = f"💰 Obetalda fakturor: {len(obet)} ({summa:,.0f} kr)".replace(',', ' ')
+        if forf:
+            rad += f" — varav {len(forf)} förfallna 🔴"
+        L.append(rad)
+    inc = [t for t in txns if t.get('type') in ('income', 'revenue', 'sale', 'intäkt')
+           and _brief_pdate(t.get('date')) and _brief_pdate(t.get('date')).month == today.month
+           and _brief_pdate(t.get('date')).year == today.year]
+    if inc:
+        manad = sum(t.get('amount_incl_vat', 0) for t in inc)
+        moms = sum(t.get('vat', 0) for t in inc)
+        L.append(f"📈 Intäkt denna månad: {manad:,.0f} kr — lägg undan {moms:,.0f} kr moms".replace(',', ' '))
+
+    # Skatte-/momsdeadlines
+    dl = []
+    for me, lab in [(2, 'momsdekl Q4'), (5, 'momsdekl Q1'), (8, 'momsdekl Q2'), (11, 'momsdekl Q3')]:
+        dd = date(today.year, me, 12)
+        if 0 <= (dd - today).days <= 14:
+            dl.append((dd, lab))
+    ar = date(today.year, 7, 31)
+    if 0 <= (ar - today).days <= 30:
+        dl.append((ar, 'årsredovisning till Bolagsverket'))
+    for dd, lab in sorted(dl):
+        L.append(f"⚠️ Deadline {dd.strftime('%d/%m')}: {lab} ({(dd - today).days} dgr kvar)")
+
+    return datum, "\n".join(L).strip()
+
+
+def send_morning_briefing():
+    """Skicka morgonbriefing via ntfy på den separata brief-topicen."""
+    datum, body = build_morning_briefing()
+    req = Request(
+        f'https://ntfy.sh/{BRIEF_TOPIC}',
+        data=body.encode('utf-8'),
+        headers={
+            'Title': f'Morgonbrief: {datum}',
+            'Tags': 'sunrise,knife',
+            'Priority': '4',
+            'Click': 'https://knivkillarna.up.railway.app/admin',
+        },
+    )
+    urlopen(req, timeout=10)
+    print(f'[BRIEF] Morgonbrief skickad ({datum})')
+
+
+def _seconds_until_next_brief():
+    now = datetime.now(STHLM_TZ) if STHLM_TZ else datetime.now()
+    target = now.replace(hour=BRIEF_HOUR, minute=0, second=0, microsecond=0)
+    if target <= now:
+        target += timedelta(days=1)
+    return (target - now).total_seconds()
+
+
+def briefing_scheduler():
+    """Bakgrundstråd: skickar morgonbrief varje dag kl BRIEF_HOUR (Europe/Stockholm)."""
+    while True:
+        wait = _seconds_until_next_brief()
+        print(f'[BRIEF] Nästa morgonbrief om {wait / 3600:.1f}h (kl {BRIEF_HOUR:02d}:00)')
+        time_module.sleep(wait)
+        try:
+            send_morning_briefing()
+        except Exception as e:
+            print(f'[BRIEF] Kunde inte skicka morgonbrief: {e}')
+        time_module.sleep(90)  # passera måltiden så vi inte räknar fram samma tidpunkt igen
+
+
 def approve_booking(booking_id):
     """Approve a pending booking — creates customer + order."""
     bookings_data = load_json('bookings.json')
@@ -742,6 +985,14 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
             return
+        # Förhandsvisa morgonbriefingen (skickar inget)
+        if path == '/api/briefing':
+            datum, body = build_morning_briefing()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'datum': datum, 'body': body}, ensure_ascii=False).encode('utf-8'))
+            return
         # Serve admin app
         if path == '/admin' or path == '/admin/':
             path = '/admin/admin.html'
@@ -843,6 +1094,16 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({'ok': True}).encode())
 
+        elif path == '/api/briefing/send':
+            try:
+                send_morning_briefing()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'ok': True}).encode())
+            except Exception as e:
+                self.send_error(500, str(e))
+
         else:
             self.send_error(404)
 
@@ -863,6 +1124,7 @@ class KnivslipHandler(SimpleHTTPRequestHandler):
 if __name__ == '__main__':
     os.chdir(BASE_DIR)
     init_data()
+    threading.Thread(target=briefing_scheduler, daemon=True).start()
     server = HTTPServer(('0.0.0.0', PORT), KnivslipHandler)
     print(f'')
     print(f'  KNIVSLIP SERVER')

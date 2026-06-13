@@ -1,1 +1,3 @@
-# Inga externa beroenden - bara Python stdlib
+# Endast tidszonsdata for morgonbriefingens schemalaggning (Europe/Stockholm).
+# Ovrigt ar Python stdlib.
+tzdata
