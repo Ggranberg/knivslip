@@ -636,13 +636,6 @@
         document.getElementById('login-error').textContent = 'Fel PIN-kod';
         return false;
       }
-      // Säljare loggar in på sin egen portal — inte personalportalen
-      const isOnlySaljare = (user.roles || [user.role]).every(r => r === 'saljare');
-      if (isOnlySaljare) {
-        document.getElementById('login-error').innerHTML = 'Säljare loggar in på <a href="https://knivkillarna.se/saljare" style="color:var(--accent);text-decoration:underline;">knivkillarna.se/saljare</a>';
-        sessionStorage.removeItem('knivslip_pin');
-        return false;
-      }
       CURRENT_USER = user;
       sessionStorage.setItem('knivslip_pin', pin);
       document.getElementById('login-screen').style.display = 'none';
@@ -656,20 +649,22 @@
 
     // === DATA ===
     async function loadAllData() {
-      const [customers, orders, knives, invoices, transactions, schedule, pricing, areas, timelog, salaryPayments, companies, classes] = await Promise.all([
+      const [customers, orders, knives, invoices, transactions, schedule, pricing, areas, timelog, salaryPayments, companies, classes, filip] = await Promise.all([
         fetchJSON('customers.json'), fetchJSON('orders.json'), fetchJSON('knives.json'),
         fetchJSON('invoices.json'), fetchJSON('transactions.json'), fetchJSON('schedule.json'),
         fetchJSON('pricing.json'), fetchJSON('areas.json'), fetchJSON('timelog.json'),
         fetchJSON('salary_payments.json').catch(() => ({ payments: [] })),
         fetchJSON('companies.json').catch(() => ({ companies: [], settings: { bank_account: '', bankgiro: '', swish_number: '', next_invoice_number: 1001 } })),
-        fetchJSON('classes.json').catch(() => ({ classes: [] }))
+        fetchJSON('classes.json').catch(() => ({ classes: [] })),
+        fetchJSON('filip_customers.json').catch(() => ({ filip_customers: [] }))
       ]);
       DATA = { customers: customers.customers, orders: orders.orders, knives: knives.knives,
         invoices: invoices.invoices, transactions: transactions.transactions, schedule: schedule.schedule,
         pricing: pricing.pricing, areas: areas, salary_payments: (salaryPayments && salaryPayments.payments) || [],
         companies: (companies && companies.companies) || [],
         company_settings: (companies && companies.settings) || { bank_account: '', bankgiro: '', swish_number: '', next_invoice_number: 1001 },
-        classes: (classes && classes.classes) || [] };
+        classes: (classes && classes.classes) || [],
+        filip: (filip && filip.filip_customers) || [] };
       TIMELOG = timelog.entries;
       await loadPendingBookings();
       await loadReviews();
@@ -1993,6 +1988,11 @@
       const todays = DATA.companies.filter(c => c.id && c.id.includes('FTG-'+today));
       return `FTG-${today}-${String(todays.length+1).padStart(3,'0')}`;
     }
+    function nextCustomerId() {
+      const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      const todays = (DATA.customers || []).filter(c => c.id && c.id.includes('CUS-'+today));
+      return `CUS-${today}-${String(todays.length+1).padStart(3,'0')}`;
+    }
     function nextJobId() {
       const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
       const all = (DATA.companies || []).flatMap(c => c.jobs || []);
@@ -2723,9 +2723,23 @@
       return new Date(c.next_call_at) <= new Date();
     }
 
-    // Vilken flik som visas i ringliste-centrumet ('foretag' | 'kunder').
+    // Vilken flik som visas i ringliste-centrumet ('foretag' | 'kunder' | 'filip').
     let RL_TAB = 'foretag';
-    function setRinglistaTab(t) { RL_TAB = t; renderView('ringlista'); }
+    function setRinglistaTab(t) { RL_TAB = t; RL_SELECTED.clear(); renderView('ringlista'); }
+
+    // Kund-stil-ringlistan kan köra mot två separata dataset som ALDRIG blandas:
+    // 'kunder' = våra riktiga kunder (customers.json), 'filip' = Filips importerade
+    // leadlista (filip_customers.json). Samma UI, olika källa + fil.
+    const RLK_SOURCES = {
+      kunder: { key: 'customers', file: 'customers.json',        wrap: l => ({ customers: l }) },
+      filip:  { key: 'filip',     file: 'filip_customers.json',  wrap: l => ({ filip_customers: l }) }
+    };
+    // Aktiv källa: under en ringsession styr sessionens källa, annars aktuell flik.
+    function rlkCtx() { return RLK_SOURCES[(RL_SESSION && RL_SESSION.source) || (RL_TAB === 'filip' ? 'filip' : 'kunder')]; }
+    function rlkIsFilip() { return rlkCtx().key === 'filip'; }
+    function rlkList() { return DATA[rlkCtx().key] || []; }
+    function rlkFind(id) { return rlkList().find(c => c.id === id); }
+    function rlkSave() { const c = rlkCtx(); return saveJSON(c.file, c.wrap(DATA[c.key] || [])); }
 
     // Markerade kunder + pågående ringsession.
     let RL_SELECTED = new Set();
@@ -2740,17 +2754,19 @@
       };
       const foretagDue = (DATA.companies || []).filter(c => !c.is_deleted && callDue(c)).length;
       const kunderDue = (DATA.customers || []).filter(c => !c.is_deleted && custCallDue(c)).length;
+      const filipDue = (DATA.filip || []).filter(c => !c.is_deleted && custCallDue(c)).length;
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
-          <div style="display:flex;gap:0.25rem;border-bottom:1px solid var(--gray-200);margin-bottom:1rem;">
+          <div style="display:flex;gap:0.25rem;border-bottom:1px solid var(--gray-200);margin-bottom:1rem;flex-wrap:wrap;">
             ${tab('foretag', '🏢 Företag', foretagDue)}
             ${tab('kunder', '👤 Kunder', kunderDue)}
+            ${tab('filip', '🔪 Filips lista', filipDue)}
           </div>
           <div id="rl-tab-content"></div>
         </div>
       `);
       const container = document.getElementById('rl-tab-content');
-      if (RL_TAB === 'kunder') renderRLKunder(container);
+      if (RL_TAB === 'kunder' || RL_TAB === 'filip') renderRLKunder(container);
       else renderRLForetag(container);
     }
 
@@ -2906,9 +2922,12 @@
 
     // === RINGLISTA: PRIVATKUNDER ===
     function renderRLKunder(main) {
+      const introTxt = rlkIsFilip()
+        ? 'Filips importerade leadlista (separat från era egna kunder). Ring upp och fråga om de vill slipa. Bocka för dem du vill ringa och starta en <strong>ringsession</strong>. Bokar någon flyttas hen automatiskt över till era riktiga kunder.'
+        : 'Ring upp gamla privatkunder och fråga om de vill slipa igen. Sorterat med <strong>äldsta kunderna först</strong>. Bocka för kunderna du vill ringa och starta en <strong>ringsession</strong> — då går du igenom dem en i taget.';
       main.insertAdjacentHTML('beforeend', `
         <div class="section">
-          <p style="color:var(--gray-500);font-size:0.85rem;margin:-0.25rem 0 0.75rem;">Ring upp gamla privatkunder och fråga om de vill slipa igen. Sorterat med <strong>äldsta kunderna först</strong>. Bocka för kunderna du vill ringa och starta en <strong>ringsession</strong> — då går du igenom dem en i taget.</p>
+          <p style="color:var(--gray-500);font-size:0.85rem;margin:-0.25rem 0 0.75rem;">${introTxt}</p>
           <div class="table-controls">
             <input type="text" class="search-input" id="rlk-search" placeholder="Sök på namn, telefon...">
             <select class="filter-select" id="rlk-filter">
@@ -2937,7 +2956,8 @@
       function render() {
         const s = document.getElementById('rlk-search').value.toLowerCase();
         const f = document.getElementById('rlk-filter').value;
-        const all = (DATA.customers || []).filter(c => !c.is_deleted);
+        const isFilip = rlkIsFilip();
+        const all = rlkList().filter(c => !c.is_deleted);
         let cust = all;
         if (s) cust = cust.filter(c => (c.name||'').toLowerCase().includes(s) || (c.phone&&c.phone.replace(/\s/g,'').includes(s.replace(/\s/g,''))));
         if (f === 'att_ringa') cust = cust.filter(custCallDue);
@@ -2991,11 +3011,12 @@
           // Samtalshistorik (kommentarer).
           let logHtml = '';
           if (Array.isArray(c.call_log) && c.call_log.length) {
-            const items = c.call_log.slice().reverse().map(l => {
+            const items = c.call_log.map((l, i) => ({ l, i })).reverse().map(({ l, i }) => {
               const ls = CUST_CALL_STATUS[l.status];
               const label = ls ? `<strong style="color:${ls.color};">${ls.label}</strong>` : (l.status === 'note' ? '<em>Anteckning</em>' : l.status);
               const note = l.note ? ` — ${l.note}` : '';
-              return `<div style="font-size:0.78rem;color:var(--gray-500);padding:0.1rem 0;">${formatDate(l.at)} · ${label}${note} <span style="color:var(--gray-400);">(${l.by||''})</span></div>`;
+              const edited = l.edited_at ? ' <span style="color:var(--gray-400);font-style:italic;">(ändrad)</span>' : '';
+              return `<div style="font-size:0.78rem;color:var(--gray-500);padding:0.1rem 0;display:flex;align-items:baseline;gap:0.35rem;"><span style="flex:1;">${formatDate(l.at)} · ${label}${note} <span style="color:var(--gray-400);">(${l.by||''})</span>${edited}</span><button onclick="editCallLogEntry('${c.id}',${i})" title="Ändra" style="border:none;background:none;cursor:pointer;font-size:0.78rem;padding:0 0.2rem;line-height:1;">✏️</button></div>`;
             }).join('');
             logHtml = `<details style="margin-top:0.4rem;"><summary style="font-size:0.78rem;color:var(--gray-500);cursor:pointer;">Historik (${c.call_log.length})</summary><div style="margin-top:0.25rem;">${items}</div></details>`;
           }
@@ -3007,7 +3028,7 @@
                   <input type="checkbox" class="rlk-check" data-id="${c.id}" onchange="toggleRlkSelect('${c.id}')" ${RL_SELECTED.has(c.id)?'checked':''} style="margin-top:0.35rem;width:1.1rem;height:1.1rem;cursor:pointer;flex-shrink:0;">
                   <div style="flex:1;">
                   <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                    <a class="clickable-name" onclick="openCustomer('${c.id}')"><strong style="font-size:1.05rem;">${namn}</strong></a>
+                    ${isFilip ? `<strong style="font-size:1.05rem;">${namn}</strong>` : `<a class="clickable-name" onclick="openCustomer('${c.id}')"><strong style="font-size:1.05rem;">${namn}</strong></a>`}
                     ${spend} ${period} ${ordTag}
                   </div>
                   <div style="font-size:1.1rem;margin:0.35rem 0;">${phone}</div>
@@ -3070,7 +3091,7 @@
       const visibleOrder = [...document.querySelectorAll('.rlk-check')].map(cb => cb.dataset.id).filter(id => RL_SELECTED.has(id));
       const ids = visibleOrder.length ? visibleOrder : [...RL_SELECTED];
       if (!ids.length) { showToast('Bocka för minst en kund att ringa', 'error'); return; }
-      RL_SESSION = { ids, index: 0 };
+      RL_SESSION = { ids, index: 0, source: RL_TAB === 'filip' ? 'filip' : 'kunder' };
       renderView('ringlista');
     }
 
@@ -3078,8 +3099,9 @@
     function renderCallSession(main) {
       const sess = RL_SESSION;
       const total = sess.ids.length;
+      const isFilip = rlkIsFilip();
       // Hoppa förbi raderade kunder.
-      let c = (DATA.customers || []).find(x => x.id === sess.ids[sess.index]);
+      let c = rlkList().find(x => x.id === sess.ids[sess.index]);
       if (sess.index >= total) { renderSessionDone(main); return; }
       if (!c) { sess.index++; renderCallSession(main); return; }
 
@@ -3100,11 +3122,12 @@
 
       let logHtml = '';
       if (Array.isArray(c.call_log) && c.call_log.length) {
-        const items = c.call_log.slice().reverse().map(l => {
+        const items = c.call_log.map((l, i) => ({ l, i })).reverse().map(({ l, i }) => {
           const ls = CUST_CALL_STATUS[l.status];
           const label = ls ? `<strong style="color:${ls.color};">${ls.label}</strong>` : (l.status === 'note' ? '<em>Anteckning</em>' : l.status);
           const note = l.note ? ` — ${l.note}` : '';
-          return `<div style="font-size:0.8rem;color:var(--gray-500);padding:0.12rem 0;">${formatDate(l.at)} · ${label}${note} <span style="color:var(--gray-400);">(${l.by||''})</span></div>`;
+          const edited = l.edited_at ? ' <span style="color:var(--gray-400);font-style:italic;">(ändrad)</span>' : '';
+          return `<div style="font-size:0.8rem;color:var(--gray-500);padding:0.12rem 0;display:flex;align-items:baseline;gap:0.35rem;"><span style="flex:1;">${formatDate(l.at)} · ${label}${note} <span style="color:var(--gray-400);">(${l.by||''})</span>${edited}</span><button onclick="editCallLogEntry('${c.id}',${i})" title="Ändra" style="border:none;background:none;cursor:pointer;font-size:0.8rem;padding:0 0.2rem;line-height:1;">✏️</button></div>`;
         }).join('');
         logHtml = `<div style="margin-top:0.75rem;border-top:1px solid var(--gray-200);padding-top:0.5rem;"><div style="font-size:0.78rem;font-weight:700;color:var(--gray-500);margin-bottom:0.25rem;">Historik</div>${items}</div>`;
       }
@@ -3125,7 +3148,7 @@
 
           <div class="card" style="padding:1.5rem;">
             <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.4rem;">
-              <a class="clickable-name" onclick="openCustomer('${c.id}')"><strong style="font-size:1.4rem;">${namn}</strong></a>
+              ${isFilip ? `<strong style="font-size:1.4rem;">${namn}</strong>` : `<a class="clickable-name" onclick="openCustomer('${c.id}')"><strong style="font-size:1.4rem;">${namn}</strong></a>`}
               ${spend} ${period}
             </div>
             <div style="font-size:1.9rem;margin:0.5rem 0;">${phone}</div>
@@ -3160,7 +3183,7 @@
 
     function renderSessionDone(main) {
       const ids = RL_SESSION ? RL_SESSION.ids : [];
-      const cust = (DATA.customers || []);
+      const cust = rlkList();
       let bokade = 0, intr = 0, ejsvar = 0;
       ids.forEach(id => {
         const c = cust.find(x => x.id === id);
@@ -3186,7 +3209,7 @@
 
     function _sessCurrent() {
       if (!RL_SESSION) return null;
-      return (DATA.customers || []).find(x => x.id === RL_SESSION.ids[RL_SESSION.index]);
+      return rlkList().find(x => x.id === RL_SESSION.ids[RL_SESSION.index]);
     }
 
     async function sessionRecordCall(status) {
@@ -3203,7 +3226,7 @@
       c.last_contact_status = status;
       c.next_call_at = def.reschedule ? new Date(Date.now() + CALL_FOLLOWUP_DAYS*86400000).toISOString() : null;
       c.updated_at = at;
-      await saveJSON('customers.json', { customers: DATA.customers });
+      await rlkSave();
       updateRinglistaBadge();
       showToast(`${def.label} sparat — klicka Nästa kund`, 'success');
       renderView('ringlista');
@@ -3218,7 +3241,7 @@
       if (!Array.isArray(c.call_log)) c.call_log = [];
       c.call_log.push({ at: now(), status: 'note', note, by: CURRENT_USER.name });
       c.updated_at = now();
-      await saveJSON('customers.json', { customers: DATA.customers });
+      await rlkSave();
       showToast('Anteckning sparad', 'success');
       renderView('ringlista');
     }
@@ -3278,7 +3301,7 @@
 
     // === BOKNING FRÅN RINGLISTAN: skapar riktig order som hamnar på dashboard ===
     function bookFromCall(customerId, fromSession) {
-      const c = (DATA.customers || []).find(x => x.id === customerId);
+      const c = rlkFind(customerId);
       if (!c) return;
       const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
       const overlay = document.createElement('div');
@@ -3320,9 +3343,44 @@
       const bookNotes = document.getElementById('cb-notes').value.trim();
       const nameInput = document.getElementById('cb-name');
       const newName = nameInput ? nameInput.value.trim() : '';
-      const c = (DATA.customers || []).find(x => x.id === customerId);
-      // Uppdatera namn/adress på kunden FÖRE ordern skapas, så schemat får rätt namn.
-      if (c) {
+      const fromFilip = rlkIsFilip();
+      let c = rlkFind(customerId);
+      if (!c) { showToast('Hittade inte kunden', 'error'); return; }
+
+      if (fromFilip) {
+        // En Filip-lead som bokar blir en riktig kund. Servern kräver att kunden
+        // finns i customers.json för att skapa order, så vi migrerar posten dit
+        // och markerar leaden som flyttad i Filips lista (blandas aldrig ihop).
+        const realId = nextCustomerId();
+        const real = {
+          id: realId,
+          name: newName || c.name || '',
+          phone: c.phone || '',
+          email: c.email || null,
+          address: address || c.address || '',
+          postnummer: c.postnummer || null,
+          stad: c.stad || null,
+          area_id: c.area_id || null,
+          source: 'filip_lista',
+          migrated_from: c.id,
+          gdpr_consent: { given: true, timestamp: now(), method: 'telefonbokning', notes: 'Samtyckte vid telefonbokning (från Filips lista).' },
+          notes: c.notes || '',
+          created_at: c.created_at || now(),
+          updated_at: now(),
+          is_deleted: false,
+          call_log: Array.isArray(c.call_log) ? c.call_log.slice() : []
+        };
+        DATA.customers = DATA.customers || [];
+        DATA.customers.push(real);
+        await saveJSON('customers.json', { customers: DATA.customers });
+        c.is_deleted = true;
+        c.migrated_to = realId;
+        c.updated_at = now();
+        await saveJSON('filip_customers.json', { filip_customers: DATA.filip });
+        customerId = realId;
+        c = real;
+      } else {
+        // Befintlig kund: uppdatera namn/adress FÖRE ordern skapas, så schemat får rätt namn.
         if (newName) c.name = newName;
         if (address && !c.address) c.address = address;
         if (newName || address) await saveJSON('customers.json', { customers: DATA.customers });
@@ -3358,7 +3416,7 @@
     }
 
     async function recordCustomerCall(customerId, status) {
-      const c = (DATA.customers || []).find(c => c.id === customerId);
+      const c = rlkFind(customerId);
       if (!c) return;
       const def = CUST_CALL_STATUS[status];
       if (!def) return;
@@ -3372,7 +3430,7 @@
         ? new Date(Date.now() + CALL_FOLLOWUP_DAYS*86400000).toISOString()
         : null;
       c.updated_at = at;
-      await saveJSON('customers.json', { customers: DATA.customers });
+      await rlkSave();
       const msg = def.reschedule
         ? `${def.label} — ringer igen om ${CALL_FOLLOWUP_DAYS} dagar`
         : `${def.label} sparat`;
@@ -3382,27 +3440,117 @@
     }
 
     async function saveCustomerNote(customerId) {
-      const c = (DATA.customers || []).find(c => c.id === customerId);
+      const c = rlkFind(customerId);
       if (!c) return;
       const note = _custNoteVal(customerId);
       if (!note) { showToast('Skriv en kommentar först', 'error'); return; }
       if (!Array.isArray(c.call_log)) c.call_log = [];
       c.call_log.push({ at: now(), status: 'note', note, by: CURRENT_USER.name });
       c.updated_at = now();
-      await saveJSON('customers.json', { customers: DATA.customers });
+      await rlkSave();
       showToast('Kommentar sparad', 'success');
       renderView('ringlista');
     }
 
+    // Räkna om kundens senaste kontakt + nästa ring-datum utifrån call_log.
+    // Drivs av den senaste posten med en riktig status (inte 'note').
+    function recomputeCustCall(c) {
+      const log = Array.isArray(c.call_log) ? c.call_log : [];
+      let last = null;
+      for (let i = log.length - 1; i >= 0; i--) {
+        if (CUST_CALL_STATUS[log[i].status]) { last = log[i]; break; }
+      }
+      if (!last) {
+        c.last_contact_at = null;
+        c.last_contact_status = null;
+        c.next_call_at = null;
+        return;
+      }
+      const def = CUST_CALL_STATUS[last.status];
+      c.last_contact_at = last.at;
+      c.last_contact_status = last.status;
+      c.next_call_at = def.reschedule
+        ? new Date(new Date(last.at).getTime() + CALL_FOLLOWUP_DAYS*86400000).toISOString()
+        : null;
+    }
+
+    // Öppna modal för att ändra eller ta bort en samtalspost (status + kommentar).
+    function editCallLogEntry(customerId, idx) {
+      const c = rlkFind(customerId);
+      if (!c || !Array.isArray(c.call_log) || !c.call_log[idx]) return;
+      const entry = c.call_log[idx];
+      const esc = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      const opts = Object.keys(CUST_CALL_STATUS).map(k =>
+        `<option value="${k}" ${entry.status === k ? 'selected' : ''}>${CUST_CALL_STATUS[k].label}</option>`).join('')
+        + `<option value="note" ${entry.status === 'note' ? 'selected' : ''}>Bara anteckning</option>`;
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:460px;">
+          <div class="modal-header">
+            <h2>Ändra samtalspost</h2>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div style="font-size:0.85rem;color:var(--gray-500);margin-bottom:0.75rem;">${esc(c.name) || 'Kund'} · ${formatDate(entry.at)}</div>
+            <div class="profile-field"><label>Status (vad sa kunden?)</label>
+              <select id="cle-status" style="width:100%;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;">${opts}</select>
+            </div>
+            <div class="profile-field" style="margin-top:0.75rem;"><label>Kommentar</label>
+              <textarea id="cle-note" style="width:100%;min-height:90px;padding:0.5rem;border:1px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:0.9rem;resize:vertical;">${esc(entry.note)}</textarea>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-save" onclick="saveCallLogEdit('${customerId}',${idx})">Spara ändring</button>
+            <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">Avbryt</button>
+            <button onclick="deleteCallLogEntry('${customerId}',${idx})" style="margin-left:auto;border:1px solid var(--red);color:var(--red);background:#fff;border-radius:var(--radius);padding:0.5rem 0.9rem;font-family:inherit;cursor:pointer;">🗑 Ta bort</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    }
+
+    async function saveCallLogEdit(customerId, idx) {
+      const c = rlkFind(customerId);
+      if (!c || !Array.isArray(c.call_log) || !c.call_log[idx]) return;
+      const status = document.getElementById('cle-status').value;
+      const note = document.getElementById('cle-note').value.trim();
+      c.call_log[idx].status = status;
+      c.call_log[idx].note = note;
+      c.call_log[idx].edited_at = now();
+      c.call_log[idx].edited_by = CURRENT_USER.name;
+      recomputeCustCall(c);
+      c.updated_at = now();
+      await rlkSave();
+      document.querySelectorAll('.modal-overlay').forEach(o => o.remove());
+      showToast('Samtalspost uppdaterad', 'success');
+      updateRinglistaBadge();
+      renderView('ringlista');
+    }
+
+    async function deleteCallLogEntry(customerId, idx) {
+      const c = rlkFind(customerId);
+      if (!c || !Array.isArray(c.call_log) || !c.call_log[idx]) return;
+      if (!confirm('Ta bort den här samtalsposten? Det går inte att ångra.')) return;
+      c.call_log.splice(idx, 1);
+      recomputeCustCall(c);
+      c.updated_at = now();
+      await rlkSave();
+      document.querySelectorAll('.modal-overlay').forEach(o => o.remove());
+      showToast('Samtalspost borttagen', 'success');
+      updateRinglistaBadge();
+      renderView('ringlista');
+    }
+
     async function setCustomerPhone(customerId) {
-      const c = (DATA.customers || []).find(c => c.id === customerId);
+      const c = rlkFind(customerId);
       if (!c) return;
       const inp = document.getElementById('rlk-ph-' + customerId);
       const ph = inp ? inp.value.trim() : '';
       if (!ph) { showToast('Skriv ett telefonnummer', 'error'); return; }
       c.phone = ph;
       c.updated_at = now();
-      await saveJSON('customers.json', { customers: DATA.customers });
+      await rlkSave();
       showToast('Telefonnummer sparat', 'success');
       renderView('ringlista');
     }
@@ -5387,6 +5535,10 @@
     }
 
     async function renderSaljare(main) {
+      // Anställda säljare får en personlig vy (egna bokningar), inte admin-klassöversikten
+      if (CURRENT_USER && CURRENT_USER.role === 'saljare') {
+        return renderSaljarePersonal(main);
+      }
       const allBookings = await loadSaljareBookings();
       const pending = allBookings.filter(b => b.status === 'pending').length;
       const approved = allBookings.filter(b => b.status !== 'pending').length;
@@ -5539,6 +5691,153 @@
           renderView('saljare');
           setTimeout(() => {
             const s = document.getElementById('sj-status');
+            if (s) { s.textContent = '✓ Bokning sparad (' + result.booking_id + ')'; s.style.color = 'var(--green)'; }
+          }, 100);
+        } else {
+          statusEl.textContent = 'Fel: ' + (result.error || 'okänt fel');
+          statusEl.style.color = 'var(--red)';
+        }
+      } catch(e) {
+        statusEl.textContent = 'Nätverksfel: ' + e.message;
+        statusEl.style.color = 'var(--red)';
+      }
+    }
+
+    // === PERSONLIG SÄLJARVY (anställd med rollen saljare) ===
+    function myBookings(all) {
+      const id = CURRENT_USER.id;
+      const name = (CURRENT_USER.name || '').toLowerCase();
+      return (all || []).filter(b =>
+        (b.seller_id && b.seller_id === id) ||
+        (b.seller_name && b.seller_name.toLowerCase() === name)
+      );
+    }
+
+    async function renderSaljarePersonal(main) {
+      let all = [];
+      try {
+        const data = await fetchJSON('bookings.json');
+        all = myBookings(data.bookings || []);
+      } catch(e) { all = []; }
+      const pending = all.filter(b => b.status === 'pending').length;
+      const handled = all.filter(b => b.status !== 'pending').length;
+      const inp = 'width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-family:inherit;font-size:1rem;';
+      const lbl = 'font-size:0.8rem;color:var(--gray-500);display:block;margin-bottom:0.25rem;';
+
+      main.insertAdjacentHTML('beforeend', `
+        <div class="section">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:1.5rem;">
+            <div class="card" style="padding:1rem;text-align:center;"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Mina bokningar</div><div style="font-size:1.8rem;font-weight:800;">${all.length}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--red);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Väntar</div><div style="font-size:1.8rem;font-weight:800;color:var(--red);">${pending}</div></div>
+            <div class="card" style="padding:1rem;text-align:center;border-left:3px solid var(--green);"><div style="font-size:0.75rem;color:var(--gray-500);text-transform:uppercase;">Hanterade</div><div style="font-size:1.8rem;font-weight:800;color:var(--green);">${handled}</div></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 style="margin-bottom:1rem;">&#128221; Registrera ny bokning</h2>
+          <div class="card" style="padding:1rem;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">
+              <div style="grid-column:1 / -1;"><label style="${lbl}">Kundens namn *</label><input type="text" id="sjp-name" style="${inp}"></div>
+              <div style="grid-column:1 / -1;"><label style="${lbl}">Telefon *</label><input type="tel" id="sjp-phone" placeholder="070-XXX XX XX" style="${inp}"></div>
+              <div style="grid-column:1 / -1;"><label style="${lbl}">E-post</label><input type="email" id="sjp-email" style="${inp}"></div>
+              <div style="grid-column:1 / -1;"><label style="${lbl}">Adress *</label><input type="text" id="sjp-address" style="${inp}"></div>
+              <div><label style="${lbl}">Postnummer</label><input type="text" id="sjp-postnummer" maxlength="6" style="${inp}"></div>
+              <div><label style="${lbl}">Stad</label><input type="text" id="sjp-stad" value="Nacka" style="${inp}"></div>
+              <div><label style="${lbl}">Antal knivar *</label><input type="number" id="sjp-knives" min="1" max="100" placeholder="T.ex. 5" style="${inp}"></div>
+              <div><label style="${lbl}">Önskat datum</label><input type="date" id="sjp-date" style="${inp}"></div>
+              <div style="grid-column:1 / -1;"><label style="${lbl}">Notering</label><textarea id="sjp-message" rows="2" placeholder="T.ex. portkod, ringklocka, kniv-typer..." style="${inp}resize:vertical;"></textarea></div>
+            </div>
+            <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center;">
+              <button class="log-submit" onclick="submitSaljarePersonalBooking()" style="padding:0.6rem 1.2rem;">&#10003; Registrera bokning</button>
+              <span id="sjp-status" style="font-size:0.85rem;"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 style="margin-bottom:1rem;">Mina bokningar</h2>
+          <div id="sjp-bookings-list"></div>
+        </div>
+      `);
+
+      renderSaljarePersonalList(all);
+    }
+
+    function renderSaljarePersonalList(bookings) {
+      const container = document.getElementById('sjp-bookings-list');
+      if (!container) return;
+      if (!bookings.length) {
+        container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--gray-400);">Inga bokningar än — registrera din första ovan.</div>';
+        return;
+      }
+      const sorted = [...bookings].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      container.innerHTML = sorted.map(b => {
+        const statusColor = b.status === 'pending' ? 'var(--red)' : 'var(--green)';
+        const statusLabel = b.status === 'pending' ? 'Väntar på godkännande' : b.status;
+        const dateStr = b.created_at ? new Date(b.created_at).toLocaleDateString('sv-SE') + ' ' + new Date(b.created_at).toLocaleTimeString('sv-SE', {hour:'2-digit', minute:'2-digit'}) : '';
+        return `
+          <div class="card" style="padding:1rem;margin-bottom:0.5rem;border-left:3px solid ${statusColor};">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+              <div style="flex:1;min-width:200px;">
+                <div style="font-weight:700;">${b.name}</div>
+                <div style="font-size:0.85rem;color:var(--gray-500);">${b.phone} · ${b.address}${b.postnummer ? ', ' + b.postnummer : ''} ${b.stad || ''}</div>
+                <div style="font-size:0.85rem;margin-top:0.25rem;">${b.knives} knivar${b.preferred_date ? ' · önskat ' + b.preferred_date : ''}</div>
+                ${b.message ? `<div style="font-size:0.8rem;color:var(--gray-500);font-style:italic;margin-top:0.25rem;">${b.message}</div>` : ''}
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:0.75rem;color:${statusColor};font-weight:700;text-transform:uppercase;">${statusLabel}</div>
+                <div style="font-size:0.75rem;color:var(--gray-400);margin-top:0.25rem;">${dateStr}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function submitSaljarePersonalBooking() {
+      const statusEl = document.getElementById('sjp-status');
+      const knivesCount = parseInt(document.getElementById('sjp-knives').value) || 0;
+
+      const payload = {
+        source: 'saljare',
+        seller_id: CURRENT_USER.id,
+        seller_name: CURRENT_USER.name,
+        name: document.getElementById('sjp-name').value.trim(),
+        phone: document.getElementById('sjp-phone').value.trim(),
+        email: document.getElementById('sjp-email').value.trim(),
+        address: document.getElementById('sjp-address').value.trim(),
+        postnummer: document.getElementById('sjp-postnummer').value.trim(),
+        stad: document.getElementById('sjp-stad').value.trim() || 'Nacka',
+        knives: knivesCount ? String(knivesCount) : '',
+        preferred_date: document.getElementById('sjp-date').value,
+        message: document.getElementById('sjp-message').value.trim(),
+      };
+
+      if (!payload.name || !payload.phone || !payload.address) {
+        statusEl.textContent = 'Namn, telefon och adress krävs';
+        statusEl.style.color = 'var(--red)';
+        return;
+      }
+      if (!knivesCount) {
+        statusEl.textContent = 'Antal knivar krävs (skriv en siffra)';
+        statusEl.style.color = 'var(--red)';
+        return;
+      }
+
+      statusEl.textContent = 'Sparar...';
+      statusEl.style.color = 'var(--gray-500)';
+
+      try {
+        const res = await fetch('/api/booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.ok) {
+          renderView('saljare');
+          setTimeout(() => {
+            const s = document.getElementById('sjp-status');
             if (s) { s.textContent = '✓ Bokning sparad (' + result.booking_id + ')'; s.style.color = 'var(--green)'; }
           }, 100);
         } else {
