@@ -222,6 +222,9 @@
     .source-tag.annat { background: var(--gray-100); color: var(--gray-500); }
     .rl-btn { background: var(--white); border: 1.5px solid var(--gray-300); border-radius: var(--radius); padding: 0.45rem 0.7rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background 0.12s; }
     .rl-btn:hover { background: var(--gray-100); }
+    .paxa-tag { font-size: 0.72rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+    .paxa-mine { background: var(--green-light); color: var(--green); }
+    .paxa-other { background: #fde9d4; color: #b5651d; }
     .missing { color: var(--red); font-size: 0.8rem; font-style: italic; }
 
     /* REMINDERS */
@@ -2836,13 +2839,16 @@
           }
           const contactPerson = c.contact_person ? `<span style="color:var(--gray-500);font-size:0.85rem;">${c.contact_person}</span>` : '';
           const phone = c.phone ? `<a href="tel:${c.phone.replace(/\s/g,'')}" style="color:var(--accent);font-weight:700;text-decoration:none;">${c.phone}</a>` : '<span class="missing">Telefon saknas</span>';
+          const paxedOther = c.claimed_by && c.claimed_by !== paxaMe();
+          const cardExtra = paxedOther ? 'opacity:0.6;border-left:3px solid var(--gray-300);' : (c.claimed_by ? 'border-left:3px solid var(--accent);' : '');
           return `
-            <div class="card" style="padding:1rem 1.25rem;margin-bottom:0.75rem;">
+            <div class="card" style="padding:1rem 1.25rem;margin-bottom:0.75rem;${cardExtra}">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
                 <div style="flex:1;min-width:200px;">
                   <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                     <a class="clickable-name" onclick="openCompany('${c.id}')"><strong style="font-size:1.05rem;">${c.name}</strong></a>
                     ${tag}
+                    ${paxaHtml(c)}
                   </div>
                   <div style="font-size:1.1rem;margin:0.35rem 0;display:flex;gap:0.75rem;align-items:baseline;flex-wrap:wrap;">${phone} ${contactPerson}</div>
                   <div style="font-size:0.82rem;color:var(--gray-500);">${contactLine}</div>
@@ -2918,6 +2924,34 @@
       const n = nF + nK;
       badge.textContent = n;
       badge.style.display = n > 0 ? '' : 'none';
+    }
+
+    // === RINGLISTA: PAXA (Gustav/Philip "paxar" en lead så ingen ringer dubbelt) ===
+    function paxaMe() { return (CURRENT_USER?.name || '').split(' ')[0] || 'Okänd'; }
+
+    // Badge + knapp för en lead. Funkar för både företag och kunder/Filip.
+    function paxaHtml(c) {
+      const me = paxaMe();
+      if (c.claimed_by && c.claimed_by === me) {
+        return `<span style="display:inline-flex;gap:0.3rem;align-items:center;"><span class="paxa-tag paxa-mine">🙋 Paxad av dig</span><button onclick="togglePaxa('${c.id}','release')" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-500);padding:0.2rem 0.45rem;font-size:0.72rem;">Släpp</button></span>`;
+      }
+      if (c.claimed_by) {
+        return `<span style="display:inline-flex;gap:0.3rem;align-items:center;"><span class="paxa-tag paxa-other">🔒 Paxad av ${c.claimed_by}</span><button onclick="togglePaxa('${c.id}','take')" class="rl-btn" style="border-color:var(--gray-300);color:var(--gray-500);padding:0.2rem 0.45rem;font-size:0.72rem;">Ta över</button></span>`;
+      }
+      return `<button onclick="togglePaxa('${c.id}','claim')" class="rl-btn" style="border-color:var(--accent);color:var(--accent);padding:0.2rem 0.5rem;font-size:0.74rem;">🙋 Paxa</button>`;
+    }
+
+    async function togglePaxa(id, action) {
+      const isForetag = RL_TAB === 'foretag';
+      const c = isForetag ? (DATA.companies || []).find(x => x.id === id) : rlkFind(id);
+      if (!c) return;
+      if (action === 'release') { c.claimed_by = null; c.claimed_at = null; }
+      else { c.claimed_by = paxaMe(); c.claimed_at = now(); }
+      c.updated_at = now();
+      if (isForetag) await saveCompanies(); else await rlkSave();
+      const namn = c.name || 'kunden';
+      showToast(action === 'release' ? 'Släppte paxningen' : (action === 'take' ? `Du tog över ${namn}` : `Du paxade ${namn}`), 'success');
+      renderView('ringlista');
     }
 
     // === RINGLISTA: PRIVATKUNDER ===
@@ -3021,8 +3055,10 @@
             logHtml = `<details style="margin-top:0.4rem;"><summary style="font-size:0.78rem;color:var(--gray-500);cursor:pointer;">Historik (${c.call_log.length})</summary><div style="margin-top:0.25rem;">${items}</div></details>`;
           }
 
+          const paxedOther = c.claimed_by && c.claimed_by !== paxaMe();
+          const cardExtra = paxedOther ? 'opacity:0.6;border-left:3px solid var(--gray-300);' : (c.claimed_by ? 'border-left:3px solid var(--accent);' : '');
           return `
-            <div class="card" style="padding:1rem 1.25rem;margin-bottom:0.75rem;">
+            <div class="card" style="padding:1rem 1.25rem;margin-bottom:0.75rem;${cardExtra}">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
                 <div style="flex:1;min-width:200px;display:flex;gap:0.6rem;align-items:flex-start;">
                   <input type="checkbox" class="rlk-check" data-id="${c.id}" onchange="toggleRlkSelect('${c.id}')" ${RL_SELECTED.has(c.id)?'checked':''} style="margin-top:0.35rem;width:1.1rem;height:1.1rem;cursor:pointer;flex-shrink:0;">
@@ -3030,6 +3066,7 @@
                   <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                     ${isFilip ? `<strong style="font-size:1.05rem;">${namn}</strong>` : `<a class="clickable-name" onclick="openCustomer('${c.id}')"><strong style="font-size:1.05rem;">${namn}</strong></a>`}
                     ${spend} ${period} ${ordTag}
+                    ${paxaHtml(c)}
                   </div>
                   <div style="font-size:1.1rem;margin:0.35rem 0;">${phone}</div>
                   <div style="font-size:0.82rem;color:var(--gray-500);">${contactLine}</div>
